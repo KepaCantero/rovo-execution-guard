@@ -1,0 +1,55 @@
+# [FORGE-OPS-001] Top-level: app, modules, permissions only
+# [FORGE-OPS-002] Manifest must not exceed 200KB
+# [ARCH-SOLID-001] runtime.name specifies explicit LTS Node.js version
+
+app:
+  id: ari:cloud:ecosystem::app/00000000-0000-0000-0000-000000000000
+  name: rovo-execution-guard
+
+modules:
+  jira:issuePanel:
+    - key: reg-issue-panel
+      function: issue-panel-fn
+      title: Rovo Execution Guard
+      icon: https://developer.atlassian.com/platform/forge/images/icons/issue-panel-icon.svg
+
+  jira:adminPage:
+    - key: reg-admin-page
+      function: admin-page-fn
+      title: Rovo Execution Guard Admin
+      icon: https://developer.atlassian.com/platform/forge/images/icons/issue-panel-icon.svg
+
+  trigger:
+    - key: on-jira-workflow-transition
+      function: workflow-transition-fn
+      type: jira:issue_updated
+
+  webtrigger:
+    - key: github-webhook
+      function: github-webhook-fn
+      responseMessage: Webhook received
+
+  function:
+    - key: issue-panel-fn
+      handler: src/frontend/custom-ui/issue-panel/index.handler
+      # [ARCH-SOLID-001] Explicit Node.js 22.x LTS runtime
+    - key: admin-page-fn
+      handler: src/frontend/custom-ui/admin-dashboard/index.handler
+    - key: workflow-transition-fn
+      handler: src/backend/resolvers/workflow-transition.handler
+    - key: github-webhook-fn
+      handler: src/backend/resolvers/github-webhook.handler
+
+permissions:
+  scopes:
+    - read:jira-work
+    - write:jira-work
+    - read:confluence-content
+    - write:confluence-content
+    - storage:app
+  external:
+    fetch:
+      # [FORGE-OPS-004] Only domains the app actually needs
+      api.github.com:
+        actions:
+          - read
