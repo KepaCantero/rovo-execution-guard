@@ -1,0 +1,63 @@
+# Prepare Server App for Forge Migration - 25 Rules
+
+Rules derived from: https://developer.atlassian.com/platform/app-migration/prepare-server-app-forge/
+
+## Library and Dependencies
+
+1. **Latest Library Version**: Always use the latest version of `atlassian-app-cloud-migration-listener` library. Check the library version page for updates and end-of-life policies.
+
+2. **Dependency Management**: Add the library dependency without external dependencies to avoid conflicts with your app's tech stack. The library has no external dependencies by design.
+
+3. **Version Catalog Reference**: Use version catalog and check end-of-life policy on the library version page before upgrading or implementing new features.
+
+4. **OSGi Bundle Name Convention**: When using `atlassian-app-cloud-migration-listener`, the server app key is not required if your app key matches your OSGi bundle name.
+
+## Interface Implementation
+
+5. **DiscoverableForgeListener Interface**: Implement `DiscoverableForgeListener` interface for enabling Forge migrations. This is the primary interface for server-side migration support.
+
+6. **Multiple Forge App IDs Support**: If supporting migration to multiple Forge app IDs, implement the interface separately for each Forge app ID that customers can migrate to.
+
+7. **onStartAppMigration Method**: Implement `onStartAppMigration` method to handle the start of app migration. Core product migration is complete at this point, and server app can begin Forge migration.
+
+8. **getForgeAppId Method**: Return the Forge app ID (UUID) to which migration is being carried out. This must match the actual Forge app ID in your manifest.
+
+9. **getForgeEnvironmentName Method**: Return the Forge environment name (defaults to "development" if not specified). Use `ForgeEnvironmentName.DEVELOPMENT` or production environment as appropriate.
+
+10. **getCloudAppKey Method**: Return the cloud app key of your Forge app listed on Marketplace. Required for App Assessment. Can be ignored during development.
+
+11. **getServerAppKey Method**: Return the server app key for where migration is being exported from. Not required if app key matches OSGi bundle name.
+
+12. **getDataAccessScopes Method**: Return the set of data access scopes required to access migration mappings. Include scopes like `APP_DATA_OTHER`, `PRODUCT_DATA_OTHER`, `MIGRATION_TRACING_IDENTITY`, `MIGRATION_TRACING_PRODUCT`.
+
+## Data Access and Mappings
+
+13. **Mapping Gateway Usage**: Use the `AppCloudForgeMigrationGateway` provided in `onStartAppMigration` to access migration mappings and export data.
+
+14. **Paginated Mapping Retrieval**: Use `getPaginatedMapping` method to retrieve product mappings in batches. Handle pagination properly to avoid memory issues with large datasets.
+
+15. **Mapping Namespace Selection**: Use correct mapping namespaces (e.g., "confluence:page", "jira:issue") when retrieving mappings. Refer to mappings documentation for available namespaces.
+
+16. **Mapping Iteration Pattern**: Iterate through paginated mappings using `while (paginatedMapping.next())` pattern. Process mappings in batches rather than loading all at once.
+
+17. **Mapping Error Handling**: Handle IOException when retrieving migration mappings. Log errors appropriately and consider retry logic for transient failures.
+
+## Data Export
+
+18. **App Data Export Methods**: Use `createAppData(transferId)` or `createAppData(transferId, label)` methods to create output streams for exporting app data to cloud storage.
+
+19. **Data Stream Management**: Properly close output streams after writing data. Use try-with-resources or finally blocks to ensure streams are closed even on errors.
+
+20. **Label Usage**: Use labels when creating app data streams to distinguish data types or add metadata. Labels help organize and sequence data during import.
+
+21. **Complete Export Invocation**: Always call `completeExport()` after all data has been uploaded. This signals to the platform that export is complete and enables progress reporting.
+
+22. **Transfer ID Consistency**: Use the same `transferId` throughout the migration process. Store it when received and reference it for all subsequent operations.
+
+## Testing and Validation
+
+23. **Local Testing Setup**: Test your implementation locally by adding the dependency, installing JCMA/CCMA that supports Forge migrations, and having your server app plugin with Forge listener available.
+
+24. **Gateway Method Validation**: Validate that all required gateway methods (`getPaginatedMapping`, `createAppData`, `completeExport`) are called correctly and handle edge cases.
+
+25. **Error Scenario Testing**: Test error scenarios including network failures, invalid mappings, and incomplete data exports. Ensure your implementation handles these gracefully.

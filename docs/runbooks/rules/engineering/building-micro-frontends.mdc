@@ -1,0 +1,30 @@
+---
+description: Rules based on Building Micro-Frontends (Luca Mezzalira)
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Building Micro-Frontends (Luca Mezzalira)
+
+Vital for Forge projects that grow into multiple Custom UIs and services.
+
+- **Domain Isolation**: Each micro-frontend should own its business logic.
+- **Deployment Independence**: A change in "Configuration" UI shouldn't force "Workflows" deploy.
+- **Cross-App Communication**: Use Event Bus or Custom Events to talk between Forge iframes.
+- **Shared Component Library**: Create your own design system in libraries/ for consistency.
+- **BFF Pattern (Backend for Frontend)**: Forge Resolver should act as your UI's BFF.
+- **Lazy Loading of Modules**: Don't load what user doesn't see (optimize Forge bundle).
+- **Semantic Versioning**: Critical when sharing utilities in monorepo.
+- **Avoid Runtime Coupling**: Apps shouldn't know internal details of other apps.
+- **Shell Architecture**: Forge App is the container; UIs are plugins.
+- **Edge Composition**: Leverage Atlassian runtime to compose the experience.
+- **Cascading Error Handling**: If a micro-frontend fails, rest of app should stay alive.
+- **Decentralized State**: Avoid a giant global Redux; each module has its own state.
+- **Distributed Routing**: Handle Confluence/Jira navigation coordinately.
+- **Assets CDN**: If Forge allows, serve heavy assets from CDN for speed.
+- **Contract Testing**: Verify Resolver and UI still speak the same language.
+- **Polyfill Management**: Don't duplicate polyfills in each sub-app.
+- **Server-Side Rendering (SSR) vs CSR**: Choose based on SEO/Speed need in Confluence.
+- **Sandboxed Security**: Trust Forge iframe but add validation layers.
+- **Service Discovery**: Use Forge manifest as your service registry.
+- **Organic Evolution**: Allow system to grow in parts.

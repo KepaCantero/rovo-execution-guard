@@ -1,0 +1,63 @@
+# Getting Started with Forge - 25 Rules
+
+Rules derived from: https://developer.atlassian.com/platform/forge/getting-started/
+
+## Prerequisites and Setup
+
+1. **JavaScript Knowledge Required**: Forge apps are written in JavaScript. Ensure team members are familiar with JavaScript before starting Forge development.
+
+2. **React Familiarity Helpful**: While not strictly required, familiarity with React is helpful for building Forge apps, especially for Custom UI components.
+
+3. **Node.js LTS Version**: Use fully supported LTS release of Node.js: versions 20.x, 22.x, or 24.x. Verify version with `node --version` before proceeding.
+
+4. **macOS Node.js Setup**: On macOS, use Node Version Manager (nvm) to configure environment. Run `nvm install --lts` and `nvm use --lts` to select latest LTS release.
+
+5. **Node.js Installer Alternative**: If using macOS installer instead of nvm, configure npm with `npm config set unsafe-perm true` to avoid permission errors with Forge CLI.
+
+6. **Government Cloud Consideration**: Content is written for standard cloud development. For Atlassian Government Cloud, refer to Government Cloud developer portal for specific instructions.
+
+## Forge CLI Installation
+
+7. **Global CLI Installation**: Install Forge CLI globally using `npm install -g @forge/cli` so commands can be run across your system.
+
+8. **Root Privileges Prohibition**: Never install `forge` with root privileges. If done, uninstall using `sudo rm -rf ~/Library/Preferences/@forge` (macOS) or similar on other OS.
+
+9. **CLI Verification**: Verify CLI installation with `forge --version`. If version number not shown, installation failed - repeat installation and check for errors.
+
+10. **CLI Help Command**: View complete list of Forge commands with `forge --help`. Familiarize yourself with available commands before starting development.
+
+## Authentication Setup
+
+11. **API Token Creation**: Create Atlassian API token at https://id.atlassian.com/manage/api-tokens. Use descriptive label like "forge-api-token" for identification.
+
+12. **Token Security**: Copy API token to clipboard immediately after creation. Token is only shown once - store securely if needed for later use.
+
+13. **Login Command**: Run `forge login` to authenticate with CLI. Do not use `sudo` or root user - causes permission issues and file ownership problems.
+
+14. **Analytics Consent**: When prompted, decide whether to allow Forge to collect CLI usage and error reporting information. Helps Atlassian improve Forge performance and reliability.
+
+15. **Keychain Storage**: Forge CLI uses operating system's keychain to securely store login details. Approve keychain access prompts to allow CLI to function properly.
+
+16. **Linux Keychain Requirement**: On Linux, install `libsecret` to perform keychain-based login. Required for secure credential storage.
+
+## Environment Variables Alternative
+
+17. **Environment Variable Login**: If keychain unavailable, use `FORGE_EMAIL` and `FORGE_API_TOKEN` environment variables. Useful for CI/CD environments.
+
+18. **CI/CD Integration**: Store environment variables as secrets in CI/CD builds. Refer to continuous delivery tutorial for Forge apps for detailed setup.
+
+19. **Manual Variable Setup**: Set environment variables manually using `read` and `export` commands. Variables persist for current shell session.
+
+20. **Variable Priority**: If using environment variables, don't use `forge login` command. CLI uses environment variables regardless of keychain presence.
+
+## Development Workflow
+
+21. **Hello World Tutorial**: Complete hello world app tutorial for your target Atlassian app (Bitbucket, Confluence, Jira, or Jira Service Management) after setup.
+
+22. **Developer Site Creation**: Create Atlassian developer site with Confluence and all Jira applications installed. Required for testing Forge apps.
+
+23. **YouTube Channel Reference**: Check Atlassian Developer YouTube channel for video introductions to creating and managing apps with Forge CLI.
+
+24. **Multi-App Compatibility**: Consider building app compatible with both Confluence and Jira if targeting multiple Atlassian products. Follow specific tutorial for this scenario.
+
+25. **Next Steps Planning**: After setup, plan your app development approach. Choose between UI Kit (quick UI) or Custom UI (advanced UI) based on requirements.

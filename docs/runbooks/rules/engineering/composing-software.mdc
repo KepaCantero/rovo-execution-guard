@@ -1,0 +1,30 @@
+---
+description: Rules based on Composing Software (Eric Elliott)
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Composing Software (Eric Elliott)
+
+The best book on managing complexity through Functional Programming in JavaScript.
+
+- **Composition > Inheritance**: Always.
+- **Pure Functions**: The basic unit of a predictable complex system.
+- **Immutability**: Shared state is the root of all evil.
+- **Referential Transparency**: A function should be substitutable by its value.
+- **Higher Order Functions**: Use functions that create functions to abstract logic.
+- **Currying and Partial Application**: To inject dependencies elegantly.
+- **Functors and Monads**: Structures to handle data flow and errors (e.g. Result pattern).
+- **Lenses**: To access and update parts of deep state without mutating.
+- **Transduction**: Process giant collections efficiently.
+- **Control Abstraction**: Don't use if/else, use predicate composition.
+- **Declarative over Imperative**: Describe the "what", not the "how".
+- **Clarity over Brevity**: Functional code should read like prose.
+- **Avoid Hidden State**: Everything a function needs should be an argument.
+- **Object Composition**: Use Object.assign or spread operator to create complex objects.
+- **Factories over Classes**: Avoid problems of new and this.
+- **Fluent Interfaces**: Design APIs that chain naturally.
+- **Separation of Concerns**: Calculation logic vs. Input/output logic.
+- **Promises as Flows**: Treat asynchrony as a list of values over time.
+- **Unit Testing of Pure Functions**: It's trivial and should be the base of your suite.
+- **Domain Simplification**: Reduce complex problems to simple combined functions.

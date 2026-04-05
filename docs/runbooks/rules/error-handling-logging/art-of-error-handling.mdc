@@ -1,0 +1,30 @@
+---
+description: Rules from The Art of Error Handling - functional patterns and typing in TS/JS
+globs: **/*.js,**/*.ts,**/*.tsx,**/cloud/**/*.js,**/controllers/**/*.js
+alwaysApply: false
+---
+
+# The Art of Error Handling (Functional Engineering / TS/JS)
+
+Focus on treating errors in code without using try/catch on every line. Applicable to resolvers, services and Custom UI.
+
+- **Result Pattern**: Instead of throwing exceptions, return objects { success: true, data } or { success: false, error }.
+- **Either Type**: Use TS types to force developer to handle error before accessing data.
+- **Don't Use Exceptions for Flow Control**: Exceptions are for "exceptional" (DB failure), not "user not found".
+- **Typed Errors**: Create custom error classes (WorkflowError, DatabaseError) for instanceof.
+- **Centralized Error Handling**: Single point in Resolver that captures everything and decides what to respond to frontend.
+- **Error Mapping**: Translate technical errors ("ETIMEDOUT") to domain errors ("Jira service unavailable").
+- **Preventive Validation**: Use Zod to validate Atlassian API response before it breaks your logic.
+- **Immutable Errors**: Don't modify error object; create new one with more context.
+- **Error Propagation**: Decide where error dies. Don't propagate to user if they can't do anything.
+- **Logging in Catch**: Log original error (stack trace) but return clean message.
+- **Retry Policies**: Define which errors are retryable (e.g. 503) and which aren't (e.g. 400).
+- **Safe Wrappers**: Create functions wrapping dangerous calls and returning safe default values.
+- **Check for Undefined**: In JS, most errors are Cannot read property of undefined. Use as signal of lack of initial validation.
+- **User-Friendly Error Messages**: "Technical error occurred" doesn't help. Indicate what user can do to solve.
+- **Semantic Error Codes**: Use codes like ERR_INSUFFICIENT_PERMISSIONS instead of just numbers.
+- **Async Error Handling**: Always use .catch() on promises or wrap await in try.
+- **Error Boundaries (React)**: Use in Custom UI so component failure doesn't break entire Confluence page.
+- **Avoid Throwing Strings**: Always throw new Error(), never throw "error".
+- **Log Full Stack Trace**: Ensure log includes exact line of code.
+- **Recovery Logic**: If primary save fails, try saving to emergency log.

@@ -1,0 +1,30 @@
+---
+description: Rules from Principles of Web API Design (James Higginbotham) - intent-centered design
+globs: **/routes/**/*.js,**/apiRoutes/**/*.js,**/controllers/**/*.js,**/dc-bps-migration/**/*.js
+alwaysApply: false
+---
+
+# Principles of Web API Design (James Higginbotham)
+
+Focus on user-centered design and workflow. Very useful for Forge and project resolvers.
+
+- **API First**: Design API contract before writing a single line of resolver logic.
+- **Intent-Based Design**: API should reflect what user wants to do, not DB structure.
+- **Sequence Diagrams**: Draw how info flows between Forge UI and Jira API before programming.
+- **Identify Stakeholders**: Who consumes this API? Frontend, another plugin, or external script?
+- **Context Boundaries**: Ensure "Approvals" API doesn't expose "Network Configuration" data.
+- **Payload Validation**: Use schemas (Zod/JSON Schema) to validate what enters and exits.
+- **Extensibility Points**: Leave room to add fields in future without breaking contract.
+- **Rate Limit Handling**: Inform client how many calls remain via headers (X-RateLimit-Remaining).
+- **Service Discovery**: Register Forge functions clearly in manifest.
+- **Early Feedback**: Create API "mocks" so frontend team can start before backend is ready.
+- **Simplicity**: If API requires a 100-page manual, it's poorly designed.
+- **Avoid circular dependencies between services.**
+- **Logic Encapsulation**: API is the interface; hide storage details behind it.
+- **Consumption Logging**: Analyze which endpoints are used most to optimize performance.
+- **Security by Default**: All endpoints should be protected unless indicated otherwise.
+- **UUID Usage**: Don't expose incremental DB IDs; use opaque identifiers.
+- **Batching**: Allow operations on multiple resources in single call if critical for performance.
+- **Consistent Payload**: Wrap responses in root object (e.g. { "data": ... }).
+- **Timeout Handling**: Define clearly how long API will wait before cutting connection.
+- **Non-Breaking Evolution**: Adding fields is safe; removing or renaming requires new version.

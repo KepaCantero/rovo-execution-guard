@@ -1,0 +1,867 @@
+# CoF-RoA Migration Rules - Consolidated
+
+**Synthesis Date:** 2026-02-04T13:16:08.818471Z
+**Synthesis Method:** meta-cognitive
+**Total Rules:** 377
+**Overall Confidence:** 0.93
+
+## Summary
+
+- **Tier 1 (Critical):** 67 rules
+- **Tier 2 (Important):** 309 rules
+- **Tier 3 (Standard):** 1 rules
+
+## Rules by Tier
+
+### Tier 1: Critical Rules
+
+
+#### CFR-1: rateLimitHandling: Rate limit handling adapted to Forge patterns
+
+- **Source:** api-client
+- **Category:** general
+- **Priority:** important
+- **Original ID:** api-client-rateLimitHandling
+- **Forge Alternative:** Forge rate limit handling
+- **API Method:** Retry-After header handling
+- **Constraints:** 429 status code, exponential backoff
+
+
+#### CFR-2: errorHandling: Error handling adapted to Forge patterns
+
+- **Source:** api-handlers
+- **Category:** general
+- **Priority:** important
+- **Original ID:** api-handlers-errorHandling
+- **Forge Alternative:** Forge error handling patterns
+- **API Method:** try-catch in Forge Functions
+- **Constraints:** Error propagation, logging
+
+
+#### CFR-3: Migration Scale Requirement
+
+- **Source:** roa-migration-without-bps
+- **Category:** migration-execution
+- **Priority:** standard
+- **Original ID:** roa-migration-without-bps-2
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-4: MigrationAPIError Import
+
+- **Source:** forge-migration-api
+- **Category:** migration-execution
+- **Priority:** standard
+- **Original ID:** forge-migration-api-2
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-5: Migrations Job and Tasks base domain models
+
+- **Source:** dms-backoffice-app
+- **Category:** migration-execution
+- **Priority:** standard
+- **Original ID:** dms-backoffice-app-2
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-6: MUST
+
+- **Source:** dms-backoffice-app
+- **Category:** general
+- **Priority:** critical
+- **Original ID:** dms-backoffice-app-6
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-7: Dataretrieval: No patterns found in MigrationUsageRepository.test.ts
+
+- **Source:** MigrationUsageRepository.test.ts
+- **Category:** data-management
+- **Priority:** standard
+- **Original ID:** cof-adapted-cof-data-storage-dataRetrieval-10
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-8: Get list of all app data: `migration.getAppDataList(transferId)` - Returns `Set<AppData>` where `AppData = { key, label }`
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** data-management
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-1-dup1
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-9: Migration triggered via Backoffice
+
+- **Source:** dms-backoffice-app
+- **Category:** migration-execution
+- **Priority:** standard
+- **Original ID:** dms-backoffice-app-1-dup1
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-10: Check retention window: `event.retryContext?.retentionWindow?.remainingTimeMs` - warn if < 1 hour
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** event-handling
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-1-dup2
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-11: Transfer ID Usage
+
+- **Source:** export-app-data
+- **Category:** migration-execution
+- **Priority:** standard
+- **Original ID:** export-app-data-12
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-12: App requests migration job to DMS providing:
+
+- **Source:** dms-backoffice-app
+- **Category:** migration-execution
+- **Priority:** standard
+- **Original ID:** dms-backoffice-app-1-dup2
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-13: Store `messageId` when event received: `kvs.set('migration:${transferId}:messageId', messageId)`
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** event-handling
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-1-dup3
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-14: Storagekeys: No patterns found in BpsMigrationRepository.test.ts
+
+- **Source:** BpsMigrationRepository.test.ts
+- **Category:** data-management
+- **Priority:** standard
+- **Original ID:** cof-adapted-cof-data-storage-storageKeys-14
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-15: Migration Event Received (`avi:ecosystem.migration:uploaded:app_data`)
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** event-handling
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-1-dup5
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-16: Transfer Settlement Awareness
+
+- **Source:** export-app-data
+- **Category:** migration-execution
+- **Priority:** standard
+- **Original ID:** export-app-data-19
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-17: Rate Limiting Handling
+
+- **Source:** export-app-data
+- **Category:** error-handling
+- **Priority:** standard
+- **Original ID:** export-app-data-20
+- **Forge Alternative:** Forge rate limit handling
+- **API Method:** Retry-After header handling
+- **Constraints:** 429 status code, exponential backoff
+
+
+#### CFR-18: 5xx Error Retry Strategy
+
+- **Source:** export-app-data
+- **Category:** general
+- **Priority:** standard
+- **Original ID:** export-app-data-21
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-19: Crudoperations - Create: Found in Forge Storage entityUri.mother.ts
+
+- **Source:** ResourceUri.mother.ts
+- **Category:** persistence
+- **Priority:** critical
+- **Original ID:** fireflow-adapted-fireflow-resource-management-crudOperations-hasCreate-21
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-20: BPS orchestrates migration process
+
+- **Source:** dms-backoffice-app
+- **Category:** processing
+- **Priority:** standard
+- **Original ID:** dms-backoffice-app-2-dup1
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-21: MUST NOT
+
+- **Source:** dms-backoffice-app
+- **Category:** general
+- **Priority:** critical
+- **Original ID:** dms-backoffice-app-23
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-22: Error Handling for Queue.push():
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** general
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-23
+- **Forge Alternative:** Forge error handling patterns
+- **API Method:** try-catch in Forge Functions
+- **Constraints:** Error propagation, logging
+
+
+#### CFR-23: Validation Error Handling
+
+- **Source:** roa-migration-without-bps
+- **Category:** general
+- **Priority:** standard
+- **Original ID:** roa-migration-without-bps-23
+- **Forge Alternative:** Forge error handling patterns
+- **API Method:** try-catch in Forge Functions
+- **Constraints:** Error propagation, logging
+
+
+#### CFR-24: MigrationAPIError Detection
+
+- **Source:** forge-migration-api
+- **Category:** migration-execution
+- **Priority:** standard
+- **Original ID:** forge-migration-api-23
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-25: Crudoperations - Read: Found in Forge Storage entityUri.test.ts
+
+- **Source:** ResourceUri.test.ts
+- **Category:** persistence
+- **Priority:** critical
+- **Original ID:** fireflow-adapted-fireflow-resource-management-crudOperations-hasRead-23
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-26: Conversion Error Handling
+
+- **Source:** roa-migration-without-bps
+- **Category:** general
+- **Priority:** standard
+- **Original ID:** roa-migration-without-bps-24
+- **Forge Alternative:** Forge error handling patterns
+- **API Method:** try-catch in Forge Functions
+- **Constraints:** Error propagation, logging
+
+
+#### CFR-27: Crudoperations - Update: Found in SetForge Storage entityParametersAction.test.ts
+
+- **Source:** SetResourceParametersAction.test.ts
+- **Category:** persistence
+- **Priority:** critical
+- **Original ID:** fireflow-adapted-fireflow-resource-management-crudOperations-hasUpdate-25
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-28: Retrieve payloads incrementally: `migration.getAppDataPayload(key)` - Returns `APIResponse` with `json()`, `text()`, `arrayBuffer()` methods
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** data-management
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-3-dup1
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-29: Migration Event Processing
+
+- **Source:** roa-migration-without-bps
+- **Category:** event-handling
+- **Priority:** standard
+- **Original ID:** roa-migration-without-bps-31
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-30: Migration Stack Producer extracts data from external source
+
+- **Source:** dms-backoffice-app
+- **Category:** migration-execution
+- **Priority:** standard
+- **Original ID:** dms-backoffice-app-3-dup1
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-31: Acknowledge event: `migration.messageProcessed(transferId, messageId)` ✅ (within 15 min)
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** event-handling
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-3-dup3
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-32: App saves validation outcome alongside migration status
+
+- **Source:** dms-backoffice-app
+- **Category:** persistence
+- **Priority:** standard
+- **Original ID:** dms-backoffice-app-3-dup3
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-33: Migration Platform API: `getAppDataList(transferId)`
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** data-management
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-3-dup5
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-34: Error Handling in Queues
+
+- **Source:** roa-migration-without-bps
+- **Category:** general
+- **Priority:** standard
+- **Original ID:** roa-migration-without-bps-39
+- **Forge Alternative:** Forge error handling patterns
+- **API Method:** try-catch in Forge Functions
+- **Constraints:** Error propagation, logging
+
+
+#### CFR-35: Error Handling:
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** general
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-40
+- **Forge Alternative:** Forge error handling patterns
+- **API Method:** try-catch in Forge Functions
+- **Constraints:** Error propagation, logging
+
+
+#### CFR-36: Retry Context (v2.0.0):
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** general
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-41
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-37: Retry Strategy
+
+- **Source:** roa-migration-without-bps
+- **Category:** general
+- **Priority:** standard
+- **Original ID:** roa-migration-without-bps-41
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-38: Migration Stack Consumer loads data via Web Trigger
+
+- **Source:** dms-backoffice-app
+- **Category:** migration-execution
+- **Priority:** standard
+- **Original ID:** dms-backoffice-app-4-dup1
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-39: Validate entities (check required fields, data types, relationships)
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** validation
+- **Priority:** critical
+- **Original ID:** roa-data-migration-forge-native-4-dup1
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-40: Track chunk completion in KVS: `migration:${transferId}:chunk:${chunkIndex}`
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** processing
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-4-dup2
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-41: Eventstructure - Eventtype: Found in definitionEventBuilder.ts
+
+- **Source:** definitionEventBuilder.ts
+- **Category:** event-handling
+- **Priority:** critical
+- **Original ID:** fireflow-adapted-fireflow-event-handling-eventStructure-hasEventType-44
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-42: Final Task Error Handling
+
+- **Source:** roa-migration-without-bps
+- **Category:** general
+- **Priority:** standard
+- **Original ID:** roa-migration-without-bps-45
+- **Forge Alternative:** Forge error handling patterns
+- **API Method:** try-catch in Forge Functions
+- **Constraints:** Error propagation, logging
+
+
+#### CFR-43: Eventprocessing - Subscribe: Found in definitionEventBuilder.ts
+
+- **Source:** definitionEventBuilder.ts
+- **Category:** event-handling
+- **Priority:** critical
+- **Original ID:** fireflow-adapted-fireflow-event-handling-eventProcessing-hasSubscribe-46
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-44: Migration Status States
+
+- **Source:** roa-migration-without-bps
+- **Category:** migration-execution
+- **Priority:** standard
+- **Original ID:** roa-migration-without-bps-46
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-45: Eventstructure - Eventpayload: Found in Forge Storage entityEventRepository.mock.ts
+
+- **Source:** ResourceEventRepository.mock.ts
+- **Category:** event-handling
+- **Priority:** critical
+- **Original ID:** fireflow-adapted-fireflow-event-handling-eventStructure-hasEventPayload-47
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-46: Eventprocessing - Subscribe: Found in Forge Storage entityEventRepository.mock.ts
+
+- **Source:** ResourceEventRepository.mock.ts
+- **Category:** event-handling
+- **Priority:** critical
+- **Original ID:** fireflow-adapted-fireflow-event-handling-eventProcessing-hasSubscribe-48
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-47: Eventprocessing - Publish: Found in EventBusServiceMock.ts
+
+- **Source:** EventBusServiceMock.ts
+- **Category:** event-handling
+- **Priority:** critical
+- **Original ID:** fireflow-adapted-fireflow-event-handling-eventProcessing-hasPublish-49
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-48: On final task, DMS Consumer notifies web trigger (with different payload) so App sets internal migration status to FINISHED
+
+- **Source:** dms-backoffice-app
+- **Category:** migration-execution
+- **Priority:** standard
+- **Original ID:** dms-backoffice-app-5-dup2
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-49: On final task, DMS Consumer notifies web trigger so App sets migration flag to FAILURE
+
+- **Source:** dms-backoffice-app
+- **Category:** migration-execution
+- **Priority:** standard
+- **Original ID:** dms-backoffice-app-5-dup3
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-50: Retryable
+
+- **Source:** roa-migration-without-bps
+- **Category:** general
+- **Priority:** standard
+- **Original ID:** roa-migration-without-bps-55
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-51: Publish pre-migration summary via `migration.addLog(transferId, message)`
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** migration-execution
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-6-dup1
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-52: Migration status tracked and reported via Backoffice
+
+- **Source:** dms-backoffice-app
+- **Category:** migration-execution
+- **Priority:** standard
+- **Original ID:** dms-backoffice-app-6-dup1
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-53: Enables clean retry after fixing the issue
+
+- **Source:** dms-backoffice-app
+- **Category:** general
+- **Priority:** standard
+- **Original ID:** dms-backoffice-app-7-dup1
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-54: Retryable Errors:
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** general
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-74
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-55: Retry Logic (v2.0.0):
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** general
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-78
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-56: Async Events API Error Handling:
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** event-handling
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-79
+- **Forge Alternative:** Forge error handling patterns
+- **API Method:** try-catch in Forge Functions
+- **Constraints:** Error propagation, logging
+
+
+#### CFR-57: Consumer Error Handling:
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** general
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-80
+- **Forge Alternative:** Forge error handling patterns
+- **API Method:** try-catch in Forge Functions
+- **Constraints:** Error propagation, logging
+
+
+#### CFR-58: Migration Event Handler:
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** event-handling
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-92
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-59: Required Packages:
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** general
+- **Priority:** critical
+- **Original ID:** roa-data-migration-forge-native-96
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-60: Async Events API v2.0.0 Migration Notes:
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** event-handling
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-97
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-61: Required:
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** general
+- **Priority:** critical
+- **Original ID:** roa-data-migration-forge-native-98
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-62: Rate Limiting Mitigation:
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** error-handling
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-101
+- **Forge Alternative:** Forge rate limit handling
+- **API Method:** Retry-After header handling
+- **Constraints:** 429 status code, exponential backoff
+
+
+#### CFR-63: Migration Platform Storage
+
+- **Source:** roa-migration-without-bps
+- **Category:** data-management
+- **Priority:** standard
+- **Original ID:** roa-migration-without-bps-13-dup1
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-64: Rate Limiting (50 events per push, per-minute limits):
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** error-handling
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-147
+- **Forge Alternative:** Forge rate limit handling
+- **API Method:** Retry-After header handling
+- **Constraints:** 429 status code, exponential backoff
+
+
+#### CFR-65: Report completion via `migration.addLog()`
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** migration-execution
+- **Priority:** standard
+- **Original ID:** roa-data-migration-forge-native-15-dup1
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-66: DMS SQL Migration Tech Specs
+
+- **Source:** dms-backoffice-app
+- **Category:** persistence
+- **Priority:** standard
+- **Original ID:** dms-backoffice-app-359
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+#### CFR-67: Migration Flow Pattern
+
+- **Source:** roa-migration-without-bps
+- **Category:** migration-execution
+- **Priority:** standard
+- **Original ID:** roa-migration-without-bps-54-dup1
+- **Forge Alternative:** Needs verification
+- **API Method:** Unknown
+- **Constraints:** Requires manual review
+
+
+### Tier 2: Important Rules
+
+*Total Tier 2 rules: 309*
+
+- **CFR-68:** propertyKeys: Adapted 0 items using mapping table (Source: content-properties-handler, Category: general)
+- **CFR-69:** storageKeys: Adapted 2 items using mapping table (Source: data-storage, Category: general)
+- **CFR-70:** restApiStructure: REST API handlers mapped to Forge Functions with Confluence API calls (Source: api-handlers, Category: general)
+- **CFR-71:** crudOperations: CRUD operations mapped to Forge Storage operations (Source: resource-management, Category: general)
+- **CFR-72:** dataStructures: Adapted 1 items using mapping table (Source: resource-management, Category: general)
+- **CFR-73:** eventStructure: Event structure mapped to Async Events API format (Source: event-handling, Category: general)
+- **CFR-74:** eventProcessing: Event processing mapped to Async Events API handlers (Source: event-handling, Category: general)
+- **CFR-75:** Propertykeys: No patterns found in process-content-property.ts (Source: process-content-property.ts, Category: data-management)
+- **CFR-76:** Requestformats: No patterns found in migrateSourceHandler.ts (Source: migrateSourceHandler.ts, Category: data-management)
+- **CFR-77:** Location: (Source: roa-data-migration-forge-native, Category: general)
+- **CFR-78:** BPS Unavailability (Source: roa-migration-without-bps, Category: general)
+- **CFR-79:** Unopinionated vs Structured (Source: export-app-data, Category: general)
+- **CFR-80:** Package Import (Source: forge-migration-api, Category: general)
+- **CFR-81:** Tasks Integration Contracts (Source: dms-backoffice-app, Category: general)
+- **CFR-82:** Timeout: (Source: roa-data-migration-forge-native, Category: general)
+- **CFR-83:** Responsibilities: (Source: roa-data-migration-forge-native, Category: general)
+- **CFR-84:** Producer-Consumer Pattern Replacement (Source: roa-migration-without-bps, Category: general)
+- **CFR-85:** Format Flexibility (Source: export-app-data, Category: general)
+- **CFR-86:** Type Safety (Source: forge-migration-api, Category: general)
+- **CFR-87:** Producer and Consumer interfaces (Source: dms-backoffice-app, Category: general)
+- **CFR-88:** Apicalls: No patterns found in Forge Functions + Confluence API.d.ts (Source: fireflow.d.ts, Category: data-management)
+- **CFR-89:** Responseformats: No patterns found in getSourcesHandler.ts (Source: getSourcesHandler.ts, Category: data-management)
+- **CFR-90:** DO NOT (Source: roa-data-migration-forge-native, roa-migration-without-bps, Category: general)
+- **CFR-91:** Producer (Source: roa-migration-without-bps, Category: general)
+- **CFR-92:** File Size Limits (Source: export-app-data, Category: general)
+- **CFR-93:** getMappings Method (Source: forge-migration-api, Category: general)
+- **CFR-94:** Deployment Tooling (Source: dms-backoffice-app, Category: general)
+- **CFR-95:** Consumer (Source: roa-migration-without-bps, Category: general)
+- **CFR-96:** createAppData Method (Source: export-app-data, Category: general)
+- **CFR-97:** Query Builder Pattern (Source: forge-migration-api, Category: general)
+- **CFR-98:** REST API Client (Source: dms-backoffice-app, Category: general)
+- **CFR-99:** Steps: (Source: roa-data-migration-forge-native, Category: general)
+- **CFR-100:** Queue (Source: roa-migration-without-bps, Category: general)
+- **CFR-101:** Stream Management (Source: export-app-data, Category: general)
+- **CFR-102:** Namespace Selection (Source: forge-migration-api, Category: general)
+- **CFR-103:** Storageoperations: No patterns found in storageKeys.ts (Source: storageKeys.ts, Category: persistence)
+- **CFR-104:** Create chunks optimized for Async Events API (900s timeout) (Source: roa-data-migration-forge-native, Category: event-handling)
+- **CFR-105:** Storage (Source: roa-migration-without-bps, Category: general)
+- **CFR-106:** Label Usage Strategy (Source: export-app-data, Category: general)
+- **CFR-107:** Pagination Handling (Source: forge-migration-api, Category: general)
+- **CFR-108:** Sequential Ordering (Source: export-app-data, Category: general)
+- **CFR-109:** getMappingById Method (Source: forge-migration-api, Category: general)
+- **CFR-110:** Enqueue chunks in processing order (dependency order: globalworkflow → spaceworkflow → pageactivity → csvactivity → metadata) (Source: roa-data-migration-forge-native, Category: processing)
+- **CFR-111:** Large Entity Storage (Source: roa-migration-without-bps, Category: processing)
+- **CFR-112:** Forge Queue API (Source: roa-migration-without-bps, Category: general)
+- **CFR-113:** Parallel Upload Handling (Source: export-app-data, Category: general)
+- **CFR-114:** Mapping Response Structure (Source: forge-migration-api, Category: general)
+- **CFR-115:** Process entities in parallel within chunk (`Promise.all`) (Source: roa-data-migration-forge-native, Category: processing)
+- **CFR-116:** getAppDataList Method (Source: forge-migration-api, Category: data-management)
+- **CFR-117:** SHOULD (Source: dms-backoffice-app, Category: general)
+- **CFR-118:** CurrentState (Source: roa-migration-without-bps, Category: general)
+- **CFR-119:** Binary Data Writing (Source: export-app-data, Category: general)
+- **CFR-120:** SpaceWorkflows (Source: roa-migration-without-bps, Category: general)
+- **CFR-121:** App Data Retrieval API (Source: export-app-data, Category: general)
+- **CFR-122:** AppData Structure (Source: forge-migration-api, Category: general)
+- **CFR-123:** getAppDataPayload Method (Source: forge-migration-api, Category: data-management)
+- **CFR-124:** GlobalWorkflows (Source: roa-migration-without-bps, Category: general)
+- **CFR-125:** Queue next chunk (cyclic invocation, up to 1000 depth) (Source: roa-data-migration-forge-native, Category: processing)
+- **CFR-126:** DocActivity (Source: roa-migration-without-bps, Category: general)
+- **CFR-127:** List Retrieval Endpoint (Source: export-app-data, Category: general)
+- **CFR-128:** Payload Format Handling (Source: forge-migration-api, Category: general)
+- **CFR-129:** On final task, Consumer sends summary with per-table statistics from source (external DB), scoped to installationId (Source: dms-backoffice-app, Category: general)
+- **CFR-130:** Repeat steps 8-12 until all chunks processed (Source: roa-data-migration-forge-native, Category: processing)
+- **CFR-131:** Phase 1: Deploy event handler and data processor (no consumers) (Source: roa-data-migration-forge-native, Category: event-handling)
+- **CFR-132:** Determine final status (Source: roa-data-migration-forge-native, Category: general)
+- **CFR-133:** Metadata (Source: roa-migration-without-bps, Category: general)
+- **CFR-134:** S3 Key Retrieval (Source: export-app-data, Category: general)
+- **CFR-135:** Table existence (Source: dms-backoffice-app, Category: general)
+- **CFR-136:** messageProcessed Method (Source: forge-migration-api, Category: processing)
+- **CFR-137:** Signed URL Endpoint (Source: export-app-data, Category: general)
+- **CFR-138:** messageFailed Method (Source: forge-migration-api, Category: general)
+- **CFR-139:** Chunking Strategy (Source: roa-migration-without-bps, Category: processing)
+- **CFR-140:** Acknowledgement Timing (Source: forge-migration-api, Category: event-handling)
+- **CFR-141:** URL Expiration Handling (Source: export-app-data, Category: general)
+- **CFR-142:** Chunk Size Calculation: (Source: roa-data-migration-forge-native, Category: processing)
+- **CFR-143:** Queue-Based Processing (Source: roa-migration-without-bps, Category: processing)
+- **CFR-144:** 12-Day Access Window (Source: export-app-data, Category: general)
+- **CFR-145:** Message ID Tracking (Source: forge-migration-api, Category: general)
+- **CFR-146:** Chunk Creation: (Source: roa-data-migration-forge-native, Category: processing)
+- **CFR-147:** Progressive Processing (Source: roa-migration-without-bps, Category: processing)
+- **CFR-148:** Version: (Source: roa-data-migration-forge-native, Category: general)
+- **CFR-149:** Mappings Lifespan Alignment (Source: export-app-data, Category: general)
+- **CFR-150:** getContainers Method (Source: forge-migration-api, Category: general)
+- **CFR-151:** Batch Size Calculation (Source: roa-migration-without-bps, Category: processing)
+- **CFR-152:** Function Timeout Management (Source: roa-migration-without-bps, Category: general)
+- **CFR-153:** Container Query Builder (Source: forge-migration-api, Category: general)
+- **CFR-154:** Async Event Batching (Source: roa-migration-without-bps, Category: event-handling)
+- **CFR-155:** Queue Creation: (Source: roa-data-migration-forge-native, Category: general)
+- **CFR-156:** addLog Method (Source: forge-migration-api, Category: general)
+- **CFR-157:** Event Push Pattern (v2.0.0): (Source: roa-data-migration-forge-native, Category: event-handling)
+- **CFR-158:** Log Message Length (Source: forge-migration-api, Category: general)
+- **CFR-159:** Group by entity type (label): `pageactivity`, `spaceworkflow`, `globalworkflow`, `csvactivity`, `metadata` (Source: roa-data-migration-forge-native, Category: processing)
+- **CFR-160:** Entity Validation (Source: roa-migration-without-bps, Category: processing)
+- **CFR-161:** Datastructures: Forge Storage entityUriMother (Source: ResourceUri.mother.ts, Category: data-management)
+- **CFR-162:** Breaking Changes from v1.x: (Source: roa-data-migration-forge-native, Category: general)
+- **CFR-163:** Log Timing (Source: forge-migration-api, Category: general)
+- **CFR-164:** DMS Producer scans PostgreSQL database: (Source: dms-backoffice-app, Category: persistence)
+- **CFR-165:** Get appropriate operation executor for entity type (Source: roa-data-migration-forge-native, Category: processing)
+- **CFR-166:** Entity Conversion (Source: roa-migration-without-bps, Category: processing)
+- **CFR-167:** Incremental Processing (Source: export-app-data, Category: processing)
+
+*... and 209 more Tier 2 rules*
+
+### Tier 3: Standard Rules
+
+*Total Tier 3 rules: 1*
+
+- **CFR-377:** Forge Storage Consideration (Source: export-app-data)

@@ -1,0 +1,1829 @@
+# TECHNICAL SPECIFICATIONS WRITING STANDARDS
+
+This document consolidates best practices from multiple authoritative sources for writing effective technical specifications.
+
+**Note:** Individual rule files for each book are available in `.cursor/rules/technical-specifications/` directory:
+
+- `software-requirements-karl-wieczorek.mdc`
+- `docs-for-developers-jared-bhatti.mdc`
+- `living-documentation-cyrille-martraire.mdc`
+- `elements-of-style-strunk-white.mdc`
+- `visual-display-quantitative-information-edward-tufte.mdc`
+- `functional-art-alberto-cairo.mdc`
+- `non-designers-design-book-robin-williams.mdc`
+- `fundamentals-software-architecture-richards-ford.mdc`
+- `data-model-scorecard-steve-hoberman.mdc`
+- `information-architecture-rosenfeld.mdc`
+- `pyramid-principle-barbara-minto.mdc`
+- `documenting-software-architectures-clements.mdc`
+- `domain-driven-design-eric-evans.mdc`
+- `graphic-design-for-non-designers-seddon-waterhouse.mdc`
+
+**Sources:**
+
+**Writing Standards:**
+
+- "Software Requirements" (Karl Wieczorek)
+- "Docs for Developers" (Jared Bhatti et al.)
+- "Living Documentation" (Cyrille Martraire)
+- "The Elements of Style" (Strunk & White)
+
+**Visual Design Standards:**
+
+- "The Visual Display of Quantitative Information" (Edward Tufte)
+- "The Functional Art" (Alberto Cairo)
+- "The Non-Designer's Design Book" (Robin Williams)
+
+**Architecture & Data Modeling Standards:**
+
+- "Fundamentals of Software Architecture" (Mark Richards & Neal Ford)
+- "Data Model Scorecard" (Steve Hoberman)
+- "Information Architecture: For the Web and Beyond" (Rosenfeld et al.)
+- "The Pyramid Principle" (Barbara Minto)
+- "Documenting Software Architectures" (Paul Clements et al.)
+- "Domain-Driven Design: Tackling Complexity" (Eric Evans)
+- "Graphic Design for Non-Designers" (Tony Seddon & Jane Waterhouse)
+
+**Key Principle:** A technical specification must be well-written, visually structured, logically organized, and architecturally sound. The visual design and logical structure determine whether the team will read the document or ignore it.
+
+## 1. REQUIREMENT DEFINITION
+
+### 1.1 Mandatory Language
+
+- **Use "Shall" for mandatory requirements:** Removes ambiguity
+  - ✅ "The system SHALL process 1000 requests per second"
+  - ❌ "The system should process requests quickly"
+
+- **Avoid "Should" or "Maybe":** If optional, define as "Future Phase"
+  - ✅ "Future Phase: Support for batch processing"
+  - ❌ "The system should support batch processing"
+
+- **Use active voice:** "The server handles..." not "A message is sent..."
+  - ✅ "The system validates input before processing"
+  - ❌ "Input validation is performed by the system"
+
+- **Put statements in positive form:** Say what it is, not what it isn't
+  - ✅ "The API returns status 200 on success"
+  - ❌ "The API does not return errors on success"
+
+### 1.2 Requirement Structure
+
+- **Write atomic requirements:** Each point covers only one thing
+  - ✅ "The system SHALL validate email format" + "The system SHALL validate password strength"
+  - ❌ "The system SHALL validate email format and password strength"
+
+- **Ensure verifiability:** If you can't test it, it's not a requirement
+  - ✅ "Response time SHALL be under 200ms for 95% of requests"
+  - ❌ "The system SHALL be fast"
+
+- **Prioritize using MoSCoW:**
+  - **Must have:** Critical for MVP
+  - **Should have:** Important but not critical
+  - **Could have:** Nice to have
+  - **Won't have:** Explicitly excluded (Future Phase)
+
+- **Link to parent requirements:** Show why this feature exists
+  - "This requirement supports Business Requirement BR-123: User Authentication"
+
+### 1.3 Requirement Content
+
+- **Distinguish "User Needs" from "System Requirements":**
+  - User Need: "Users need to authenticate securely"
+  - System Requirement: "The system SHALL implement OAuth 2.0 authentication"
+
+- **Use business rules:** Separate logic (tax laws) from function (the button)
+  - Business Rule: "Approvals require 3+ approvers"
+  - System Requirement: "The system SHALL enforce minimum 3 approvers"
+
+- **Define negative requirements:** Explicitly state what the system won't do
+  - "The system SHALL NOT store passwords in plain text"
+  - "The system SHALL NOT support batch operations in Phase 1"
+
+- **Specify data constraints:** Length, type, and format of inputs
+  - ✅ "Email SHALL be valid RFC 5322 format, max 254 characters"
+  - ❌ "Email must be valid"
+
+- **Specify error handling:** What happens when things go wrong
+  - ✅ "On validation failure, the system SHALL return HTTP 400 with error details"
+  - ❌ "The system handles errors gracefully"
+
+## 2. DOCUMENT STRUCTURE
+
+### 2.1 Essential Sections
+
+- **Define the Problem Statement first:** Why are we building this?
+  - Start with: "Problem: [Clear problem statement]"
+  - Follow with: "Solution: [High-level approach]"
+
+- **Create a Glossary:** Define terms immediately
+  - "User: End-user of the application"
+  - "Admin: User with administrative privileges"
+  - "Transfer ID: Unique identifier for migration process"
+
+- **Include High-Level Architecture diagram:** Visuals before text
+  - Use Mermaid diagrams or ASCII art
+  - Show component relationships
+
+- **Add Table of Contents:** Essential for specs over 5 pages
+  - Auto-generate from headers
+  - Include anchor links
+
+- **Track Version History:** Specs are living documents
+  - Document changes, dates, authors
+  - Link to related tickets/PRs
+
+### 2.2 Document Organization
+
+- **Structure by Domain:** Group features by business value
+  - Workflow Domain
+  - Content State Domain
+  - Migration Domain
+
+- **Keep "Internal" and "External" docs separate:**
+  - External: Public API docs, user guides
+  - Internal: Implementation details, architecture decisions
+
+- **Keep "Tutorials" separate from "Reference Material":**
+  - Tutorials: Step-by-step guides
+  - Reference: API contracts, data models
+
+- **Limit the Scope:** Don't let a spec turn into a novel
+  - Focus on one feature/system at a time
+  - Link to related specs instead of duplicating
+
+### 2.3 Visual Elements
+
+- **Use Context Diagrams:** Show where this feature sits in the ecosystem
+  - System boundaries
+  - External dependencies
+  - Data flow
+
+- **Use State Transition Diagrams:** Show how "Draft" becomes "Published"
+  - Document state changes
+  - Trigger conditions
+  - Final states
+
+- **Visualize Domain Models:** Use Class Diagrams for data relationships
+  - Entity relationships
+  - Cardinality
+  - Key attributes
+
+- **Automate Diagram generation:** Use Mermaid.js or PlantUML
+  - Keep diagrams in sync with code
+  - Version control diagrams
+
+- **Use Alt-text for diagrams:** Make specs accessible
+  - Describe diagram content
+  - Include key information in text
+
+- **Use Callouts:** Highlight "Warnings" or "Notes" visually
+  - ⚠️ **Warning:** Critical information
+  - 📝 **Note:** Additional context
+  - ✅ **Best Practice:** Recommended approach
+
+## 3. CONTENT QUALITY
+
+### 3.1 Clarity and Precision
+
+- **Omit needless words:** The most important rule
+  - ✅ "The API validates input"
+  - ❌ "The API performs validation on the input data"
+
+- **Use definite, specific, concrete language:**
+  - ✅ "Processes 1000 requests/second"
+  - ❌ "Handles high traffic"
+
+- **Avoid "Adverbs of Quality":** Delete "fast," "easy," or "robust." Use numbers
+  - ✅ "Response time under 200ms"
+  - ❌ "Fast response time"
+
+- **Avoid "Very," "Little," "Pretty":** These weaken words
+  - ✅ "Significant performance improvement"
+  - ❌ "Very significant performance improvement"
+
+- **Avoid "Fancy" words:** Use "Use" instead of "Utilize"
+  - ✅ "Use the API"
+  - ❌ "Utilize the API"
+
+- **Do not overstate:** Don't say "Amazing performance"; say "10ms"
+  - ✅ "10ms average response time"
+  - ❌ "Amazingly fast performance"
+
+- **Use figures for numbers:** Use "5" instead of "five" for technical clarity
+  - ✅ "5 retries"
+  - ❌ "five retries"
+
+### 3.2 Technical Accuracy
+
+- **Define "Latency":** Don't say "fast"; say "Response under 200ms"
+  - ✅ "P95 latency: 200ms"
+  - ❌ "Low latency"
+
+- **Specify "Performance Benchmarks":** What are the expected loads?
+  - "Expected load: 1000 requests/second"
+  - "Peak load: 5000 requests/second"
+
+- **Define "Security Requirements":** Who can see what?
+  - "Only admins SHALL access user data"
+  - "API keys SHALL be encrypted at rest"
+
+- **Document "Assumptions":** What must be true for this spec to work?
+  - "Assumption: Confluence API rate limits are 25,000 points/hour"
+  - "Assumption: Database supports JSON columns"
+
+- **Check for "Feasibility":** Can this actually be built with current tech?
+  - Validate against platform constraints
+  - Document technical limitations
+
+### 3.3 Completeness
+
+- **Identify "External Interfaces":** Specify how your system talks to others
+  - API endpoints
+  - Request/Response formats
+  - Authentication methods
+
+- **Define "API Contracts" early:** Request/Response bodies are vital
+  - Include example payloads
+  - Document all fields
+  - Specify required vs optional
+
+- **Include "Code Snippets":** Show, don't just tell, the API structure
+  - TypeScript interfaces
+  - Example requests/responses
+  - Error responses
+
+- **Document "Dependencies":** What libraries or APIs do we need?
+  - External services
+  - NPM packages
+  - Platform capabilities
+
+- **Look for "Missing Requirements":** What did the user forget to say?
+  - Edge cases
+  - Error scenarios
+  - Performance requirements
+
+## 4. DOCUMENTATION LIFECYCLE
+
+### 4.1 Maintenance
+
+- **Documentation should be "Low-Maintenance":**
+  - Extract specs from code when possible (Swagger/OpenAPI)
+  - Use executable specifications (Cucumber/Gherkin)
+  - Automate where possible
+
+- **Update docs with code:** If the code changes, the spec must follow
+  - Include doc updates in PR checklist
+  - Link specs to code changes
+
+- **Eliminate "Dead Documentation":** Delete specs for deleted features
+  - Regular audits
+  - Archive old versions
+  - Remove obsolete sections
+
+- **Focus on "Stability":** Document the parts of the system that won't change
+  - Architecture decisions
+  - Data models
+  - Core workflows
+
+- **Document "Technical Debt":** State what you are leaving for later
+  - Known limitations
+  - Future improvements
+  - Workarounds
+
+### 4.2 Living Documentation
+
+- **Use "Ubiquitous Language":** Everyone (Biz & Tech) uses the same words
+  - Define terms in glossary
+  - Use consistently throughout
+  - Avoid jargon without definition
+
+- **Focus on "Knowledge Gaps":** Document what isn't in the code
+  - Business logic
+  - Design decisions
+  - Historical context
+
+- **Include "Design Rationale":** Why did we choose SQL over NoSQL?
+  - Decision context
+  - Alternatives considered
+  - Trade-offs
+
+- **Use "Decision Logs" (ADRs):** Keep a history of architectural choices
+  - Architecture Decision Records
+  - Date, context, decision, consequences
+
+- **Document "Workarounds":** Admit where the code is "hacky"
+  - Temporary solutions
+  - Known issues
+  - Future fixes
+
+- **Link to "Jira/Tickets":** Connect the "Task" to the "Specification"
+  - Reference tickets in specs
+  - Link specs from tickets
+  - Track implementation status
+
+## 5. WRITING STYLE
+
+### 5.1 Structure and Flow
+
+- **The paragraph is the unit of composition:** One idea per paragraph
+  - Keep paragraphs focused
+  - Use headers to break up content
+
+- **Keep related words together:** Don't separate the subject from the verb
+  - ✅ "The system processes requests"
+  - ❌ "The system, which handles authentication, processes requests"
+
+- **Express coordinate ideas in similar form (Parallelism):**
+  - ✅ "The API validates input, processes requests, and returns responses"
+  - ❌ "The API validates input, processing happens, and responses are returned"
+
+- **Avoid a succession of loose sentences:**
+  - Vary sentence structure
+  - Use subordination for related ideas
+
+- **Place the emphatic words of a sentence at the end:**
+  - ✅ "The system processes 1000 requests per second"
+  - ❌ "1000 requests per second is what the system processes"
+
+### 5.2 Tone and Voice
+
+- **Do not affect a breezy manner:** Keep it professional
+  - Avoid casual language
+  - Use technical terminology correctly
+
+- **Do not inject opinion:** A tech spec is for facts and logic
+  - ✅ "The system uses OAuth 2.0 for authentication"
+  - ❌ "OAuth 2.0 is the best authentication method"
+
+- **Do not explain too much:** If the diagram is clear, don't repeat it in text
+  - Diagrams show structure
+  - Text explains behavior and constraints
+
+- **Write in a way that comes naturally:**
+  - Clear and direct
+  - Avoid forced complexity
+
+- **Do not take shortcuts with spelling or acronyms:**
+  - Spell out acronyms on first use
+  - Use consistent terminology
+
+- **Avoid foreign languages or Latin phrases:** Use clear English
+  - ✅ "For example"
+  - ❌ "e.g." (unless in a list)
+
+- **Prefer the standard to the offbeat:**
+  - Use common technical terms
+  - Follow industry conventions
+
+### 5.3 Readability
+
+- **Optimize for "Skimmability":** Use heavy headers and bullet points
+  - Clear hierarchy
+  - Bullet lists for multiple items
+  - Tables for structured data
+
+- **Maintain "Readability":** Use Markdown for easy versioning in Git
+  - Standard Markdown syntax
+  - Consistent formatting
+  - Version control friendly
+
+- **Keep it "Dry" (Don't Repeat Yourself):** Link to other docs instead of copying
+  - Reference other sections
+  - Link to related specs
+  - Avoid duplication
+
+- **Use "Example Tables":** Show inputs vs. expected outputs
+  - Test cases
+  - API examples
+  - Data transformations
+
+- **Use dashes to set off parenthetical expressions:**
+  - "The API—which uses OAuth 2.0—validates tokens"
+
+- **In summaries, keep to one tense:**
+  - Use present tense for current behavior
+  - Use past tense for historical context
+
+## 6. VISUAL DESIGN AND STRUCTURE
+
+### 6.1 Data Visualization Principles (Tufte)
+
+#### 6.1.1 Maximize Data-Ink Ratio
+
+- **Maximize the "Data-Ink Ratio":** Eliminate any line that doesn't represent information
+  - ✅ Remove unnecessary grid lines
+  - ✅ Remove decorative borders
+  - ❌ 3D effects, shadows, textures
+
+- **Eliminate "Chartjunk" (Graphic Trash):** Remove shadows, 3D textures, unnecessary decorations
+  - ✅ Clean, minimal diagrams
+  - ❌ 3D pie charts, gradient backgrounds, decorative icons
+
+- **Show data variation, not design variation:**
+  - Use consistent styling across similar charts
+  - Differences should reflect data differences
+
+#### 6.1.2 Chart Design
+
+- **Use "Small Multiples":** Instead of one complex chart, use several small ones comparing variables
+  - ✅ Multiple small diagrams showing different scenarios
+  - ❌ One overwhelming diagram with everything
+
+- **Visual integrity comes first:** Don't distort scales to make something look "bigger"
+  - ✅ Consistent scales across related charts
+  - ❌ Manipulated axes to exaggerate differences
+
+- **Use direct labels:** Don't use distant legends; put names on lines or bars
+  - ✅ Labels directly on chart elements
+  - ❌ Legend requiring lookup
+
+- **Provide context:** Don't show a latency spike without showing historical average
+  - ✅ Include baseline or comparison data
+  - ❌ Isolated data points without context
+
+- **Avoid excessive grids:** If using background lines, make them very faint
+  - ✅ Subtle grid lines
+  - ❌ Heavy grid lines competing with data
+
+- **Use micro/macro reading:** Chart should be clear from far away and detailed up close
+  - ✅ Clear overall shape + readable details
+  - ❌ Too dense or too sparse
+
+#### 6.1.3 Typography and Color
+
+- **Typography must be legible, not decorative:**
+  - ✅ Sans-serif for body text (modern, screen-readable)
+  - ✅ Monospaced for code or file paths
+  - ❌ Decorative fonts, Comic Sans
+
+- **Use colors linked to reality:**
+  - ✅ Red for errors, green for success
+  - ✅ Blue for information, yellow for warnings
+  - ❌ Arbitrary color choices
+
+- **Use information layers:** Color for important, gray for secondary
+  - ✅ Primary information in color
+  - ✅ Secondary information in gray
+  - ❌ Everything equally emphasized
+
+- **Avoid "Moiré effect":** Don't use line patterns that vibrate to the eye
+  - ✅ Solid colors or subtle patterns
+  - ❌ Conflicting patterns
+
+#### 6.1.4 Tables and Layout
+
+- **Don't use areas to compare linear numbers:** Human eye is bad at comparing volumes
+  - ✅ Bar charts for linear comparisons
+  - ❌ Area charts for numeric comparisons
+
+- **Eliminate unnecessary borders in tables:**
+  - ✅ Minimal borders, clear alignment
+  - ❌ Heavy borders everywhere
+
+- **Align numbers to the right in technical tables:** Facilitates comparison
+  - ✅ Right-aligned numbers
+  - ✅ Left-aligned text labels
+
+- **Use "Sparklines":** Tiny charts word-sized to show trends in tables
+  - ✅ Inline trend visualization
+  - ❌ Separate charts for each metric
+
+- **Use white space as a design tool:**
+  - ✅ Generous margins (text shouldn't feel "drowned")
+  - ✅ Space between sections
+  - ❌ Cramped layout
+
+- **Maintain constant scale throughout document:**
+  - ✅ Consistent scales for similar metrics
+  - ❌ Changing scales between related charts
+
+- **Check "Aspect Ratio":** Charts too tall or wide distort perception
+  - ✅ Balanced aspect ratios
+  - ❌ Extremely tall or wide charts
+
+- **If data is irrelevant, don't graph it:**
+  - ✅ Only include relevant data
+  - ❌ Including everything "just in case"
+
+- **Tell a story with the chart, but let data speak:**
+  - ✅ Clear narrative flow
+  - ✅ Data-driven conclusions
+  - ❌ Over-interpretation
+
+- **Simplify coordinates:**
+  - ✅ Clear, simple axis labels
+  - ❌ Complex coordinate systems
+
+- **Text and graphics must be integrated:** Reader shouldn't have to jump pages
+  - ✅ Diagrams near relevant text
+  - ❌ All diagrams at the end
+
+- **Use arrows only to indicate real flow, not for style:**
+  - ✅ Arrows show actual data/control flow
+  - ❌ Decorative arrows
+
+### 6.2 Functional Graphics (Cairo)
+
+#### 6.2.1 Purpose-Driven Design
+
+- **Form follows function:** Chart must help resolve a technical question
+  - ✅ Each diagram has clear purpose
+  - ❌ Decorative diagrams
+
+- **Design is not "making it pretty":** It's making it comprehensible
+  - ✅ Clarity over decoration
+  - ❌ Aesthetic over function
+
+- **Use the "Visualization Model":** Think if user needs to compare, connect, or see flow
+  - **Compare:** Bar charts, tables
+  - **Connect:** Network diagrams, flowcharts
+  - **Flow:** Sequence diagrams, timelines
+
+- **Define the objective:** Is this diagram to explain architecture or debate it?
+  - ✅ Clear objective for each diagram
+  - ❌ Generic diagrams
+
+#### 6.2.2 Cognitive Load
+
+- **Avoid cognitive overload:** Too many nodes in a flowchart kill attention
+  - ✅ Break complex diagrams into smaller ones
+  - ✅ Maximum 7-10 elements per diagram
+  - ❌ One diagram with 50+ elements
+
+- **Use visual hierarchy:** Most important should be largest or most intense color
+  - ✅ Size = importance
+  - ✅ Color intensity = importance
+  - ❌ Everything same size
+
+- **The clarity paradox:** Sometimes more details help if well organized
+  - ✅ Organized detail aids understanding
+  - ❌ Random detail confuses
+
+- **Use strong chromatic contrasts:** Separate distinct modules
+  - ✅ High contrast between modules
+  - ✅ Low contrast within modules
+  - ❌ Everything same color
+
+#### 6.2.3 Diagram Clarity
+
+- **Diagram must be "self-sufficient":** Must be understood without reading 10 previous paragraphs
+  - ✅ Clear title and labels
+  - ✅ Legend if needed
+  - ❌ Requires extensive explanation
+
+- **Apply Gestalt laws:** Group similar elements through proximity
+  - ✅ Related elements grouped together
+  - ✅ Visual grouping matches logical grouping
+  - ❌ Random placement
+
+- **Use clear connection lines:** Avoid excessive crossing in sequence diagrams
+  - ✅ Minimize line crossings
+  - ✅ Clear routing
+  - ❌ Spaghetti diagrams
+
+- **Use standard icons:**
+  - ✅ Cloud for internet/cloud
+  - ✅ Cylinder for database
+  - ✅ Gear for processing
+  - ❌ Custom icons requiring explanation
+
+- **Create a "visual path":** Guide eye top-to-bottom or left-to-right
+  - ✅ Clear reading flow
+  - ✅ Numbered steps if sequential
+  - ❌ Random arrangement
+
+- **Use marginal annotations:** Explain critical points of diagram
+  - ✅ Callouts for important details
+  - ✅ Notes explaining complexity
+  - ❌ No explanation for complex parts
+
+- **Validate with "novice test":** Does someone not on the project understand the graphic?
+  - ✅ Test with new team members
+  - ✅ Get feedback from non-experts
+  - ❌ Only experts can understand
+
+- **Use known visual metaphors:**
+  - ✅ Standard symbols and conventions
+  - ❌ Invented symbols
+
+- **Clearly differentiate data flow from control flow:**
+  - ✅ Different line styles (dashed vs solid)
+  - ✅ Different colors
+  - ✅ Clear legend
+  - ❌ Same style for both
+
+#### 6.2.4 Consistency
+
+- **Don't use more than 3 font types in one diagram:**
+  - ✅ Maximum 2-3 fonts
+  - ✅ Consistent font usage
+  - ❌ Font chaos
+
+- **Use box size to indicate importance, not just to fit text:**
+  - ✅ Important components larger
+  - ❌ All boxes same size regardless of importance
+
+- **White space is as important as data:**
+  - ✅ Generous spacing
+  - ✅ Breathing room
+  - ❌ Cramped layout
+
+- **Maintain symbol consistency throughout Tech Spec:**
+  - ✅ Same symbols mean same things
+  - ✅ Consistent iconography
+  - ❌ Different symbols for same concept
+
+- **Use legends only if symbol isn't universal:**
+  - ✅ Self-explanatory symbols preferred
+  - ✅ Legend only when necessary
+  - ❌ Legend for obvious symbols
+
+- **Highlight "Happy Path" (main flow) with thicker line:**
+  - ✅ Primary flow emphasized
+  - ✅ Error paths lighter/thinner
+  - ❌ All paths same weight
+
+- **Use sequence diagrams for API timing and responses:**
+  - ✅ Sequence diagrams for temporal flow
+  - ✅ Show timing relationships
+  - ❌ Flowcharts for timing
+
+- **Document error states visually:**
+  - ✅ Error paths clearly marked
+  - ✅ Error states in different color/style
+  - ❌ Errors same as success paths
+
+### 6.3 Layout and Typography (CRAP Principles)
+
+#### 6.3.1 Contrast (C)
+
+- **If two elements aren't equal, make them very different:**
+  - ✅ Strong contrast between headings and body
+  - ✅ Clear distinction between sections
+  - ❌ Subtle differences that confuse
+
+- **Ensure color contrast is accessible:** Black text on white background
+  - ✅ WCAG AA contrast ratios
+  - ✅ High contrast for readability
+  - ❌ Light gray on white
+
+- **Use "Accent Color" only for what requires immediate action:**
+  - ✅ Accent for CTAs, warnings
+  - ✅ Restrained color usage
+  - ❌ Everything in bright colors
+
+- **Visually differentiate warnings:** (e.g., box with yellow background)
+  - ✅ Warning boxes stand out
+  - ✅ Error boxes clearly marked
+  - ❌ Warnings blend in
+
+#### 6.3.2 Repetition (R)
+
+- **Repeat styles:** Headers, lists, colors for unity
+  - ✅ Consistent heading styles
+  - ✅ Consistent list formatting
+  - ✅ Consistent color scheme
+  - ❌ Different style each section
+
+- **Maintain symbol consistency throughout Tech Spec:**
+  - ✅ Same symbols = same meaning
+  - ❌ Inconsistent iconography
+
+- **Use consistent formatting:**
+  - ✅ Same code block style
+  - ✅ Same table style
+  - ✅ Same diagram style
+  - ❌ Different styles for same content type
+
+#### 6.3.3 Alignment (A)
+
+- **Nothing should be placed arbitrarily:** Everything must connect visually
+  - ✅ Aligned to grid
+  - ✅ Consistent margins
+  - ❌ Random placement
+
+- **Don't center technical text:** Left-aligned text is faster to read
+  - ✅ Left-aligned body text
+  - ✅ Centered only for titles
+  - ❌ Centered paragraphs
+
+- **Create clear title hierarchy:** (H1, H2, H3)
+  - ✅ Clear visual hierarchy
+  - ✅ Consistent heading sizes
+  - ❌ All headings same size
+
+- **Use "Spacing after paragraph" instead of indents:**
+  - ✅ Space between paragraphs
+  - ❌ First-line indents
+
+- **Maintain wide margins:** "Drowned" text feels stressful
+  - ✅ Generous margins
+  - ✅ Comfortable line length (max 80 characters)
+  - ❌ Text edge-to-edge
+
+#### 6.3.4 Proximity (P)
+
+- **Group related elements:** So they appear as visual unit
+  - ✅ Related content grouped
+  - ✅ Space between groups
+  - ❌ Everything equally spaced
+
+- **Use proximity to show relationships:**
+  - ✅ Related diagrams near text
+  - ✅ Related sections together
+  - ❌ Related content scattered
+
+- **End each section with clear visual separator:**
+  - ✅ Horizontal rule or space
+  - ✅ Clear section breaks
+  - ❌ No separation between sections
+
+### 6.4 Text Formatting
+
+- **Use descriptive headers:** Instead of "Section 1", use "Database Architecture"
+  - ✅ "Architecture Overview"
+  - ❌ "Section 2.1"
+
+- **Don't use bold, italic, and underline simultaneously:**
+  - ✅ One emphasis method at a time
+  - ❌ **Bold _italic_ <u>underlined</u>**
+
+- **Use bullet lists to break dense text blocks:**
+  - ✅ Lists for multiple items
+  - ✅ Numbers for sequential steps
+  - ❌ Long paragraphs for lists
+
+- **Line width shouldn't exceed 80 characters:** To avoid eye strain
+  - ✅ Comfortable reading width
+  - ❌ Full-width text blocks
+
+- **Use tables for "Before vs. After" comparisons:**
+  - ✅ Tables for comparisons
+  - ✅ Clear column headers
+  - ❌ Paragraphs for comparisons
+
+- **Highlight keywords in bold for quick scanning:**
+  - ✅ Key terms bolded
+  - ✅ Important concepts emphasized
+  - ❌ Everything bolded
+
+- **Use summary boxes at start of each section:**
+  - ✅ Quick overview boxes
+  - ✅ Key points highlighted
+  - ❌ No summary, straight into details
+
+- **Create interactive "Table of Contents":**
+  - ✅ Clickable TOC
+  - ✅ Anchor links
+  - ❌ Static TOC
+
+- **Use clear pagination:** If document will be printed or PDF
+  - ✅ Page numbers
+  - ✅ Clear page breaks
+  - ❌ No pagination
+
+- **Use numbers for sequential processes, bullets for unordered lists:**
+  - ✅ Numbers: Step 1, Step 2, Step 3
+  - ✅ Bullets: Feature A, Feature B, Feature C
+  - ❌ Numbers for non-sequential items
+
+## 7. ARCHITECTURE DIAGRAMMING
+
+### 7.1 C4 Model and Context Diagrams
+
+- **Use the C4 Model:** Divide diagrams into levels: Context, Containers, Components, and Code
+  - **Context:** System and its relationships with users and external systems
+  - **Containers:** High-level technical building blocks
+  - **Components:** Building blocks within a container
+  - **Code:** Classes, interfaces, and functions (optional detail)
+
+- **Diagram Context First:** Before diving into code, show how system interacts with users and other systems
+  - ✅ Start with system context diagram
+  - ✅ Show external actors and systems
+  - ❌ Jumping straight to component details
+
+- **Avoid "Mystery Box Diagrams":** Each box must have clear name and responsibility description
+  - ✅ "User Service - Handles user authentication and profile management"
+  - ❌ "Service A" or "Component"
+
+- **Maintain Consistent Abstraction:** Don't mix database with specific class at same level
+  - ✅ Same abstraction level per diagram
+  - ❌ Mixing infrastructure and code details
+
+### 7.2 Flow and Sequence Diagrams
+
+- **Differentiate Flow Lines:** Use solid lines for synchronous calls, dashed for asynchronous
+  - ✅ Solid: Direct API calls, synchronous operations
+  - ✅ Dashed: Message queues, events, async operations
+  - ❌ All lines same style
+
+- **Use Sequence Diagrams for Temporal Logic:** If order of steps matters, don't use block diagram
+  - ✅ Sequence diagrams for API calls, workflows
+  - ✅ Show timing relationships
+  - ❌ Flowcharts for temporal sequences
+
+- **Show Data Flow:** Indicate direction of information with clear arrowheads
+  - ✅ Clear arrow direction
+  - ✅ Label data being transferred
+  - ❌ Ambiguous or missing arrows
+
+- **Document "Side Effects":** If action triggers hidden event, graph it
+  - ✅ Show all triggered events
+  - ✅ Document side effects explicitly
+  - ❌ Hidden or undocumented side effects
+
+- **Use Activity Diagrams for Business Logic:**
+  - ✅ Activity diagrams for business workflows
+  - ✅ Show decision points clearly
+  - ❌ Using sequence diagrams for business logic
+
+### 7.3 Architecture Elements
+
+- **Identify "Couplings":** Use arrows to show which component depends on which
+  - ✅ Clear dependency arrows
+  - ✅ Direction shows dependency direction
+  - ❌ Unclear dependencies
+
+- **Visualize "Bounded Contexts":** In microservices, use visual boundaries to separate domains
+  - ✅ Clear boundaries between contexts
+  - ✅ Color coding for different domains
+  - ❌ No visual separation
+
+- **Use Colors for Capabilities:** (e.g., Blue for internal services, Orange for external)
+  - ✅ Consistent color scheme
+  - ✅ Colors have meaning
+  - ❌ Random colors
+
+- **Diagram Infrastructure:** Separate business logic from physical servers
+  - ✅ Separate logical and physical diagrams
+  - ✅ Infrastructure diagrams show deployment
+  - ❌ Mixing logic and infrastructure
+
+- **Visualize Scalability:** Show how nodes duplicate behind load balancer
+  - ✅ Show replication/scaling
+  - ✅ Load balancers clearly marked
+  - ❌ Single node diagrams for scalable systems
+
+- **Indicate Protocols:** Write "HTTPS", "gRPC", or "AMQP" on connection lines
+  - ✅ Protocol labels on connections
+  - ✅ Clear communication methods
+  - ❌ Unlabeled connections
+
+- **Use Industry Icons:** (AWS, Azure, Docker) for instant recognition
+  - ✅ Standard cloud/infrastructure icons
+  - ✅ Recognizable symbols
+  - ❌ Custom icons requiring explanation
+
+- **Show Failure Points:** Indicate where Circuit Breakers are located
+  - ✅ Failure points marked
+  - ✅ Resilience patterns visible
+  - ❌ No failure handling shown
+
+### 7.4 Diagram Quality
+
+- **Avoid "Spaghetti Diagrams":** If too many crossing lines, split into two diagrams
+  - ✅ Maximum 7-10 components per diagram
+  - ✅ Split complex systems
+  - ❌ One diagram with 50+ connections
+
+- **Define the Legend:** Never assume reader knows what red box means
+  - ✅ Clear legend for all symbols
+  - ✅ Color meanings explained
+  - ❌ Unexplained symbols
+
+- **Use Deployment Diagrams for DevOps:**
+  - ✅ Show deployment architecture
+  - ✅ Environment separation
+  - ❌ No deployment information
+
+- **Simplify for Stakeholders:** Create "light" version for project managers
+  - ✅ Simplified context diagrams
+  - ✅ Business-focused views
+  - ❌ Same technical detail for all audiences
+
+- **Keep Diagrams Updated:** Old diagram is more dangerous than no diagram
+  - ✅ Diagrams versioned with code
+  - ✅ Regular updates
+  - ❌ Outdated diagrams
+
+- **Use "Diagrams as Code" Tools:** (Mermaid, PlantUML) to facilitate changes
+  - ✅ Version-controlled diagrams
+  - ✅ Easy to update
+  - ❌ Static image files
+
+- **Use UML Only If Necessary:** Don't force rigid rules if simple diagram communicates better
+  - ✅ Use UML when it adds value
+  - ✅ Simple diagrams when sufficient
+  - ❌ Over-engineering diagrams
+
+- **Annotate Architectural Decisions (ADRs):** Diagram shows what, adjacent text explains why
+  - ✅ ADRs linked to diagrams
+  - ✅ Decision rationale documented
+  - ❌ Diagrams without context
+
+## 8. DATA MODELING
+
+### 8.1 Entity-Relationship Diagrams
+
+- **Use Standard Notation:** (IE/Crow's Foot) so any DBA understands it
+  - ✅ Standard ERD notation
+  - ✅ Consistent symbols
+  - ❌ Custom notation
+
+- **Entities Must Be Nouns:** "Invoice", not "Invoicing"
+  - ✅ "Customer", "Order", "Product"
+  - ❌ "Processing", "Managing", "Handling"
+
+- **Attributes in PascalCase or snake_case:** Maintain technical consistency
+  - ✅ Consistent naming convention
+  - ✅ Follow project standards
+  - ❌ Mixed conventions
+
+- **Identify Primary Keys (PK) Clearly:**
+  - ✅ PK clearly marked
+  - ✅ Composite PKs shown
+  - ❌ Unclear primary keys
+
+- **Show Cardinality:** (1:1, 1:N, N:N) without ambiguity
+  - ✅ Clear cardinality notation
+  - ✅ Crow's foot notation
+  - ❌ Ambiguous relationships
+
+- **Avoid Many-to-Many Relationships:** Decompose with associative table
+  - ✅ Junction/associative tables
+  - ✅ Explicit intermediate entities
+  - ❌ Direct M:N relationships
+
+- **Indicate Optionality:** Is relationship mandatory (solid line) or nullable (dashed line)?
+  - ✅ Solid: Required relationship
+  - ✅ Dashed: Optional relationship
+  - ❌ Unclear optionality
+
+- **Use Verbal Relationship Names:** "Customer places Order"
+  - ✅ Verb phrases on relationships
+  - ✅ Clear relationship meaning
+  - ❌ Unlabeled relationships
+
+### 8.2 Model Organization
+
+- **Organize by Hierarchy:** Put master tables at top, detail tables at bottom
+  - ✅ Hierarchical layout
+  - ✅ Parent-child relationships clear
+  - ❌ Random arrangement
+
+- **Use Right-Angle Layout:** Relationship lines should be straight, not diagonal
+  - ✅ Orthogonal lines
+  - ✅ Clean layout
+  - ❌ Diagonal spaghetti
+
+- **Differentiate Logical from Physical Entities:**
+  - ✅ Logical model: Business concepts
+  - ✅ Physical model: Implementation tables
+  - ❌ Mixing levels
+
+- **Normalize to at least 3NF:** At least in initial logical diagram
+  - ✅ Normalized logical model
+  - ✅ Denormalization documented in physical
+  - ❌ Unnormalized logical model
+
+- **Use Colors for Subject Areas:** (e.g., Green for Sales, Yellow for Inventory)
+  - ✅ Color coding by domain
+  - ✅ Consistent color scheme
+  - ❌ Random colors
+
+- **Group Related Entities:** Keep tables that always "go together" in proximity
+  - ✅ Related entities grouped
+  - ✅ Visual clustering
+  - ❌ Scattered related entities
+
+- **Avoid "Entity Soup":** Too many tables on one sheet; use partial views
+  - ✅ Maximum 15-20 entities per diagram
+  - ✅ Split large models
+  - ❌ 50+ entities in one diagram
+
+- **Highlight Foreign Keys (FK):**
+  - ✅ FK clearly marked
+  - ✅ Relationship lines show FKs
+  - ❌ Unclear foreign keys
+
+### 8.3 Data Model Details
+
+- **Annotate Constraints:** Like unique values or ranges
+  - ✅ Unique constraints shown
+  - ✅ Check constraints documented
+  - ❌ Missing constraints
+
+- **Define Data Types:** (VARCHAR, INT) in physical model
+  - ✅ Data types specified
+  - ✅ Lengths/precision shown
+  - ❌ No data types
+
+- **Document Metadata:** Column descriptions directly in diagram
+  - ✅ Descriptions in entities
+  - ✅ Business meaning explained
+  - ❌ No descriptions
+
+- **Use Sub-types and Super-types:** To handle data inheritance
+  - ✅ Inheritance shown clearly
+  - ✅ Generalization/specialization
+  - ❌ Flat model when hierarchy exists
+
+- **Eliminate Derived Attributes:** Don't graph what can be calculated
+  - ✅ Only stored attributes
+  - ✅ Calculated fields noted separately
+  - ❌ Derived attributes in model
+
+- **Use Singular Table Names:**
+  - ✅ "Customer" not "Customers"
+  - ✅ "Order" not "Orders"
+  - ❌ Plural table names
+
+- **Differentiate Configuration from Transaction Tables:**
+  - ✅ Visual distinction
+  - ✅ Different symbols/colors
+  - ❌ Same treatment
+
+- **Review Information Density:** Don't crowd text inside boxes
+  - ✅ Readable text size
+  - ✅ Adequate spacing
+  - ❌ Cramped text
+
+- **Validate Model with Real Data:**
+  - ✅ Test with sample data
+  - ✅ Verify relationships work
+  - ❌ Theoretical-only models
+
+## 9. INFORMATION ARCHITECTURE AND FLOWS
+
+### 9.1 User Flows and Navigation
+
+- **Design for "Scanning":** User doesn't read, jumps from point to point
+  - ✅ Clear visual hierarchy
+  - ✅ Scannable layout
+  - ❌ Dense text blocks
+
+- **Use Hierarchical Sitemaps:**
+  - ✅ Tree structure
+  - ✅ Clear hierarchy
+  - ❌ Flat structure
+
+- **Define User Flows:** Step-by-step of what user does to complete task
+  - ✅ Clear step sequence
+  - ✅ Decision points marked
+  - ❌ Unclear flow
+
+- **Use Low-Fidelity Wireframes:** Don't waste time on visual design if structure fails
+  - ✅ Focus on structure first
+  - ✅ Simple boxes and lines
+  - ❌ High-fidelity before structure
+
+- **Label with Clarity:** Menu names must be obvious
+  - ✅ Clear, descriptive labels
+  - ✅ User-friendly terminology
+  - ❌ Technical jargon
+
+- **Differentiate Navigation from Content:**
+  - ✅ Visual distinction
+  - ✅ Separate areas
+  - ❌ Blended together
+
+- **Create Taxonomy System:** How data is categorized
+  - ✅ Clear categorization
+  - ✅ Consistent taxonomy
+  - ❌ Inconsistent categories
+
+- **Use Breadcrumbs in Visual Architecture:**
+  - ✅ Show navigation path
+  - ✅ Hierarchical context
+  - ❌ No context
+
+### 9.2 Flow Diagram Design
+
+- **Visualize "Search":** How results are filtered
+  - ✅ Search flow diagram
+  - ✅ Filter options shown
+  - ❌ No search flow
+
+- **Show Empty States:** What happens in diagram if no data?
+  - ✅ Empty state flows
+  - ✅ Error handling
+  - ❌ Only happy path
+
+- **Show Error States:** Where does flow go if login fails?
+  - ✅ Error paths shown
+  - ✅ Recovery flows
+  - ❌ Only success paths
+
+- **Use One-Way Arrows for Linear Processes:**
+  - ✅ Clear direction
+  - ✅ Sequential flow
+  - ❌ Bidirectional when linear
+
+- **Use Diamonds for Decisions:** (Yes/No)
+  - ✅ Decision diamonds
+  - ✅ Clear yes/no paths
+  - ❌ Rectangles for decisions
+
+- **Align Flows Left to Right:**
+  - ✅ Natural reading flow
+  - ✅ Top to bottom for processes
+  - ❌ Random directions
+
+- **Use "Swimlanes" (Lanes):** To separate who does what (User vs. System)
+  - ✅ Swimlane diagrams
+  - ✅ Role separation
+  - ❌ Mixed roles
+
+- **Document Exit Points:**
+  - ✅ Exit points marked
+  - ✅ End states clear
+  - ❌ No clear endings
+
+- **Show Expected Latency in Flows:**
+  - ✅ Timing annotations
+  - ✅ Performance expectations
+  - ❌ No timing information
+
+- **Use Proximity to Group Similar Functions:**
+  - ✅ Related functions grouped
+  - ✅ Visual clustering
+  - ❌ Scattered functions
+
+- **Minimize Clicks:** Flow should be as short as possible
+  - ✅ Optimized paths
+  - ✅ Minimum steps
+  - ❌ Unnecessary steps
+
+- **Use Consistent Iconography:**
+  - ✅ Standard icons
+  - ✅ Consistent meaning
+  - ❌ Inconsistent symbols
+
+- **Avoid "Dead Ends" in Flow Diagrams:**
+  - ✅ All paths lead somewhere
+  - ✅ No orphaned steps
+  - ❌ Dead-end paths
+
+- **Use Neutral Colors for Background:**
+  - ✅ White/light gray background
+  - ✅ Content stands out
+  - ❌ Dark or colorful backgrounds
+
+- **Highlight Primary Action Button (CTA):**
+  - ✅ CTA emphasized
+  - ✅ Visual prominence
+  - ❌ All buttons equal
+
+- **Show Adaptability:** How flow changes on mobile vs desktop
+  - ✅ Responsive flows
+  - ✅ Platform differences
+  - ❌ Single flow for all
+
+- **Make Flow "Accessible":** Ensure colors have contrast
+  - ✅ WCAG contrast ratios
+  - ✅ Color-blind friendly
+  - ❌ Low contrast
+
+## 10. LOGICAL STRUCTURE (PYRAMID PRINCIPLE)
+
+### 10.1 Main Ideas First
+
+- **Main Idea Goes First:** Don't make reader wait until end
+  - ✅ Executive summary at top
+  - ✅ Key points upfront
+  - ❌ Building to conclusion
+
+- **Use Pyramid Format:** Executive summary → Key points → Technical details
+  - ✅ Top-down structure
+  - ✅ Summary first
+  - ❌ Bottom-up structure
+
+- **Every Section Must Support Upper Section:**
+  - ✅ Logical hierarchy
+  - ✅ Each level supports above
+  - ❌ Unrelated sections
+
+- **Section Titles Must Summarize Content:**
+  - ✅ Descriptive titles
+  - ✅ Self-explanatory headers
+  - ❌ Vague titles
+
+### 10.2 Grouping and Organization
+
+- **Group Related Ideas:** Brain remembers groups of 3 to 5 elements
+  - ✅ 3-5 items per group
+  - ✅ Logical grouping
+  - ❌ Lists of 10+ items
+
+- **Follow Logical Order:** (Chronological, Structural, or by Importance)
+  - ✅ Clear ordering principle
+  - ✅ Consistent throughout
+  - ❌ Random order
+
+- **Avoid Disordered Lists:** Must always have reason for being
+  - ✅ Ordered by logic
+  - ✅ Clear rationale
+  - ❌ Random lists
+
+- **Structure Must Be Mutually Exclusive and Collectively Exhaustive (MECE):**
+  - ✅ No overlap between sections
+  - ✅ Complete coverage
+  - ❌ Overlapping or incomplete
+
+- **Eliminate Redundancy Between Paragraphs:**
+  - ✅ Each paragraph unique
+  - ✅ No repetition
+  - ❌ Repeated information
+
+### 10.3 Content Presentation
+
+- **Use Comparison Tables for Decisions:**
+  - ✅ Tables for alternatives
+  - ✅ Clear comparison
+  - ❌ Paragraphs for comparisons
+
+- **Use Graphics to Show Complex Relationships, Not Text:**
+  - ✅ Diagrams for relationships
+  - ✅ Visual representation
+  - ❌ Text descriptions only
+
+- **Create Smooth Transitions Between Content Blocks:**
+  - ✅ Connecting sentences
+  - ✅ Flow between sections
+  - ❌ Abrupt transitions
+
+- **Use Bold for Paragraph Thesis:**
+  - ✅ Key sentence bolded
+  - ✅ Main point highlighted
+  - ❌ Everything bolded
+
+- **Table of Contents Must Tell Story by Itself:**
+  - ✅ Descriptive TOC
+  - ✅ Logical progression visible
+  - ❌ Generic section numbers
+
+- **Each Pyramid Level Must Be Same Type of Thinking:**
+  - ✅ Consistent abstraction
+  - ✅ Same level of detail
+  - ❌ Mixing abstraction levels
+
+- **Use Indentation to Show Idea Subordination:**
+  - ✅ Visual hierarchy
+  - ✅ Nested structure clear
+  - ❌ Flat structure
+
+- **Don't Mix Apples and Oranges in Technical List:**
+  - ✅ Consistent item types
+  - ✅ Same category
+  - ❌ Mixed categories
+
+### 10.4 Clarity and Brevity
+
+- **Be Brief:** If you can say it in one sentence, don't use three
+  - ✅ Concise statements
+  - ✅ No redundancy
+  - ❌ Verbose explanations
+
+- **Use "Deductive Logic" for Arguments:**
+  - ✅ Premise → Conclusion
+  - ✅ Logical reasoning
+  - ❌ Unsupported claims
+
+- **Use "Inductive Logic" for Groupings:**
+  - ✅ Examples → Generalization
+  - ✅ Pattern recognition
+  - ❌ Random grouping
+
+- **Close Each Section with Logical Conclusion:**
+  - ✅ Section summary
+  - ✅ Key takeaway
+  - ❌ Abrupt endings
+
+- **Review Document Symmetry:**
+  - ✅ Balanced structure
+  - ✅ Consistent depth
+  - ❌ Uneven sections
+
+- **Ensure Graphics Are Near Explaining Text:**
+  - ✅ Diagrams near text
+  - ✅ Integrated layout
+  - ❌ All diagrams at end
+
+- **End with Clear "Next Steps":**
+  - ✅ Action items clear
+  - ✅ Next phase defined
+  - ❌ Vague ending
+
+- **Use Introductions with Context, Conflict, and Question:**
+  - ✅ Context: Current situation
+  - ✅ Conflict: Problem or challenge
+  - ✅ Question: What needs to be solved
+  - ❌ No introduction structure
+
+## 11. TECHNICAL SPECIFICATIONS CHECKLIST
+
+### Before Writing
+
+- [ ] Define the problem statement
+- [ ] Identify stakeholders
+- [ ] Create glossary of terms
+- [ ] Check feasibility with current tech
+- [ ] Document assumptions
+
+### While Writing
+
+- [ ] Use "Shall" for mandatory requirements
+- [ ] Write atomic requirements (one per point)
+- [ ] Ensure verifiability (can it be tested?)
+- [ ] Prioritize using MoSCoW
+- [ ] Specify data constraints (type, length, format)
+- [ ] Define error handling
+- [ ] Include performance benchmarks (numbers, not adjectives)
+- [ ] Document security requirements
+- [ ] Add diagrams (architecture, state transitions, domain models)
+- [ ] Include code snippets and API contracts
+- [ ] Use active voice
+- [ ] Omit needless words
+- [ ] Avoid quality adverbs ("fast," "easy")
+- [ ] Use figures for numbers
+
+### Visual Design
+
+- [ ] Maximize data-ink ratio (remove chartjunk)
+- [ ] Use direct labels on charts (not distant legends)
+- [ ] Provide context for data (baselines, comparisons)
+- [ ] Use consistent scales across related charts
+- [ ] Apply CRAP principles (Contrast, Repetition, Alignment, Proximity)
+- [ ] Use left-aligned text (not centered)
+- [ ] Create clear visual hierarchy (H1, H2, H3)
+- [ ] Group related elements together
+- [ ] Use tables for comparisons
+- [ ] Highlight keywords in bold for scanning
+- [ ] Maintain consistent symbol usage
+- [ ] Use standard icons (cloud, database, etc.)
+- [ ] Keep diagrams self-sufficient (clear titles, labels)
+- [ ] Avoid cognitive overload (max 7-10 elements per diagram)
+- [ ] Use white space effectively
+- [ ] Ensure accessible color contrast
+- [ ] Highlight "Happy Path" with thicker lines
+- [ ] Use small multiples for comparisons
+- [ ] Integrate text and graphics (diagrams near relevant text)
+
+### Architecture & Data Modeling
+
+- [ ] Use C4 Model (Context, Containers, Components, Code)
+- [ ] Diagram context first (system interactions)
+- [ ] Avoid "mystery box" diagrams (clear names and responsibilities)
+- [ ] Differentiate synchronous (solid) vs asynchronous (dashed) flows
+- [ ] Use sequence diagrams for temporal logic
+- [ ] Show data flow direction with clear arrows
+- [ ] Document side effects visually
+- [ ] Identify component couplings (dependency arrows)
+- [ ] Visualize bounded contexts (microservices boundaries)
+- [ ] Use colors for capabilities (internal vs external)
+- [ ] Indicate protocols on connection lines (HTTPS, gRPC, AMQP)
+- [ ] Use industry icons (AWS, Azure, Docker)
+- [ ] Show failure points (Circuit Breakers)
+- [ ] Define legend for all symbols
+- [ ] Avoid spaghetti diagrams (split if too complex)
+- [ ] Use standard ERD notation (IE/Crow's Foot)
+- [ ] Entities are nouns ("Invoice" not "Invoicing")
+- [ ] Show cardinality clearly (1:1, 1:N, N:N)
+- [ ] Avoid M:N relationships (use junction tables)
+- [ ] Indicate optionality (solid = required, dashed = optional)
+- [ ] Use verbal relationship names ("Customer places Order")
+- [ ] Organize by hierarchy (master tables top, detail bottom)
+- [ ] Use right-angle layout (orthogonal lines)
+- [ ] Highlight foreign keys clearly
+- [ ] Use singular table names
+- [ ] Differentiate configuration from transaction tables
+- [ ] Review information density (readable text size)
+
+### Information Architecture & Flows
+
+- [ ] Design for scanning (clear visual hierarchy)
+- [ ] Define user flows step-by-step
+- [ ] Use low-fidelity wireframes (structure first)
+- [ ] Label with clarity (obvious menu names)
+- [ ] Show empty states and error states
+- [ ] Use diamonds for decisions (Yes/No)
+- [ ] Align flows left to right (natural reading)
+- [ ] Use swimlanes (User vs System)
+- [ ] Document exit points
+- [ ] Show expected latency in flows
+- [ ] Minimize clicks (optimized paths)
+- [ ] Use consistent iconography
+- [ ] Avoid dead ends in flow diagrams
+- [ ] Use neutral background colors
+- [ ] Highlight primary action (CTA)
+- [ ] Show adaptability (mobile vs desktop)
+- [ ] Ensure accessible color contrast
+
+### Logical Structure (Pyramid Principle)
+
+- [ ] Main idea goes first (executive summary)
+- [ ] Use pyramid format (summary → key points → details)
+- [ ] Group related ideas (3-5 items per group)
+- [ ] Follow logical order (chronological, structural, importance)
+- [ ] Structure is MECE (Mutually Exclusive, Collectively Exhaustive)
+- [ ] Eliminate redundancy between paragraphs
+- [ ] Use comparison tables for decisions
+- [ ] Use graphics for complex relationships (not text)
+- [ ] Create smooth transitions between sections
+- [ ] Use bold for paragraph thesis
+- [ ] Table of contents tells story by itself
+- [ ] Each level same type of thinking (consistent abstraction)
+- [ ] Use indentation for idea subordination
+- [ ] Don't mix categories in lists
+- [ ] Be brief (one sentence if possible)
+- [ ] Close each section with logical conclusion
+- [ ] Review document symmetry
+- [ ] Graphics near explaining text
+- [ ] End with clear "Next Steps"
+- [ ] Use introductions with Context, Conflict, Question
+
+### After Writing
+
+- [ ] Add table of contents
+- [ ] Include version history
+- [ ] Link to parent requirements
+- [ ] Document breaking changes
+- [ ] Add troubleshooting section
+- [ ] Include deployment steps
+- [ ] Specify logging/monitoring
+- [ ] Add rollback plan
+- [ ] Review with developers
+- [ ] Solicit peer reviews
+- [ ] Check for missing requirements
+- [ ] Verify all links work
+- [ ] Ensure consistency with style guide
+
+## 12. EXAMPLE STRUCTURE
+
+````markdown
+# [Feature Name] - Technical Specification
+
+## Version History
+
+- v1.0 (2026-02-03): Initial specification
+
+## Table of Contents
+
+1. Problem Statement
+2. Solution Overview
+3. Requirements
+4. Architecture
+5. API Contracts
+6. Data Model
+7. Error Handling
+8. Performance
+9. Security
+10. Deployment
+11. Testing
+12. Monitoring
+
+## 1. Problem Statement
+
+**Problem:** [Clear problem description]
+
+**User Need:** [What users need]
+
+**Business Requirement:** [Link to BR-XXX]
+
+## 2. Solution Overview
+
+**Solution:** [High-level approach]
+
+**Key Components:**
+
+- Component 1: [Description]
+- Component 2: [Description]
+
+[Architecture Diagram]
+
+## 3. Requirements
+
+### 3.1 Must Have (MoSCoW)
+
+**REQ-1:** The system SHALL [requirement]
+
+- **Verification:** [How to test]
+- **Priority:** Must have
+
+### 3.2 Should Have
+
+**REQ-2:** The system SHOULD [requirement]
+
+- **Verification:** [How to test]
+- **Priority:** Should have
+
+### 3.3 Won't Have (Future Phase)
+
+**REQ-3:** Batch processing (Future Phase)
+
+- **Rationale:** [Why deferred]
+
+## 4. Architecture
+
+### 4.1 High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Component A                               │
+│  - Responsibility: [Clear description]                       │
+│  - Dependencies: Component B, Component C                   │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Component B                               │
+│  - Responsibility: [Clear description]                       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Design Notes:**
+
+- ✅ Clear visual hierarchy (larger boxes = more important)
+- ✅ Consistent symbols (rectangles for components)
+- ✅ Direct labels (no legend needed)
+- ✅ Minimal chartjunk (no shadows, 3D effects)
+- ✅ Left-to-right flow (natural reading pattern)
+
+### 4.2 Components
+
+[Component descriptions with consistent formatting]
+
+### 4.3 Data Flow
+
+```
+┌──────────┐      ┌──────────┐      ┌──────────┐
+│   User   │─────▶│   API    │─────▶│ Database │
+└──────────┘      └──────────┘      └──────────┘
+     │                 │                 │
+     │                 ▼                 │
+     │            ┌──────────┐           │
+     └───────────▶│  Cache   │◀──────────┘
+                  └──────────┘
+```
+
+**Design Notes:**
+
+- ✅ Thick lines for primary flow (Happy Path)
+- ✅ Thin lines for secondary flows
+- ✅ Standard icons (user, database, cache)
+- ✅ Clear direction (arrows show actual flow)
+- ✅ Self-sufficient (title explains purpose)
+
+## 5. API Contracts
+
+### 5.1 Endpoint: POST /api/resource
+
+**Request:**
+
+```typescript
+interface Request {
+  field1: string; // Required, max 255 chars
+  field2?: number; // Optional
+}
+```
+````
+
+**Response:**
+
+```typescript
+interface Response {
+  id: string;
+  status: 'success' | 'error';
+}
+```
+
+**Error Responses:**
+
+- 400: Validation error
+- 401: Unauthorized
+- 500: Internal server error
+
+## 6. Data Model
+
+[Entity relationship diagram]
+
+[Table descriptions]
+
+## 7. Error Handling
+
+**Error Types:**
+
+- Validation errors: HTTP 400
+- Authentication errors: HTTP 401
+- System errors: HTTP 500
+
+**Retry Strategy:**
+
+- Max retries: 3
+- Exponential backoff: 2^retryCount \* 100ms
+
+## 8. Performance
+
+### 8.1 Performance Requirements
+
+| Metric       | Target     | Measurement Method             |
+| ------------ | ---------- | ------------------------------ |
+| P95 Latency  | < 200ms    | 95th percentile response time  |
+| Throughput   | 1000 req/s | Requests per second under load |
+| Availability | 99.9%      | Uptime percentage              |
+
+**Design Notes:**
+
+- ✅ Right-aligned numbers for easy comparison
+- ✅ Left-aligned labels
+- ✅ Minimal borders
+- ✅ Clear column headers
+- ✅ Consistent formatting
+
+### 8.2 Performance Comparison
+
+**Before vs. After Optimization:**
+
+| Scenario    | Before    | After      | Improvement   |
+| ----------- | --------- | ---------- | ------------- |
+| P95 Latency | 500ms     | 180ms      | 64% faster    |
+| Throughput  | 500 req/s | 1200 req/s | 140% increase |
+| Error Rate  | 2.5%      | 0.1%       | 96% reduction |
+
+**Design Notes:**
+
+- ✅ Table format for comparison (not paragraphs)
+- ✅ Numbers right-aligned
+- ✅ Clear improvement column
+- ✅ Consistent units
+
+## 9. Security
+
+**Authentication:** OAuth 2.0
+**Authorization:** Role-based access control
+**Data Encryption:** AES-256 at rest
+
+## 10. Deployment
+
+[Deployment steps]
+
+**Rollback Plan:**
+[Rollback procedure]
+
+## 11. Testing
+
+**Unit Tests:** [Coverage requirements]
+**Integration Tests:** [Test scenarios]
+**Performance Tests:** [Load testing]
+
+## 12. Monitoring
+
+**Metrics:**
+
+- Request rate
+- Error rate
+- Latency (P50, P95, P99)
+
+**Alerts:**
+
+- Error rate > 1%
+- Latency P95 > 500ms
+
+## Glossary
+
+- **Term 1:** Definition
+- **Term 2:** Definition
+
+## References
+
+- [Related documents]
+- [External APIs]
+- [Architecture Decision Records]
+
+```
+
+## 13. COMMON MISTAKES TO AVOID
+
+### Language Mistakes
+
+- ❌ Using "should" for mandatory requirements
+- ❌ Using quality adverbs without numbers ("fast," "easy")
+- ❌ Writing in passive voice
+- ❌ Using vague language ("some," "many," "few")
+- ❌ Including opinions instead of facts
+
+### Structure Mistakes
+
+- ❌ Missing problem statement
+- ❌ No glossary for domain terms
+- ❌ Missing diagrams for complex systems
+- ❌ No version history
+- ❌ Requirements that can't be verified
+
+### Content Mistakes
+
+- ❌ Non-atomic requirements (multiple things in one)
+- ❌ Missing error handling specifications
+- ❌ No performance benchmarks
+- ❌ Undefined data constraints
+- ❌ Missing security requirements
+
+### Maintenance Mistakes
+
+- ❌ Documentation not updated with code
+- ❌ Dead documentation for deleted features
+- ❌ Duplicated content instead of linking
+- ❌ No decision rationale
+- ❌ Missing assumptions
+
+### Visual Design Mistakes
+
+- ❌ Chartjunk (3D effects, shadows, decorations)
+- ❌ Distorted scales to exaggerate differences
+- ❌ Too many elements in one diagram (cognitive overload)
+- ❌ Inconsistent symbols/icons throughout document
+- ❌ Centered body text (should be left-aligned)
+- ❌ Poor color contrast (accessibility issues)
+- ❌ No visual hierarchy (all headings same size)
+- ❌ Diagrams requiring extensive explanation
+- ❌ Random placement of elements (no alignment)
+- ❌ Everything same color (no contrast)
+- ❌ Cramped layout (no white space)
+- ❌ Missing context in charts (no baselines)
+- ❌ Using areas to compare linear numbers
+- ❌ Decorative arrows (not showing real flow)
+- ❌ Too many font types in one diagram
+
+### Architecture Diagramming Mistakes
+
+- ❌ Mystery box diagrams (unclear names, no responsibilities)
+- ❌ Mixing abstraction levels (database + class in same diagram)
+- ❌ All lines same style (no sync/async distinction)
+- ❌ Spaghetti diagrams (too many crossing lines)
+- ❌ No legend (assuming reader knows symbols)
+- ❌ Unlabeled connections (no protocols indicated)
+- ❌ Missing failure points (no resilience shown)
+- ❌ Outdated diagrams (more dangerous than no diagram)
+- ❌ Jumping to code details without context diagram
+- ❌ No visual boundaries for bounded contexts
+- ❌ Random colors (no meaning)
+- ❌ Too many components in one diagram (50+)
+
+### Data Modeling Mistakes
+
+- ❌ Custom notation (not standard ERD)
+- ❌ Entities as verbs ("Invoicing" instead of "Invoice")
+- ❌ Unclear cardinality (ambiguous relationships)
+- ❌ Direct M:N relationships (not decomposed)
+- ❌ Unclear optionality (no solid/dashed distinction)
+- ❌ Unlabeled relationships (no verb phrases)
+- ❌ Diagonal spaghetti (not orthogonal layout)
+- ❌ Entity soup (too many tables in one diagram)
+- ❌ Unclear foreign keys
+- ❌ Plural table names ("Customers" instead of "Customer")
+- ❌ Mixed logical and physical in same diagram
+- ❌ Derived attributes in model
+- ❌ Cramped text (poor information density)
+- ❌ No data type definitions in physical model
+
+### Information Architecture Mistakes
+
+- ❌ Dense text blocks (not scannable)
+- ❌ Unclear user flows (no step-by-step)
+- ❌ High-fidelity before structure validation
+- ❌ Technical jargon in labels
+- ❌ No empty/error states shown
+- ❌ Rectangles for decisions (should be diamonds)
+- ❌ Random flow directions
+- ❌ Dead ends in flow diagrams
+- ❌ No exit points documented
+- ❌ Too many clicks (unoptimized paths)
+- ❌ Inconsistent iconography
+- ❌ Low color contrast (accessibility issues)
+- ❌ No platform adaptability shown
+
+### Logical Structure Mistakes
+
+- ❌ Main idea at end (should be first)
+- ❌ Bottom-up structure (should be pyramid)
+- ❌ Lists of 10+ items (should be 3-5)
+- ❌ Random order (no logical sequence)
+- ❌ Overlapping sections (not MECE)
+- ❌ Redundant paragraphs
+- ❌ Text descriptions for complex relationships (should be graphics)
+- ❌ Abrupt transitions between sections
+- ❌ Everything bolded (no emphasis)
+- ❌ Generic TOC (doesn't tell story)
+- ❌ Mixed abstraction levels in same section
+- ❌ Flat structure (no indentation/hierarchy)
+- ❌ Mixed categories in lists
+- ❌ Verbose explanations (should be brief)
+- ❌ No section conclusions
+- ❌ Uneven document symmetry
+- ❌ All diagrams at end (should be near text)
+- ❌ Vague ending (no clear next steps)
+
+---
+
+**Remember:** A great technical specification is clear, complete, verifiable, maintainable, visually structured, logically organized, and architecturally sound. The visual design and logical structure determine whether the team will read the document or ignore it. Revise and rewrite until it shines.
+```

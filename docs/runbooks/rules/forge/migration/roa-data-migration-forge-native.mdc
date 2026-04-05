@@ -1,0 +1,725 @@
+# ROA DATA MIGRATION - FORGE-NATIVE IMPLEMENTATION RULES
+
+This document contains comprehensive rules for implementing data migration from Data Center (DC) to Runs on Atlassian (RoA) using Forge-native capabilities. The solution leverages Async Events API, Migration Platform API, and KVS to handle thousands of pages without external infrastructure.
+
+## Core Principles
+
+### Principle 1: Leverage Forge-Native Capabilities
+
+- Use Async Events API with 900s timeout (vs 25s standard functions, default 55s for async events) for extended processing
+- Use Migration Platform API for data access (Migration Platform handles storage internally)
+- Use Cyclic Invocation Pattern for processing thousands of items sequentially
+- Use Progressive Event Acknowledgment to prevent 15-minute timeouts
+- Use KVS for progress tracking (simpler than SQL, sufficient for use case)
+
+### Principle 2: Optimize for Forge Platform Limits
+
+- Async Events API: 900s maximum timeout (default 55s, configurable up to 900s) enables 50-200 entities per chunk (vs 5-10 with standard 25s timeout)
+- Event Push Limits: Maximum 50 events per push request, 200 KB combined payload
+- Cyclic Invocation Limit: 1000 depth (monitor and handle if exceeded)
+- Retention Window: 24 hours initial, extendable up to 96 hours total (extended due to retries and platform performance issues)
+- Event Acknowledgment: Must acknowledge within 15 minutes (use progressive pattern)
+
+### Principle 3: Process Entities in Dependency Order
+
+- GlobalWorkflows (no dependencies) → SpaceWorkflows → CurrentState → DocActivity → Metadata
+- Process entity types sequentially, but entities within chunks in parallel
+- Respect logical dependencies between entity types
+
+## Architecture Rules
+
+### Rule 1: Migration Event Handler Pattern
+
+- **Location:** `src/events/migration/MigrationEventHandler.ts`
+- **Timeout:** 25 seconds (standard timeout - handler just triggers processing)
+- **Responsibilities:**
+  - Listen to migration platform events: `avi:ecosystem.migration:triggered:listener`, `avi:ecosystem.migration:uploaded:app_data`, `avi:ecosystem.migration:completed:export_phase`, `avi:ecosystem.migration:settled:transfer`
+  - Store `messageId` in KVS for later acknowledgment: `migration:${transferId}:messageId`
+  - Initialize progress tracking in KVS
+  - Trigger data processing (non-blocking - processing happens in Async Events consumer)
+  - **DO NOT** acknowledge events immediately - acknowledgment happens as chunks complete
+
+### Rule 2: Migration Data Processor Pattern
+
+- **Location:** `src/modules/data-migration-roa/backend/services/MigrationDataProcessor.ts`
+- **Steps:**
+  1. Get list of all app data: `migration.getAppDataList(transferId)` - Returns `Set<AppData>` where `AppData = { key, label }`
+  2. Group by entity type (label): `pageactivity`, `spaceworkflow`, `globalworkflow`, `csvactivity`, `metadata`
+  3. Retrieve payloads incrementally: `migration.getAppDataPayload(key)` - Returns `APIResponse` with `json()`, `text()`, `arrayBuffer()` methods
+  4. Validate entities (check required fields, data types, relationships)
+  5. Convert entities (transform DC format to RoA format)
+  6. Publish pre-migration summary via `migration.addLog(transferId, message)`
+  7. Create chunks optimized for Async Events API (900s timeout)
+  8. Enqueue chunks in processing order (dependency order: globalworkflow → spaceworkflow → pageactivity → csvactivity → metadata)
+
+### Rule 3: Chunking Strategy
+
+- **Location:** `src/modules/data-migration-roa/backend/services/ChunkingService.ts`
+- **Chunk Size Calculation:**
+  - Base: Async Events API provides 900s timeout
+  - Safety Margin: Use 70% of timeout (630s) to account for overhead
+  - Processing Time Estimates:
+    - `globalworkflow`: 3 seconds per entity
+    - `spaceworkflow`: 5 seconds per entity
+    - `pageactivity`: 8 seconds per entity
+    - `csvactivity`: 5 seconds per entity
+    - `metadata`: 3 seconds per entity
+  - Formula: `chunkSize = min(floor(630s / timePerEntity), ceil(totalEntities / 100), 200)`
+  - Practical Limits: Minimum 10 entities, maximum 200 entities per chunk
+- **Chunk Creation:**
+  - Group entities by type first
+  - Calculate optimal chunk size per entity type
+  - Create chunks with metadata: `{ entities, chunkIndex, totalChunks, entityType, estimatedProcessingTime }`
+  - Store chunk data in KVS for later retrieval: `migration:${transferId}:chunk:${chunkIndex}:${entityType}`
+
+### Rule 4: Async Events API Queue Setup (v2.0.0+)
+
+- **Version:** @forge/events 2.0.0+ (breaking changes from v1.x)
+- **Location:** `src/modules/data-migration-roa/backend/services/MigrationQueueService.ts`
+- **Queue Creation:** `new Queue({ key: 'migration-entity-queue' })`
+- **Event Push Pattern (v2.0.0):**
+  ```typescript
+  import { Queue } from '@forge/events';
+  
+  const queue = new Queue({ key: 'migration-entity-queue' });
+  
+  // Push single event - body MUST be an object
+  const { jobId } = await queue.push({
+    body: {
+      eventType: 'migration.chunk.ready',
+      transferId: 'transfer-123',
+      chunkId: 'chunk-456',
+      entityIds: ['entity-1', 'entity-2']
+    },
+    delayInSeconds: 5  // Optional delay (up to 15 minutes)
+  });
+  
+  // Push multiple events (max 50 per request, 200 KB total)
+  const result = await queue.push([
+    { body: { eventType: 'migration.started', transferId: 'transfer-123' } },
+    { body: { eventType: 'migration.chunk.ready', chunkId: 'chunk-456' } }
+  ]);
+  ```
+- **Breaking Changes from v1.x:**
+  - `body` MUST be an object (`Record<string, unknown>`), not a primitive type
+  - `delayInSeconds` is now part of `PushEvent` object, not a separate parameter
+  - Returns `PushResult` with `jobId` directly (not just a string)
+- **Error Handling for Queue.push():**
+  ```typescript
+  import { Queue, RateLimitError, TooManyEventsError, PayloadTooBigError, PartialSuccessError } from '@forge/events';
+  
+  try {
+    const queue = new Queue({ key: 'migration-entity-queue' });
+    await queue.push({ body: { ... } });
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      // Retry after a minute
+      await sleep(60000);
+      await queue.push({ body: { ... } });
+    } else if (error instanceof TooManyEventsError) {
+      // Split into smaller batches (max 50 events)
+      const batches = chunkArray(events, 50);
+      for (const batch of batches) {
+        await queue.push(batch.map(e => ({ body: e })));
+      }
+    } else if (error instanceof PayloadTooBigError) {
+      // Reduce payload size (max 200 KB combined)
+      const smallerBatch = reducePayloadSize(events);
+      await queue.push(smallerBatch.map(e => ({ body: e })));
+    } else if (error instanceof PartialSuccessError) {
+      // Some events failed - inspect failedEvents
+      const failedEvents = error.failedEvents;
+      // Retry failed events
+      await queue.push(failedEvents.map(e => ({ body: e })));
+    }
+  }
+  ```
+- **Error Types:**
+  - `RateLimitError`: Total events pushed per minute exceeds limits - retry after a minute
+  - `TooManyEventsError`: More than 50 events pushed in single request - split into batches
+  - `PayloadTooBigError`: Combined payload exceeded 200 KB - reduce payload size
+  - `PartialSuccessError`: Some events not recorded - inspect `failedEvents` property
+  - `InvalidQueueNameError`: Queue name invalid (must be alphanumeric, can start with _)
+  - `InvocationLimitReachedError`: Cyclic invocation limit (1000) exceeded
+- **Manifest Configuration (v2.0.0):**
+
+  ```yaml
+  consumer:
+    - key: migration-entity-consumer
+      queue: migration-entity-queue
+      function: migration-entity-processor  # Function reference (not resolver)
+
+  function:
+    - key: migration-entity-processor
+      handler: src/events/async_events_consumers/MigrationEntityChunkConsumer.handler
+      timeoutSeconds: 900  # Extended timeout for Async Events API (up to 900s)
+  ```
+- **Breaking Changes from v1.x:**
+  - Consumers use Functions directly, not Forge resolvers
+  - Handler signature: `handler(event: AsyncEvent, context)` instead of resolver definitions
+- **Job Progress Tracking (v2.0.0):**
+  ```typescript
+  import { Queue } from '@forge/events';
+  
+  const queue = new Queue({ key: 'migration-entity-queue' });
+  
+  // Push events and get jobId
+  const { jobId } = await queue.push([
+    { body: { event: 'event1' } },
+    { body: { event: 'event2' } }
+  ]);
+  
+  // Get JobProgress instance
+  const jobProgress = queue.getJob(jobId);
+  
+  // Get stats directly (returns JobStats object, not APIResponse)
+  const { success, inProgress, failed } = await jobProgress.getStats();
+  
+  // Cancel job if needed
+  await jobProgress.cancel();
+  ```
+  **Breaking Changes from v1.x:**
+  - `getStats()` returns `JobStats` object directly, not `APIResponse`
+  - No need to call `.json()` on the response
+  - `cancel()` no longer returns `APIResponse`
+
+### Rule 5: Async Events Consumer Pattern (v2.0.0+)
+
+- **Location:** `src/events/async_events_consumers/MigrationEntityChunkConsumer.ts`
+- **Timeout:** 900 seconds (15 minutes) maximum - leverage full timeout for processing larger chunks (default is 55s, must configure `timeoutSeconds: 900` in manifest)
+- **Consumer Handler Implementation (v2.0.0):**
+  ```typescript
+  import { AsyncEvent, InvocationError, InvocationErrorCode } from '@forge/events';
+  
+  interface MigrationChunkEventBody {
+    eventType: 'migration.chunk.ready';
+    transferId: string;
+    chunkId: string;
+    entityIds: string[];
+  }
+  
+  export async function handler(event: AsyncEvent, context: any): Promise<void> {
+    // event.body contains the PushEvent.body
+    const body = event.body as MigrationChunkEventBody;
+    
+    // event.jobId is directly available (not via context)
+    const jobId = event.jobId;
+    
+    // event.retryContext contains retry information
+    const {
+      retryCount,
+      retryReason,
+      retryData,
+      retentionWindow
+    } = event.retryContext;
+    
+    // Check retention window - warn if < 1 hour
+    if (retentionWindow) {
+      const { startTime, remainingTimeMs } = retentionWindow;
+      if (remainingTimeMs < 60 * 60 * 1000) {  // Less than 1 hour
+        Logger.warn({
+          message: 'Retention window expiring soon',
+          data: { remainingTimeMs, jobId }
+        });
+      }
+      
+      // Check if enough time remains (minimum 5 minutes recommended)
+      if (remainingTimeMs < 5 * 60 * 1000) {
+        throw new Error('Retention window expiring soon - not enough time to process');
+      }
+    }
+    
+    // Process the chunk
+    try {
+      await processChunk(body.chunkId, body.entityIds);
+    } catch (error) {
+      // Request retry if retention window allows
+      if (retentionWindow?.remainingTimeMs > 0) {
+        // For rate-limited upstream APIs, use FUNCTION_UPSTREAM_RATE_LIMITED
+        if (error instanceof RateLimitError) {
+          return new InvocationError({
+            retryAfter: parseInt(error.headers?.get('Retry-After') || '60'),
+            retryReason: InvocationErrorCode.FUNCTION_UPSTREAM_RATE_LIMITED,
+            retryData: { chunkId: body.chunkId }
+          });
+        }
+        
+        // For other retryable errors, use default retry
+        throw error;  // Will be retried automatically within retention window
+      }
+    }
+  }
+  ```
+- **Processing Flow:**
+  1. Check retention window: `event.retryContext?.retentionWindow?.remainingTimeMs` - warn if < 1 hour
+  2. Get appropriate operation executor for entity type
+  3. Process entities in parallel within chunk using `Promise.all()`
+  4. Track chunk completion in KVS: `migration:${transferId}:chunk:${chunkIndex}`
+  5. Acknowledge event progressively (as chunks complete, not when received)
+  6. Update overall progress
+  7. Queue next chunk if more exist (cyclic invocation, up to 1000 depth limit)
+  8. Determine final status if final chunk
+- **Error Handling:**
+  - Request retry for transient errors using `InvocationError` with exponential backoff
+  - Retryable status codes: 429, 500, 502, 503, 504
+  - Retry delay: `min(pow(2, retryCount) * 5, 900)` seconds
+  - Use `InvocationErrorCode.FUNCTION_UPSTREAM_RATE_LIMITED` for rate-limited upstream APIs
+  - Maximum `retryAfter`: 900 seconds (15 minutes)
+  - Maximum `retryData` size: 4KB (enforced from Nov 13, 2025)
+- **Retry Context (v2.0.0):**
+  ```typescript
+  interface RetryContext {
+    retryCount: number;  // Number of retry attempts (platform-level errors don't increment)
+    retryReason: string;  // String in v2.0.0 (not InvocationErrorCode enum)
+    retryData: any;  // Additional data for retry (max 4KB)
+    retentionWindow?: RetentionWindow;  // Added in v2.0.0
+  }
+  
+  interface RetentionWindow {
+    startTime: string;  // ISO-8601 format
+    remainingTimeMs: number;  // Milliseconds remaining
+  }
+  ```
+- **Retention Window Details:**
+  - **Default Duration**: 24 hours from when event is enqueued
+  - **Extended Duration**: Up to 96 hours if extended due to platform performance issues or retries
+  - **Retries**: Based on retention window, not fixed retry count (previously 4 retries)
+  - **Expiration**: If exceeded due to app-level errors, event is dropped; if exceeded due to platform-level errors, event is not dropped but no longer retried automatically
+
+### Rule 6: Progressive Event Acknowledgment Pattern
+
+- **Location:** `src/modules/data-migration-roa/backend/services/EventAcknowledgmentService.ts`
+- **Problem:** Processing thousands of pages takes longer than 15-minute acknowledgment window
+- **Solution:** Acknowledge after first chunk completes (within 15 minutes), then continue processing
+- **Pattern:**
+  1. Store `messageId` when event received: `kvs.set('migration:${transferId}:messageId', messageId)`
+  2. Process first chunk (typically completes within 5 minutes)
+  3. Acknowledge event: `migration.messageProcessed(transferId, messageId)` ✅ (within 15 min)
+  4. Continue processing remaining chunks (no timeout risk - already acknowledged)
+  5. Check if already acknowledged before attempting acknowledgment
+- **Acknowledgment Triggers:**
+  - First chunk (`chunkIndex === 0`)
+  - Every 10 chunks (`chunkIndex % 10 === 0`)
+  - Final chunk (`chunkIndex === totalChunks - 1`)
+
+### Rule 7: Cyclic Invocation Pattern
+
+- **Pattern:** Process chunk → If more chunks exist → Queue next chunk → Consumer processes next chunk → Repeat
+- **Depth Limit:** 1000 cyclic invocations (Note: This limit is based on practical experience; not explicitly documented in official Forge limits. Can request increase through platform limits page if needed)
+- **Tracking:** Monitor depth in KVS: `migration:${transferId}:depth`
+- **Warning:** Log warning if depth >= 950
+- **Limit Handling:**
+  - Option 1: Request limit increase through platform limits page (contact Atlassian)
+  - Option 2: Implement checkpoint/resume pattern (store checkpoint in KVS, schedule resume via scheduled trigger)
+  - Option 3: Use scheduled trigger to break cyclic invocation chain
+- **Implementation:**
+  ```typescript
+  if (chunkIndex < totalChunks - 1) {
+    const currentDepth = (await kvs.get(`migration:${transferId}:depth`)) || 0;
+    if (currentDepth < 1000) {
+      await queue.push({ body: { ...nextChunk } });
+      await kvs.set(`migration:${transferId}:depth`, currentDepth + 1);
+    } else {
+      await implementCheckpointResume(transferId, nextChunkIndex);
+    }
+  }
+  ```
+
+### Rule 8: Progress Tracking with KVS
+
+- **Location:** `src/modules/data-migration-roa/backend/services/MigrationProgressTracker.ts`
+- **Key Structure:** `migration:${transferId}:{category}:{identifier}`
+- **Progress Structure:**
+  ```typescript
+  interface MigrationProgress {
+    transferId: string;
+    status: 'IN_PROGRESS' | 'SUCCESS' | 'FAILED' | 'INCOMPLETE';
+    percent: number;
+    message: string;
+    startedAt: Date;
+    completedAt?: Date;
+    totalChunks: number;
+    completedChunks: number;
+    entityTypes: { [type: string]: { total: number; completed: number; failed: number } };
+  }
+  ```
+- **Chunk Status Structure:**
+  ```typescript
+  interface ChunkStatus {
+    chunkIndex: number;
+    status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+    startedAt?: Date;
+    completedAt?: Date;
+    entityCount: number;
+    successCount: number;
+    failedCount: number;
+    errors?: Array<{ entityId: string; error: string }>;
+  }
+  ```
+- **Progress Calculation:**
+  - Calculate percentage: `Math.ceil((completedChunks / totalChunks) * 100)`
+  - Cap at 99% until final chunk
+  - Report progress every 10 chunks or on milestones via `migration.addLog(transferId, message)`
+  - Maximum message length: 65536 characters
+
+### Rule 9: Entity-Specific Operations
+
+- **Location:** `src/modules/data-migration-roa/backend/operations/`
+- **GlobalWorkflowsOperation:**
+  - Endpoint: `POST /rest/workflow/1/migration/global/definition`
+  - Processing Time: ~2-5 seconds per workflow
+  - Chunk Size: ~100-200 workflows per chunk
+  - Idempotency: Handle 409 status (already exists) - skip gracefully
+- **SpaceWorkflowsOperation:**
+  - Endpoints: `POST /rest/workflow/1/migration/space/definition` (space-specific), `POST /rest/workflow/1/migration/space/definition/link` (linked global)
+  - Processing Time: ~3-7 seconds per workflow (includes space validation)
+  - Chunk Size: ~70-140 workflows per chunk
+  - Validation: Validate space exists before processing
+- **CurrentStateOperation:**
+  - Multiple API Calls: 3 API calls per entity (cw-status v1, cwc-state v1, cdm-status v2)
+  - Processing Time: ~5-10 seconds per entity
+  - Chunk Size: ~60-120 entities per chunk
+  - Steps: Set cw-status (v1), set cwc-state custom content (v1), migrate to cdm-status (v2)
+  - Handle JSON size limit (32KB) - truncate or split if exceeded
+- **DocActivityOperation:**
+  - API: Confluence API v1 custom content
+  - Processing Time: ~3-6 seconds per entity
+  - Chunk Size: ~100-200 entities per chunk
+- **MetadataOperation:**
+  - Endpoint: `POST /rest/workflow/1/migration/metadata/{contentId}`
+  - Processing Time: ~2-4 seconds per entity
+  - Chunk Size: ~150-300 entities per chunk
+
+### Rule 10: Error Handling and Classification
+
+- **Retryable Errors:** 429 (Rate Limit), 500 (Internal Server Error), 502 (Bad Gateway), 503 (Service Unavailable), 504 (Gateway Timeout)
+- **Skippable Errors:** CurrentStateError (missing space, invalid content), DocActivityError (content not found), MetadataError (space not found)
+- **Skippable Error Limit:** Maximum 20 skippable errors allowed per migration
+- **Fatal Errors:** Validation failures, missing required data, authentication failures
+- **Retry Logic (v2.0.0):**
+  - Automatic retries: Async Events API handles retries automatically within retention window (24-96 hours)
+  - Retries are based on retention window, not fixed retry count (previously 4 retries)
+  - Manual retry request: Use `InvocationError` for app-level retry requests
+  - Retry after: Maximum 900 seconds (15 minutes)
+  - Retry reason codes: `FUNCTION_RETRY_REQUEST` (default), `FUNCTION_UPSTREAM_RATE_LIMITED` (for rate-limited upstream APIs)
+- **Async Events API Error Handling:**
+  ```typescript
+  import { 
+    Queue, 
+    RateLimitError, 
+    TooManyEventsError, 
+    PayloadTooBigError, 
+    PartialSuccessError,
+    InvalidQueueNameError,
+    InvocationLimitReachedError
+  } from '@forge/events';
+  
+  try {
+    await queue.push({ body: { ... } });
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      // Retry after a minute
+      await sleep(60000);
+    } else if (error instanceof TooManyEventsError) {
+      // Split into batches of 50
+    } else if (error instanceof PayloadTooBigError) {
+      // Reduce payload size (max 200 KB)
+    } else if (error instanceof PartialSuccessError) {
+      // Inspect error.failedEvents and retry failed events
+      const failedEvents = error.failedEvents;
+    } else if (error instanceof InvocationLimitReachedError) {
+      // Cyclic invocation limit (1000) exceeded - implement checkpoint/resume
+    }
+  }
+  ```
+- **Consumer Error Handling:**
+  ```typescript
+  import { AsyncEvent, InvocationError, InvocationErrorCode } from '@forge/events';
+  
+  export async function handler(event: AsyncEvent): Promise<void> {
+    try {
+      await processEvent(event.body);
+    } catch (error) {
+      // Check retention window before requesting retry
+      if (event.retryContext.retentionWindow?.remainingTimeMs > 0) {
+        // For upstream rate limits
+        if (isUpstreamRateLimit(error)) {
+          return new InvocationError({
+            retryAfter: getRetryAfter(error),
+            retryReason: InvocationErrorCode.FUNCTION_UPSTREAM_RATE_LIMITED,
+            retryData: { /* max 4KB */ }
+          });
+        }
+        
+        // For other retryable errors
+        throw error;  // Will be retried automatically
+      }
+    }
+  }
+  ```
+
+### Rule 11: Rerun Support (Idempotency)
+
+- **Check Existence:** Before creating entities, check if they already exist (rerun mode)
+- **SQL Idempotency:** Use `ON DUPLICATE KEY UPDATE` or `INSERT ... ON CONFLICT` patterns
+- **409 Conflict Handling:** Handle 409 status codes gracefully - skip if already exists
+- **Example:**
+  ```typescript
+  if (response.status === 409) {
+    Logger.debug({ entityId, message: 'Already exists, skipping' });
+    return; // Skip - idempotent
+  }
+  ```
+
+### Rule 12: Database Schema Compliance
+
+- **Reference:** Follow database schema rules in `.cursor/rules/database-schema.mdc` and consult `docs/database-schema.md` for complete schema definitions
+- **Table Operations:**
+  - Insert data into appropriate tables: `Workflow`, `ContentState`, `ContentApproval`, `DocumentActivity`, `Messages`, `ContentParameterAndMetadata`, `ContentParameterHistory`, `WorkflowLink`, `WorkflowLabel`, `WorkflowVersion`, `WorkflowParameter`, `ContentStateLabel`, `ContentApprovalDecision`, `DocumentActivityUsers`
+  - **MUST Reference:** `docs/database-schema.md` for complete table structures, column definitions, types, constraints, indexes, and relationships
+  - Respect column types, constraints, and relationships
+  - Use optimistic locking (version fields) for concurrent updates
+  - Handle NULL values appropriately
+
+### Rule 13: cdm-status Property Updates
+
+- **Strategy:** Use Async Events API for property updates (leverages 900s timeout)
+- **Chunk Size:** 100-500 content items per chunk (depending on API call time)
+- **API:** Confluence API v2: `PUT /wiki/api/v2/pages/{contentId}/properties/{propertyId}`
+- **Error Handling:** Handle 409 version conflicts with exponential backoff retry
+- **Processing:** Process content IDs in parallel within chunk using `Promise.all()`
+
+### Rule 14: Manifest Configuration
+
+- **Migration Event Handler:**
+
+  ```yaml
+  function:
+    - key: migration-event-handler
+      handler: src/events/migration/MigrationEventHandler
+      timeoutSeconds: 25
+
+  trigger:
+    - key: migration-trigger
+      function: migration-event-handler
+      events:
+        - avi:ecosystem.migration:triggered:listener
+        - avi:ecosystem.migration:uploaded:app_data
+        - avi:ecosystem.migration:completed:export_phase
+        - avi:ecosystem.migration:settled:transfer
+  ```
+
+- **Async Events Consumers (v2.0.0):**
+
+  ```yaml
+  consumer:
+    - key: migration-entity-consumer
+      queue: migration-entity-queue
+      function: migration-entity-processor  # Function reference (not resolver)
+
+  function:
+    - key: migration-entity-processor
+      handler: src/events/async_events_consumers/MigrationEntityChunkConsumer.handler
+      timeoutSeconds: 900  # Extended timeout (up to 900s, default 55s)
+  ```
+  
+  **Breaking Changes from v1.x:**
+  - Consumers use Functions directly, not Forge resolvers
+  - Handler signature: `handler(event: AsyncEvent, context)` instead of resolver definitions
+  - `jobId` and `retryContext` are directly on `AsyncEvent`, not in `context` or `payload`
+
+- **Resources:**
+  ```yaml
+  resources:
+    - key: migration-entity-queue
+      type: queue
+  ```
+- **Permissions:**
+  ```yaml
+  permissions:
+    scopes:
+      - storage:app # For KVS
+      - storage:queue # For Queue API
+      - read:confluence-content.all
+      - write:confluence-content.all
+  ```
+
+### Rule 15: Package Dependencies
+
+- **Required Packages:**
+  ```json
+  {
+    "dependencies": {
+      "@forge/events": "^2.0.0",
+      "@forge/migrations": "^1.0.0",
+      "@forge/kvs": "^1.0.0",
+      "@forge/api": "^1.0.0",
+      "@forge/sql": "^1.0.0"
+    }
+  }
+  ```
+- **Async Events API v2.0.0 Migration Notes:**
+  - All implementations MUST use @forge/events 2.0.0+
+  - Breaking changes from v1.x:
+    - `Queue.push()` requires `body` as object (not primitive)
+    - Consumers use Functions directly (not resolvers)
+    - `AsyncEvent` has `jobId` and `retryContext` directly
+    - Retries based on retention window (not fixed count)
+    - `retryReason` is string (not enum)
+    - `retentionWindow` added to `RetryContext`
+  - See: https://developer.atlassian.com/platform/forge/runtime-reference/async-events-api-version-2-upgrade/
+
+### Rule 16: Environment Variables
+
+- **Required:** `AC_LOCAL_BASE_URL` - Base URL for internal API calls (e.g., 'https://your-instance.atlassian.net')
+
+### Rule 17: Performance Optimization
+
+- **Chunk Size Optimization:**
+  - Calculate based on processing time per entity type
+  - Use 70% of timeout for safety margin
+  - Apply practical limits (minimum 10, maximum 200 entities per chunk)
+- **Parallel Processing:**
+  - Process entities in parallel within chunk using `Promise.all()`
+  - Forge platform processes chunks in parallel automatically (no manual parallelization needed)
+- **Rate Limiting Mitigation:**
+  - Batch pushes (max 50 per request)
+  - Add delays between batches if needed using `delayInSeconds` parameter
+  - Monitor rate limit errors and adjust delays accordingly
+
+### Rule 18: Testing Strategy
+
+- **Unit Tests:**
+  - Test chunk size calculation with `test.each()` for different entity types and totals
+  - Test progress calculation (percentage, status updates)
+  - Test error classification (retryable, skippable, fatal)
+- **Integration Tests:**
+  - Test full migration flow with sample data
+  - Test event acknowledgment pattern
+  - Test cyclic invocation pattern
+  - Test rerun/idempotency scenarios
+- **Performance Tests:**
+  - Test with large datasets (10,000+ entities)
+  - Verify chunk count is reasonable (<200 chunks for 10,000 entities)
+  - Verify chunk sizes are optimal (50-200 entities per chunk)
+
+### Rule 19: Monitoring and Logging
+
+- **Log Levels:**
+  - **INFO:** Chunk processing start/end, progress milestones, event acknowledgment
+  - **DEBUG:** Chunk details, entity processing, depth tracking
+  - **WARN:** Approaching limits (cyclic depth >= 950), low retention time (< 1 hour), high error rates (> 10%)
+  - **ERROR:** Processing failures, API errors, limit exceeded
+- **Log Structure:**
+  ```typescript
+  Logger.info({
+    message: 'Chunk processing completed',
+    data: {
+      transferId,
+      chunkIndex,
+      entityType,
+      entityCount: entities.length,
+      successCount,
+      failedCount,
+      elapsedTimeMs,
+      remainingTimeMs,
+    },
+  });
+  ```
+- **Metrics to Track:**
+  - Chunk processing time (average time per chunk)
+  - Entity processing time (average time per entity type)
+  - Error rates (errors per chunk, skippable vs fatal)
+  - Cyclic depth (current depth, approaching limit warnings)
+  - Retention window (remaining time, low time warnings)
+  - Progress percentage (current progress, completion estimates)
+- **Alerting Thresholds:**
+  - Cyclic Depth > 950: Warning log
+  - Retention Time < 1 hour: Warning log
+  - Error Rate > 10%: Warning log
+  - Chunk Processing Time > 800s: Warning log (approaching timeout)
+
+### Rule 20: Deployment Considerations
+
+- **Rollout Strategy:**
+  1. Phase 1: Deploy event handler and data processor (no consumers)
+  2. Phase 2: Deploy Async Events consumers with monitoring
+  3. Phase 3: Enable for test customers
+  4. Phase 4: Gradual rollout to all customers
+- **Rollback Plan:**
+  - Keep previous version available
+  - Feature flag to disable new migration path
+  - Monitor error rates and rollback if issues
+- **Capacity Planning:**
+  - With 900s timeout and 100 entities per chunk: ~500s processing time per chunk (average)
+  - Chunks per hour: ~7 chunks
+  - Entities per hour: ~700 entities
+  - For 10,000 entities: ~14 hours (well within 24-96 hour retention window ✅)
+
+### Rule 21: Edge Cases Handling
+
+- **Cyclic Invocation Limit Reached:**
+  - Store checkpoint in KVS: `migration:${transferId}:checkpoint`
+  - Schedule resume via scheduled trigger (breaks cyclic invocation chain)
+  - Or request limit increase through platform limits page
+- **Retention Window Expiring:**
+  - Monitor `remainingTimeMs` - warn if < 1 hour
+  - Accelerate processing or implement checkpoint/resume if needed
+- **Event Acknowledgment Failure:**
+  - Log error but don't fail migration (acknowledgment is best effort)
+  - Continue processing - acknowledgment failure doesn't block migration
+- **Chunk Data Not Found:**
+  - Store chunk data in KVS during chunking phase
+  - Retrieve chunk data when queueing next chunk
+  - Throw error if chunk data not found (should not happen in normal flow)
+
+### Rule 22: Migration Flow Summary
+
+1. Migration Event Received (`avi:ecosystem.migration:uploaded:app_data`)
+2. Store `messageId` in KVS (for later acknowledgment)
+3. Migration Platform API: `getAppDataList(transferId)`
+4. Filter by labels, retrieve payloads: `getAppDataPayload(key)`
+5. Validate and convert entities
+6. Create chunks optimized for 900s timeout
+7. Enqueue chunks via Async Events API (max 50 per push)
+8. Async Events Consumer processes chunks (900s timeout)
+9. Process entities in parallel within chunk (`Promise.all`)
+10. Track chunk completion in KVS
+11. Acknowledge event progressively (as chunks complete)
+12. Queue next chunk (cyclic invocation, up to 1000 depth)
+13. Repeat steps 8-12 until all chunks processed
+14. Determine final status
+15. Report completion via `migration.addLog()`
+
+### Rule 23: Key Advantages of Forge-Native Approach
+
+- **Extended Timeout:** 900s enables processing 50-200 entities per chunk (vs 5-10 with 25s)
+- **Retention Window:** 24 hours initial, extendable up to 96 hours total (extended due to retries and platform performance issues)
+- **No External Dependencies:** Uses only Forge platform capabilities
+- **Proven Pattern:** Similar to existing `initializeStatesDispatcher` pattern
+- **Scalable:** Cyclic invocation handles thousands of items
+- **Simple Data Access:** Migration Platform API
+- **Automatic Retries:** Async Events API handles retries automatically
+
+### Rule 24: Limitations and Mitigations
+
+- **Cyclic Invocation Limit (1000):**
+  - Mitigation: Request limit increase, or implement checkpoint/resume pattern
+- **Rate Limiting (50 events per push, per-minute limits):**
+  - Mitigation: Batch pushes, use `delayInSeconds` if needed
+- **Event Acknowledgment (15 minutes):**
+  - Mitigation: Progressive acknowledgment pattern (acknowledge as chunks complete)
+- **Retention Window (24-96 hours):**
+  - Mitigation: Monitor `remainingTimeMs`, optimize chunk processing times
+
+### Rule 25: Data Access Pattern (Migration Platform API)
+
+- **Storage:** Migration Platform handles cloud storage internally
+- **API Methods:**
+  - `migration.getAppDataList(transferId)` - Returns `Set<AppData>` where `AppData = { key, label }`
+  - `migration.getAppDataPayload(key)` - Returns `APIResponse` with `json()`, `text()`, `arrayBuffer()` methods
+  - `migration.addLog(transferId, message)` - Report progress (max 65536 characters per message)
+  - `migration.messageProcessed(transferId, messageId)` - Acknowledge events (required within 15 minutes)
+  - `migration.messageFailed(transferId, messageId)` - Indicate failure
+- **Incremental Retrieval:** Retrieve payloads one at a time to avoid memory issues
+- **Error Handling:** Handle `MigrationAPIError` exceptions properly

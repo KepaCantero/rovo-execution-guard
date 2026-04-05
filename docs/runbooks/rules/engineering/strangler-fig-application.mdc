@@ -1,0 +1,30 @@
+---
+description: Rules based on The Strangler Fig Application (Martin Fowler / Modern Concept)
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# The Strangler Fig Application (Martin Fowler / Modern Concept)
+
+Focus on replacing old systems (like Jira Connect) with new ones (Forge) without stopping service.
+
+- **Create the "Interceptor"**: A proxy that decides whether a request goes to old or new code.
+- **Progressive Data Migration**: Don't migrate entire DB at once; do it record by record as used.
+- **Asset Tagging**: Tag which data is "old" and which is "Forge-native".
+- **Peaceful Coexistence**: Ensure both systems can read the same storage during transition.
+- **Prioritize "Leaf Node"**: Start migrating features with no dependencies.
+- **Use Feature Flags**: Activate new code only for a fraction of Confluence users.
+- **Dark Launching**: Run new code in shadow and compare results with old.
+- **Latency Handling**: Consider impact of having two systems talking to each other.
+- **Simplify Entry Interface**: User shouldn't know there are two systems behind.
+- **Avoid "DB Coupling"**: If possible, use APIs to talk between old and new.
+- **Create an "Anticorruption Layer"**: Prevent legacy mess from contaminating your new domain.
+- **Define "Death of the Old"**: Set dates to shut down legacy modules.
+- **Dual Monitoring**: Log errors in both systems simultaneously.
+- **Safe Fallback**: If new code fails, interceptor should automatically return to old.
+- **Refactor the "Interceptor"**: As you migrate, the proxy should simplify.
+- **Session Handling**: Ensure Atlassian token is valid in both parts.
+- **Document Topology**: Map which functions are in each system.
+- **Don't migrate garbage**: If a legacy feature isn't used, delete it instead of porting.
+- **Dependency Inversion**: Make old depend on interfaces that new will implement.
+- **Celebrate each "Shutdown"**: Deleting old code is a team milestone.

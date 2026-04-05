@@ -1,0 +1,65 @@
+# Manifest Reference - 25 Rules
+
+Rules derived from: https://developer.atlassian.com/platform/forge/manifest-reference/
+
+## Required Properties
+
+1. **Three Required Properties**: Manifest must contain three required top-level properties: `app`, `modules`, and `permissions`. All three are mandatory.
+
+2. **Modules Requirement**: `modules` property cannot be empty. Must contain at least one module definition. Exception: not required when `connectModules` is present.
+
+3. **App ID Assignment**: `app.id` is a unique Atlassian resource identifier (ARI) assigned by Forge CLI when you create or register an app. Don't manually set this value.
+
+4. **Permissions Declaration**: Always declare required permissions in `permissions` section. App cannot function without proper permission scopes.
+
+5. **Manifest Size Limit**: Manifest file has maximum size limit of 200 KB. If exceeded, deployment fails with validation error. Keep manifest lean and focused.
+
+## App Configuration
+
+6. **Runtime Configuration**: Configure Forge runtime in `app.runtime`. Specify Node.js version (`nodejs20.x`, `nodejs22.x`, or `nodejs24.x`). Nodejs24.x is recommended.
+
+7. **Architecture Selection**: Specify architecture (`arm64` or `x86_64`) in runtime configuration. `arm64` provides better performance at lower cost but not available on Government Cloud.
+
+8. **Memory Configuration**: Set default memory (`memoryMB`) in runtime configuration. Default is 512 MB, range 128 MB to 1,024 MB. Can override per function.
+
+9. **Legacy Runtime Deprecation**: Legacy Javascript sandbox runtime is deprecated. All new apps must use latest runtime version. Upgrade existing apps before February 28, 2025.
+
+10. **Storage Entities**: Define custom entities in `app.storage.entities` for structured data storage. Entities support typed attributes and indexes for querying.
+
+## Optional Properties
+
+11. **Connect Modules Support**: Use `connectModules` for backwards compatibility when migrating from Connect to Forge. Not supported for new Forge apps.
+
+12. **Endpoint Configuration**: Define remote endpoints in `endpoint` section if using Forge Remote. Required for remote resolver invocations.
+
+13. **Providers Configuration**: Configure authentication providers in `providers` section. Required for external OAuth 2.0 integrations.
+
+14. **Remotes Configuration**: Define remote services in `remotes` section. Include egress details for data residency compliance.
+
+15. **Resources Declaration**: Declare static resources in `resources` section. Used for Custom UI components and assets.
+
+## Environment Variables
+
+16. **Environment Variable Parsing**: Use `environment` section to declare environment variables parsed by Forge CLI. Reference variables using `${variableName}` syntax.
+
+17. **Variable Usage**: Environment variables can be used in any field by enclosing in `${}`. Provides flexible configuration management.
+
+18. **CI/CD Integration**: Environment variables useful for CI/CD pipelines. Store sensitive values as secrets and reference in manifest.
+
+## Translations Support
+
+19. **Translations Configuration**: Configure translation resources in `translations` section. Include fallback configurations for missing translations.
+
+20. **Internationalization**: Support multiple languages by configuring translations. Fallback to default language when translation unavailable.
+
+## Packaging Configuration
+
+21. **Extra Files Support**: Use `package.extraFiles` to include additional files in deployment. Supports glob patterns for file selection.
+
+22. **TypeScript Bundler (EAP)**: Use `package.bundler: typescript` for TypeScript compilation (EAP feature). Includes all dependencies, may increase package size.
+
+23. **Package Size Limits**: Be aware of package size limits when using TypeScript bundler. All dependencies packaged together may exceed limits.
+
+24. **File Reading**: Read packaged files using Node.js `fs` module. Files available in application directory at runtime.
+
+25. **Binary Execution**: Execute packaged binaries using `child_process` module. Ensure binaries compatible with Forge runtime environment. Don't persist customer data to disk.

@@ -1,0 +1,18 @@
+---
+alwaysApply: true
+---
+
+# TESTING ENHANCEMENT GUIDELINES
+
+## Test Structure
+- Use `test.each` for parameterized tests with multiple scenarios
+- Write unit tests FIRST, integration tests SECOND
+- We want to validate any number of scenarios, with unit testing and keep integration tests for validating clear scenarios.
+- Cover edge cases and error conditions
+- Use factory functions for test object creation
+
+## Test Data Management
+- Create realistic test data that mirrors production
+- Use factory functions for test object creation
+- Clean up test data after each test
+- Test with different user roles and permissions

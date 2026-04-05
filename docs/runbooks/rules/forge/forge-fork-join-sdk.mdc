@@ -1,0 +1,3242 @@
+# FORGE FORK-JOIN SDK RULES
+
+This document contains comprehensive rules for using the Appfire Forge Fork-Join SDK (`@appfire-platform/forge-orchestrator`, `@appfire-platform/forge-consumer`, `@appfire-platform/forge-kvs-storage`) for workflow orchestration and long-running task management in Forge applications.
+
+## Installation
+
+- **Core Packages**:
+  - `@appfire-platform/forge-orchestrator` - Main workflow orchestration engine (✅ Required)
+  - `@appfire-platform/forge-consumer` - Task handler invocation for queue mode (⚠️ Queue-based workflows only)
+  - `@appfire-platform/forge-kvs-storage` - KVS storage provider (✅ Required)
+  - `@appfire-platform/forge-enqueuer` - Queue enqueuing utilities (⚠️ Queue-based workflows only)
+  - `@forge/events` - Forge Events API (⚠️ Queue-based workflows only)
+
+- **Installation**: 
+  ```bash
+  npm install @appfire-platform/forge-orchestrator @appfire-platform/forge-kvs-storage
+  # For queue-based workflows:
+  npm install @appfire-platform/forge-consumer @appfire-platform/forge-enqueuer @forge/events
+  ```
+
+## Core Principles
+
+### Principle 1: Workflow Orchestration
+
+- **Workflow**: Collection of tasks with defined dependencies and execution order
+- **Task**: Unit of work with a handler function that performs business logic
+- **DAG**: Directed Acyclic Graph ensures tasks execute in correct order without cycles
+- **State Management**: All workflow and task state stored in Forge KVS
+
+### Principle 2: Execution Modes
+
+The SDK supports four execution patterns:
+- **Queue-Based Execution** (`useQueue: true`): For complex, long-running workflows with dependencies
+- **Non-Queue-Based Execution** (`useQueue: false`): For simple workflows within Forge timeout limits
+- **1 Orchestrator Queue with useQueue false**: Orchestrator runs in queue (15min), tasks execute directly
+- **Dual Queue Setup**: Separate queues for orchestration and task execution, both with 15-minute timeouts
+- **MUST** choose execution mode based on workflow complexity, timeout requirements, and scalability needs
+
+### Principle 3: Dependency Management
+
+- **Dependencies**: Tasks can depend on other tasks' completion
+- **Automatic Resolution**: SDK automatically manages dependency resolution
+- **No Cycles**: Circular dependencies are automatically detected and prevented
+- **Parallel Execution**: Independent tasks can run in parallel
+
+## Workflow Concepts
+
+### Rule 1: Workflow Structure
+
+```typescript
+import { WorkflowSpec, TaskSpec, WorkflowMetadata, WorkflowOptions } from '@appfire-platform/workflow-types';
+
+interface WorkflowSpec {
+  tasks: Record<string, TaskSpec>;  // Collection of tasks
+  dependencies: Record<string, string[]>;  // Task dependency mapping
+  metadata?: WorkflowMetadata;  // Optional execution configuration
+  options?: WorkflowOptions;  // Optional performance settings
+  taskRegistry: Record<string, (ctx: TaskContext) => Promise<TaskResult>>;  // Handler registry
+}
+
+interface TaskSpec {
+  handlerName: string;  // Name mapped to a function in your registry
+  retryConfig?: RetryConfig;  // Optional retry behavior
+  timeoutSeconds?: number;  // Optional maximum execution time
+  taskInput?: Record<string, unknown>;  // Optional user-defined input data
+}
+
+interface WorkflowMetadata {
+  executionType: 'queue-enabled' | 'queue-disabled';  // How the workflow should run
+  description?: string;  // Optional workflow description
+}
+
+interface WorkflowOptions {
+  maxConcurrentTasks?: number;  // Maximum tasks running simultaneously (queue mode)
+  maxBatchSize?: number;  // Maximum tasks in a batch (direct execution mode)
+}
+
+const workflowSpec: WorkflowSpec = {
+  tasks: {
+    'task-1': { 
+      handlerName: 'handler1',
+      taskInput: { timestamp: new Date().toISOString(), source: 'workflow' },
+    },
+    'task-2': { handlerName: 'handler2' },
+  },
+  dependencies: {
+    'task-1': [],  // No dependencies
+    'task-2': ['task-1'],  // Depends on task-1
+  },
+  metadata: {
+    executionType: 'queue-enabled',
+    description: 'Example workflow',
+  },
+  options: {
+    maxConcurrentTasks: 5,
+  },
+  taskRegistry: {
+    handler1: async (ctx) => ({ status: 'done', output: {} }),
+    handler2: async (ctx) => ({ status: 'done', output: {} }),
+  },
+};
+```
+
+**Requirements:**
+- **MUST** define all tasks in `tasks` object
+- **MUST** define dependencies in `dependencies` object (empty array `[]` for no dependencies)
+- **MUST** provide `taskRegistry` mapping handlerName to handler function
+- **MUST** ensure handlerName in tasks matches key in taskRegistry
+- **MUST NOT** create circular dependencies
+- **CAN** provide `metadata` for execution configuration
+- **CAN** provide `options` for performance settings
+- **CAN** provide `taskInput` per task for user-defined input data
+
+### Rule 2: Task Handlers
+
+```typescript
+import { TaskContext, TaskResult } from '@appfire-platform/workflow-types';
+
+const fetchData = async (ctx: TaskContext): Promise<TaskResult> => {
+  // Access task input
+  const input = ctx.input;
+  
+  // Access dependency outputs
+  const previousTaskOutput = ctx.dependencyOutputs['previous-task'];
+  
+  // Perform work
+  const result = await performWork(input);
+  
+  return {
+    status: 'done',
+    endTime: new Date().toISOString(),
+    output: { data: result },
+  };
+};
+```
+
+**TaskContext Structure:**
+```typescript
+interface TaskContext {
+  workflowId: string;  // Parent workflow identifier
+  taskId: string;  // Current task identifier
+  attempt: number;  // Retry attempt number
+  input: TaskInput;  // User-defined task input
+  dependencyOutputs: Record<string, unknown>;  // Results from dependencies
+  dependencyTaskIds: string[];  // IDs of dependency tasks
+  startTime: string;  // ISO timestamp when execution started
+  handlerName: string;  // Name mapped to handler function
+}
+
+// TaskInput is Record<string, unknown> - user-defined input data
+// Common pattern includes timestamp and source:
+interface TaskInput extends Record<string, unknown> {
+  timestamp?: string;
+  source?: string;
+  message?: string;
+  duration?: number;
+  // ... any additional user-defined fields
+}
+```
+
+**Requirements:**
+- **MUST** return `TaskResult` with `status: 'done'` or `status: 'failed'`
+- **MUST** include `endTime` in ISO format
+- **CAN** include `output` object with task results
+- **CAN** access `ctx.dependencyOutputs` for dependency results
+- **MUST** handle errors and return `status: 'failed'` on failure
+
+### Rule 3: Task States
+
+Tasks progress through these states:
+
+- **pending**: Initial state, waiting for dependencies to complete
+- **ready**: Dependencies satisfied, ready for execution
+- **queued**: Sent to queue for processing (queue-based mode)
+- **running**: Currently executing
+- **done**: Completed successfully with output
+- **failed**: Execution failed
+
+**Requirements:**
+- **MUST** understand state transitions
+- **MUST** handle all possible task states in monitoring
+- **SHOULD** track state changes for debugging
+
+### Rule 4: Workflow Statuses
+
+Workflows progress through these statuses:
+
+- **pending**: Initial state, waiting for execution to begin
+- **in_progress**: Active execution with tasks running
+- **done**: All tasks completed successfully
+- **failed**: All tasks failed
+- **partially_failed**: Some tasks failed, others succeeded
+
+**Requirements:**
+- **MUST** check workflow status before assuming completion
+- **SHOULD** handle `partially_failed` status appropriately
+- **MUST** monitor workflow status for long-running workflows
+
+## DAG (Directed Acyclic Graph) Rules
+
+### Rule 5: Dependency Types
+
+**Linear Dependencies:**
+```typescript
+dependencies: {
+  'fetch-data': [],
+  'process-data': ['fetch-data'],
+  'generate-report': ['process-data']
+}
+// Execution order: fetch-data → process-data → generate-report
+```
+
+**Parallel Dependencies:**
+```typescript
+dependencies: {
+  'fetch-data': [],
+  'fetch-metadata': [],
+  'process-all': ['fetch-data', 'fetch-metadata']
+}
+// fetch-data and fetch-metadata run in parallel, then process-all executes
+```
+
+**Mixed Dependencies:**
+```typescript
+dependencies: {
+  'start': [],
+  'task-a': ['start'],
+  'task-b': ['start'],
+  'task-c': ['task-a', 'task-b'],
+  'finish': ['task-c']
+}
+// Complex workflow with parallel and sequential execution
+```
+
+**Requirements:**
+- **MUST** define dependencies as arrays of task IDs
+- **MUST** use empty array `[]` for tasks with no dependencies
+- **CAN** define multiple dependencies for parallel execution
+- **MUST NOT** create circular dependencies
+
+### Rule 6: Cycle Detection
+
+```typescript
+// ❌ This would cause an error - circular dependency
+dependencies: {
+  'task-a': ['task-b'],
+  'task-b': ['task-c'],
+  'task-c': ['task-a']  // Circular dependency!
+}
+```
+
+**Requirements:**
+- **MUST NOT** create circular dependencies
+- SDK automatically validates workflows to prevent cycles
+- **MUST** fix circular dependencies before workflow creation
+
+## Architecture Overview
+
+### Rule 7: System Components
+
+The Fork Join SDK consists of four main components:
+
+**1. Orchestrator**
+- Creates and manages workflow lifecycles
+- Builds and validates dependency graphs (DAGs) to ensure no circular dependencies
+- Tracks the status of all workflows and tasks
+- Dispatches ready tasks to the next stage
+- Resolves task dependencies to determine execution order
+- Can work with or without queues
+
+**2. Enqueuer**
+- Receives tasks from the Orchestrator
+- Enforces Forge Queue rate limits to stay within platform boundaries
+- Pushes tasks to the queue while avoiding duplicates
+- Manages retry attempts when queue operations fail
+- Designed to be reusable outside the main system
+
+**3. Consumer/Worker**
+- Automatically receives tasks from the Forge Queue when ready
+- Updates task status as execution progresses
+- Runs the user-provided task handlers
+- Stores task results and handles errors appropriately
+- Integrates with the retry system for failed tasks
+- Runs with extended timeouts (up to 15 minutes)
+
+**4. Retry Manager & Rate Limiter**
+- Manages retry attempts for failed tasks with configurable backoff strategies
+- Handles rate limits from external services (Jira, Confluence APIs)
+- Enforces Forge Queue and KVS rate limits across all components
+- Re-enqueues failed tasks with appropriate delays for retry
+
+**Design Principles:**
+- **Platform Independence**: Works across different Forge compute offerings
+- **Separation of Concerns**: Each component has specific, well-defined responsibility
+- **Centralized State Management**: All workflow and task information stored in Forge KVS
+- **Built-in Reliability**: Automatic retry mechanisms, rate limit handling, and error recovery
+
+**Requirements:**
+- **MUST** understand component responsibilities
+- **SHOULD** use components according to their intended purpose
+- **MUST** use same storage provider across orchestrator and consumer
+- **SHOULD** leverage built-in reliability features
+
+### Rule 7.1: Orchestrator Component
+
+**Core Responsibilities:**
+
+**Workflow Lifecycle Management:**
+- **Creation**: Validates and initializes workflows with proper task registration
+- **Execution**: Orchestrates task execution based on dependency resolution
+- **Monitoring**: Continuously tracks workflow and task status
+- **Completion**: Determines final workflow status based on task outcomes
+
+**Task Coordination:**
+- **Dependency Resolution**: Automatically identifies when tasks are ready to execute
+- **Task Dispatching**: Routes ready tasks to appropriate execution channels
+- **Status Tracking**: Maintains real-time task and workflow state
+- **Error Handling**: Manages task failures and workflow status updates
+
+**State Management:**
+- **Persistent Storage**: Stores workflow metadata, options, and task states
+- **Status Calculation**: Computes workflow status based on task status distribution
+- **Recovery**: Enables workflow resumption from any point using stored state
+
+**Configuration:**
+```typescript
+interface OrchestratorConfig {
+  useQueue: boolean;  // Enable/disable queue-based execution
+  queueName?: string;  // Queue name for task execution
+  orchestrationIntervalMs?: number;  // Monitoring interval (default: 5000ms)
+  defaultWorkflowOptions?: WorkflowOptions;  // Default workflow settings
+}
+```
+
+**Workflow Execution Flow:**
+1. **Workflow Creation**: Validates workflow spec, generates ID, stores metadata, resolves dependencies
+2. **Workflow Execution**: Gets status, identifies ready tasks, dispatches tasks, monitors progress
+3. **Task Lifecycle Management**: Manages task states (PENDING → READY → QUEUED/RUNNING → DONE/FAILED)
+
+**Requirements:**
+- **MUST** validate workflow specification before creation
+- **MUST** resolve dependencies automatically
+- **SHOULD** use appropriate execution mode (queue vs direct)
+- **MUST** track workflow and task status continuously
+- **SHOULD** handle partial failures gracefully
+
+### Rule 7.2: Enqueuer Component
+
+**Core Responsibilities:**
+
+**Task Enqueuing:**
+- **Single Task Enqueuing**: Push individual tasks to Forge Queues with validation
+- **Batch Operations**: Enqueue up to 50 tasks per batch for efficiency
+
+**Forge Platform Compliance:**
+- **Rate Limiting**: Enforce 500 events per minute limit
+- **Payload Validation**: Respect Forge platform size limits (200KB regular, 100KB long-running)
+- **Queue Name Validation**: Ensure queue names follow Forge naming conventions
+
+**Reliability Features:**
+- **Duplicate Prevention**: Prevent the same task from being enqueued multiple times
+- **Idempotency**: Ensure safe retry operations without duplicate processing
+- **Error Handling**: Comprehensive error handling with detailed error messages
+
+**Configuration:**
+```typescript
+import { createEnqueuer } from '@appfire-platform/forge-enqueuer';
+import { createForgeKvsStorageProvider } from '@appfire-platform/forge-kvs-storage';
+
+const storageProvider = createForgeKvsStorageProvider('my-orchestrator-name');
+const enqueuer = createEnqueuer(storageProvider, {
+  queueName: 'my-workflow-queue',
+});
+```
+
+**Queue Name Requirements:**
+- Characters: Alphanumeric, hyphens, and underscores only
+- Length: 1-100 characters maximum
+- Examples: `workflow-queue`, `my_queue_123`, `queueName`
+- **MUST NOT** use spaces, dots, or special characters
+
+**Task Enqueuing:**
+```typescript
+const result = await enqueuer.enqueueTask({
+  context: {
+    workflowId: 'workflow-456',
+    taskId: 'task-123',
+    attempt: 1,
+    input: {
+      message: 'Process this data',
+      duration: 5000,
+      timestamp: new Date().toISOString(),
+      source: 'user-input',
+    },
+    startTime: new Date().toISOString(),
+  },
+});
+
+if (result.success) {
+  console.log(`Task enqueued with message ID: ${result.messageId}`);
+  console.log(`Pushed at: ${result.pushedAt}`);
+} else {
+  console.error(`Enqueue failed: ${result.error}`);
+}
+```
+
+**Batch Enqueuing:**
+```typescript
+const taskRequests = [
+  {
+    context: {
+      workflowId: 'workflow-1',
+      taskId: 'task-1',
+      attempt: 1,
+      input: {
+        message: 'Process batch 1',
+        duration: 3000,
+        timestamp: new Date().toISOString(),
+        source: 'batch-processor',
+      },
+      startTime: new Date().toISOString(),
+    },
+  },
+  {
+    context: {
+      workflowId: 'workflow-1',
+      taskId: 'task-2',
+      attempt: 1,
+      input: {
+        message: 'Process batch 2',
+        duration: 4000,
+        timestamp: new Date().toISOString(),
+        source: 'batch-processor',
+      },
+      startTime: new Date().toISOString(),
+    },
+  },
+];
+
+const results = await enqueuer.enqueueBatch(taskRequests);
+console.log(
+  `Batch enqueued: ${results.filter((r) => r.success).length}/${results.length} successful`
+);
+```
+
+**Advanced Features:**
+- **Concurrency Control**: Limit concurrent processing with `concurrency: { key: 'user-123', limit: 1 }`
+- **Event Delays**: Schedule future execution with `delayInSeconds: 300` (1-900 seconds)
+- **Long-Running Functions**: Use `isLongRunning=true` for stricter payload limits (100KB vs 200KB)
+
+**Platform Limits:**
+- Maximum payload size: 200 KB (regular), 100 KB (long-running)
+- Maximum delay: 900 seconds (15 minutes)
+- Maximum batch size: 50 events per batch
+- Rate limit: 500 events per minute
+
+**Direct Queue Access:**
+```typescript
+// Push multiple events directly to the Forge queue
+const events = [
+  { body: { event: 'event1', data: 'value1' } },
+  { body: { event: 'event2', data: 'value2' }, delayInSeconds: 300 },
+  {
+    body: { event: 'event3', data: 'value3' },
+    concurrency: { key: 'my-key', limit: 1 },
+  },
+];
+
+const { jobId } = await enqueuer.pushBatch(events);
+console.log('Batch job ID:', jobId);
+```
+
+**Error Handling:**
+```typescript
+try {
+  const result = await enqueuer.enqueueTask(request);
+  // Handle success
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Validation failed:', error.message);
+  } else if (error instanceof KVSOperationError) {
+    console.error('Storage operation failed:', error.message);
+  } else {
+    console.error('Unexpected error:', error);
+  }
+}
+```
+
+**Common Issues:**
+- **Payload Too Large**: Reduce task input size to stay within 200 KB limit
+- **Invalid Queue Name**: Use alphanumeric, hyphens, and underscores only
+- **Duplicate Task Detection**: Expected behavior, not an error
+
+**Requirements:**
+- **MUST** validate queue names before use
+- **MUST** respect payload size limits
+- **MUST** enforce rate limits (500 events/minute)
+- **SHOULD** use batch operations for efficiency
+- **MUST** handle duplicate prevention
+- **MUST NOT** use `delayInSeconds: 0` (minimum is 1 second)
+- **SHOULD** handle errors appropriately with try-catch blocks
+
+### Rule 7.3: Retry Manager & Rate Limiter Component
+
+**Capabilities:**
+- Detects transient failures and schedules retries
+- Calculates exponential backoff and enqueues with delays
+- Respects Forge async event limits and rate caps
+- Persists retryMetadata for observability
+
+**How Retries Work:**
+```typescript
+// Internal behavior (conceptual)
+await storage.setRetryMetadata(workflowId, taskId, {
+  attemptCount: nextAttempt,
+  retryTimestamps: [...],
+  backoffMs: computedBackoff,
+});
+
+await enqueuerService.enqueueTask({
+  context: { /* task context */ },
+  delayInSeconds: Math.max(1, Math.floor(backoffMs / 1000)),
+});
+
+// After enqueue, the task status is set to 'queued'
+await storage.setTaskStatus(workflowId, taskId, 'queued');
+```
+
+**Configuring Retry Behavior:**
+```typescript
+const workflowSpec: WorkflowSpec = {
+  tasks: {
+    'fetch-data': {
+      handlerName: 'fetch-data',
+      retryConfig: {
+        maxAttempts: 3,
+        backoffMs: 1000,
+        backoffMultiplier: 2,  // optional
+      },
+      timeoutSeconds: 30,  // optional
+    },
+  },
+  // ...
+};
+```
+
+**Rate Limiting:**
+- Forge queue batch: max 50 events/request, 500 events/minute
+- System splits batches and throttles as needed
+- Backoff is applied when rate limited
+
+**Requirements:**
+- **MUST** configure `retryConfig` per task in TaskSpec
+- **MUST** set `maxAttempts` and `backoffMs`
+- **CAN** set optional `backoffMultiplier`
+- **MUST NOT** use `delayInSeconds: 0` (minimum is 1 second)
+- **SHOULD** keep task payloads small to avoid retry failures
+- **MUST** allow system to throttle when rate limited
+
+### Rule 7.4: Component Interactions
+
+**Component Communication Flow:**
+
+**1. Orchestrator ↔ Enqueuer:**
+- Orchestrator sends task specifications with dependencies resolved
+- Enqueuer confirms task queuing success/failure
+- Enqueuer reports queue availability and rate limit status
+
+**2. Enqueuer ↔ Queue:**
+- Enqueuer pushes tasks with proper serialization
+- Enqueuer applies rate limiting before enqueuing
+- Enqueuer implements duplicate prevention mechanisms
+- Queue confirms message acceptance
+
+**3. Queue ↔ Consumer/Worker:**
+- Queue triggers execution via Forge Queue events
+- Queue provides task data and context
+- Consumer/Worker acknowledges successful task completion
+- Consumer/Worker reports task failures for retry handling
+
+**4. Consumer/Worker ↔ Retry Manager:**
+- Consumer/Worker reports task execution failures
+- Consumer/Worker provides error details and context
+- Retry Manager determines retry eligibility
+- Retry Manager calculates backoff delays and schedules retry attempts
+
+**5. Retry Manager ↔ Enqueuer:**
+- Retry Manager schedules retry attempts with delays
+- Retry Manager provides retry context and metadata
+- Enqueuer confirms retry scheduling
+- Enqueuer reports retry queue status
+
+**6. Orchestrator ↔ Storage Provider:**
+- Orchestrator persists workflow and task states
+- Orchestrator updates execution progress
+- Storage Provider provides current workflow status
+- Storage Provider enables workflow recovery and resumption
+
+**Cross-Component Data Flow:**
+- **Task Lifecycle**: Creation → Queuing → Execution → Completion → Dependency Resolution
+- **Status Propagation**: Near real-time updates, event-driven, consistent state, recovery capability
+- **Error Handling**: Component-level errors, automatic retries, graceful degradation, comprehensive logging
+
+**Requirements:**
+- **MUST** understand component interaction patterns
+- **SHOULD** use components according to their communication patterns
+- **MUST** ensure consistent state across components via storage provider
+- **SHOULD** handle errors at component level appropriately
+
+### Rule 7.5: Consumer/Worker Component
+
+**Core Responsibilities:**
+
+**Task Execution:**
+- **Event Reception**: Automatically receives tasks from Forge Queue when ready
+- **Handler Invocation**: Executes user-provided task handlers with proper context
+- **Status Updates**: Updates task status as execution progresses (running → done/failed)
+- **Result Storage**: Stores task results and outputs in storage provider
+- **Error Handling**: Captures and reports errors for retry handling
+
+**Integration:**
+- **Retry System**: Integrates with retry manager for failed tasks
+- **Storage Provider**: Uses same storage provider as orchestrator for consistency
+- **Queue Events**: Processes Forge Queue async events
+- **Timeout Management**: Runs with extended timeouts (up to 15 minutes)
+
+**Configuration:**
+```typescript
+import { createWorkflowConsumer } from '@appfire-platform/forge-consumer';
+import { createForgeKvsStorageProvider } from '@appfire-platform/forge-kvs-storage';
+
+export async function queueHandler(event: AsyncEvent) {
+  const storageProvider = createForgeKvsStorageProvider('my-forge-app');
+  const consumer = createWorkflowConsumer(storageProvider, event);
+  
+  await consumer.executeTask({
+    taskHandlers: {
+      fetchData,
+      processData,
+      // ... all task handlers
+    },
+  });
+}
+```
+
+**Manifest Configuration:**
+```yaml
+modules:
+  consumer:
+    - key: workflow-consumer
+      queue: my-workflow-queue
+      function: queue-handler
+  function:
+    - key: queue-handler
+      handler: index.queueHandler
+      timeoutSeconds: 900  # 15 minutes for long-running tasks
+```
+
+**Task Handler Execution:**
+- Consumer receives AsyncEvent from Forge Queue
+- Extracts task context (workflowId, taskId, input, dependencies)
+- Invokes corresponding handler from taskHandlers registry
+- Captures handler result or error
+- Updates task status in storage provider
+- Handles retries through Retry Manager if needed
+
+**Error Handling:**
+- Failed tasks are reported to Retry Manager
+- Retry Manager determines if retry is needed
+- Task status updated to 'queued' for retry or 'failed' if max attempts exceeded
+- Errors are logged with context for debugging
+
+**Requirements:**
+- **MUST** configure consumer module in manifest.yml
+- **MUST** set `timeoutSeconds: 900` for queue handler (15 minutes)
+- **MUST** register all task handlers in consumer
+- **MUST** use same storage provider identifier as orchestrator
+- **MUST** ensure handlerName values match between tasks and taskHandlers
+- **SHOULD** handle tasks arriving in any order
+- **MUST** have `@forge/events` package installed
+- **MUST** handle AsyncEvent from Forge Queue
+- **SHOULD** log task execution for debugging
+- **MUST** update task status appropriately (done/failed)
+
+## Execution Modes
+
+### Rule 8: Queue-Based Execution (useQueue: true)
+
+**Use When:**
+- Workflows exceed Forge timeout limits (25s standard, 900s async)
+- Require high scalability
+- Need automatic retry and rate limit handling
+- Long-running workflows (15+ minutes)
+
+**Configuration:**
+```typescript
+import { createWorkflowOrchestrator } from '@appfire-platform/forge-orchestrator';
+import { createForgeKvsStorageProvider } from '@appfire-platform/forge-kvs-storage';
+
+const storageProvider = createForgeKvsStorageProvider('my-forge-app');
+
+const orchestrator = createWorkflowOrchestrator(storageProvider, {
+  useQueue: true,
+  queueName: 'my-workflow-queue',
+  defaultWorkflowOptions: {
+    maxConcurrentTasks: 5,  // Process up to 5 tasks concurrently
+  },
+});
+```
+
+**Manifest Configuration:**
+```yaml
+permissions:
+  scopes:
+    - storage:app
+
+modules:
+  consumer:
+    - key: workflow-consumer
+      queue: my-workflow-queue
+      function: queue-handler
+  function:
+    - key: queue-handler
+      handler: index.queueHandler
+      timeoutSeconds: 900  # 15 minutes for long-running tasks
+    - key: workflow-resolver
+      handler: index.workflowResolver
+```
+
+**Consumer Handler:**
+```typescript
+import { createWorkflowConsumer } from '@appfire-platform/forge-consumer';
+import { createForgeKvsStorageProvider } from '@appfire-platform/forge-kvs-storage';
+
+export async function queueHandler(event: AsyncEvent) {
+  const storageProvider = createForgeKvsStorageProvider('my-forge-app');
+  const consumer = createWorkflowConsumer(storageProvider, event);
+
+  await consumer.executeTask({
+    taskHandlers: {
+      fetchData,
+      processData,
+      // ... all task handlers
+    },
+  });
+}
+```
+
+**Requirements:**
+- **MUST** configure queue in manifest.yml
+- **MUST** provide consumer function with 900s timeout
+- **MUST** register all task handlers in consumer
+- **MUST** use same storage provider in orchestrator and consumer
+- **SHOULD** set `maxConcurrentTasks` based on workload
+
+### Rule 9: Non-Queue-Based Execution (useQueue: false)
+
+**Use When:**
+- Simple workflows that fit within Forge timeout limits
+- Immediate execution required
+- Simpler debugging and monitoring
+- Batch processing scenarios
+
+**Configuration:**
+```typescript
+const orchestrator = createWorkflowOrchestrator(storageProvider, {
+  useQueue: false,
+  defaultWorkflowOptions: {
+    maxBatchSize: 10,  // Process up to 10 tasks in parallel
+  },
+});
+```
+
+**Requirements:**
+- **MUST** ensure all tasks complete within function timeout
+- **CAN** use for workflows that fit in 25s (standard) or 900s (async consumer)
+- **SHOULD** set `maxBatchSize` based on task complexity
+- **MUST NOT** use for workflows exceeding timeout limits
+- **CAN** use when you already have a queue and invoke orchestrator directly from listener
+
+### Rule 10: 1 Orchestrator Queue with useQueue false
+
+**Overview:**
+Uses a queue for orchestrator execution (allowing 15-minute timeout) but executes tasks directly without pushing them to a separate task queue. The orchestrator runs in a queue consumer for extended orchestration time, while tasks execute directly within the orchestrator.
+
+**Use When:**
+- You need longer orchestration time (beyond 25 seconds)
+- Prefer simpler architecture with direct task execution
+- Want immediate task feedback and simpler debugging
+- Tasks can complete within the orchestrator's 15-minute window
+
+**Configuration:**
+```typescript
+const orchestrator = createWorkflowOrchestrator(storageProvider, {
+  useQueue: false,  // Tasks execute directly
+  queueName: 'orchestrator-queue',  // Orchestrator runs in this queue
+  defaultWorkflowOptions: {
+    maxBatchSize: 10,  // Process up to 10 tasks in parallel
+  },
+});
+```
+
+**Manifest Configuration:**
+```yaml
+modules:
+  consumer:
+    - key: orchestrator-consumer
+      queue: orchestrator-queue
+      function: orchestrator-handler
+  function:
+    - key: orchestrator-handler
+      handler: index.orchestratorHandler
+      timeoutSeconds: 900  # 15 minutes for orchestrator
+```
+
+**Flow:**
+1. Resolver function (25s) pushes workflow event to Queue 1
+2. Queue consumer (15min) receives event and runs orchestrator
+3. Orchestrator executes tasks directly (no separate task queue)
+4. Tasks complete within orchestrator's 15-minute window
+
+**Benefits:**
+- Extended orchestration time: Orchestrator can run for up to 15 minutes
+- Simplified architecture: Single queue for orchestrator only
+- Direct task execution: No additional queue complexity for tasks
+- Immediate feedback: Tasks execute and complete within orchestrator
+
+**Requirements:**
+- **MUST** configure orchestrator queue in manifest.yml
+- **MUST** set `useQueue: false` for direct task execution
+- **MUST** ensure tasks complete within orchestrator's 15-minute timeout
+- **SHOULD** set `maxBatchSize` based on task complexity
+- **MUST** provide orchestrator handler with 900s timeout
+
+### Rule 11: Dual Queue Setup
+
+**Overview:**
+Uses two separate queues: one for orchestration (with 15-minute timeout) and another for task execution (with 15-minute timeout). Designed for workflows that need longer orchestration time beyond the 25-second resolver limit.
+
+**Use When:**
+- Workflows need longer orchestration time (beyond 25 seconds)
+- Complex dependency resolution requires extended processing
+- You need to manage long-running workflows with many tasks
+- Both orchestration and task execution need 15-minute timeouts
+
+**Configuration:**
+```typescript
+// Orchestrator configuration
+const orchestrator = createWorkflowOrchestrator(storageProvider, {
+  useQueue: true,
+  queueName: 'task-execution-queue',  // Queue for task execution
+  defaultWorkflowOptions: {
+    maxConcurrentTasks: 5,
+  },
+});
+
+// Orchestrator runs in its own queue consumer
+```
+
+**Manifest Configuration:**
+```yaml
+modules:
+  consumer:
+    - key: orchestrator-consumer
+      queue: orchestrator-queue  # Queue for orchestration
+      function: orchestrator-handler
+    - key: task-consumer
+      queue: task-execution-queue  # Queue for task execution
+      function: task-handler
+  function:
+    - key: orchestrator-handler
+      handler: index.orchestratorHandler
+      timeoutSeconds: 900  # 15 minutes for orchestration
+    - key: task-handler
+      handler: index.taskHandler
+      timeoutSeconds: 900  # 15 minutes for task execution
+```
+
+**Flow:**
+1. Resolver function (25s) pushes workflow event to Orchestrator Queue
+2. Orchestrator consumer (15min) receives event and manages workflow
+3. Orchestrator dispatches ready tasks to Task Execution Queue
+4. Task consumer (15min) processes tasks and updates status
+5. Orchestrator monitors completion and updates workflow status
+
+**Benefits:**
+- Extended orchestration time: Orchestrator can run for up to 15 minutes instead of 25 seconds
+- Resource separation: Orchestration and task execution are isolated in separate queues
+- Scalability: Multiple task workers can process tasks while orchestrator manages workflow
+- Timeout management: Both orchestration and task execution get full 15-minute timeouts
+
+**Requirements:**
+- **MUST** configure two separate queues in manifest.yml
+- **MUST** provide orchestrator handler with 900s timeout
+- **MUST** provide task handler with 900s timeout
+- **MUST** use same storage provider in orchestrator and task consumer
+- **SHOULD** set `maxConcurrentTasks` based on workload
+
+### Rule 12: Choosing the Right Execution Mode
+
+**Queue-Based Execution** - Choose when:
+- Workflows have complex dependencies
+- Tasks exceed individual function timeouts
+- High scalability is required
+- You need fault tolerance and retry mechanisms
+
+**Non-Queue Execution** - Choose when:
+- Workflows are simple with few tasks
+- All tasks fit within function timeouts
+- You need immediate feedback
+- Working within existing long-running handlers
+
+**1 Orchestrator Queue with useQueue false** - Choose when:
+- You need longer orchestration time (beyond 25 seconds)
+- Prefer simpler architecture with direct task execution
+- Want immediate task feedback and simpler debugging
+- Tasks can complete within orchestrator's 15-minute window
+
+**Dual Queue Setup** - Choose when:
+- Workflows need longer orchestration time (beyond 25 seconds)
+- Complex dependency resolution requires extended processing
+- You need to manage long-running workflows with many tasks
+- Both orchestration and task execution need 15-minute timeouts
+
+**Requirements:**
+- **MUST** evaluate workflow requirements before choosing execution mode
+- **SHOULD** consider timeout constraints, scalability needs, and complexity
+- **MUST** configure appropriate manifest.yml settings for chosen mode
+- **SHOULD** test execution mode with realistic workload
+
+## Configuration
+
+### Rule 13: Workflow Setup
+
+**Define Tasks and Dependencies:**
+```typescript
+import {
+  WorkflowSpec,
+  TaskContext,
+  TaskResult,
+} from '@appfire-platform/workflow-types';
+
+const a = async (ctx: TaskContext): Promise<TaskResult> => ({
+  status: 'done',
+  endTime: new Date().toISOString(),
+  output: { a: true },
+});
+
+const b = async (ctx: TaskContext): Promise<TaskResult> => ({
+  status: 'done',
+  endTime: new Date().toISOString(),
+  output: { b: true },
+});
+
+const c = async (ctx: TaskContext): Promise<TaskResult> => ({
+  status: 'done',
+  endTime: new Date().toISOString(),
+  output: { c: true },
+});
+
+export const spec: WorkflowSpec = {
+  tasks: {
+    a: { handlerName: 'a' },
+    b: { handlerName: 'b' },
+    c: { handlerName: 'c' },
+  },
+  dependencies: {
+    a: [],
+    b: ['a'],
+    c: ['a', 'b'],
+  },
+  taskRegistry: { a, b, c },
+};
+```
+
+**Retry Policies per Task:**
+```typescript
+const robustTask = async (ctx: TaskContext): Promise<TaskResult> => {
+  // may fail transiently
+  return { status: 'done', endTime: new Date().toISOString() };
+};
+
+export const specWithRetry: WorkflowSpec = {
+  tasks: {
+    robust: {
+      handlerName: 'robust',
+      retryConfig: { maxAttempts: 3, backoffMs: 1000 },
+    },
+  },
+  dependencies: { robust: [] },
+  taskRegistry: { robust: robustTask },
+};
+```
+
+**Orchestrator Configuration:**
+```typescript
+import { createWorkflowOrchestrator } from '@appfire-platform/forge-orchestrator';
+
+const orchestrator = createWorkflowOrchestrator(storageProvider, {
+  useQueue: true,  // or false for direct execution
+  queueName: 'my-workflow-queue',
+  defaultWorkflowOptions: {
+    maxConcurrentTasks: 5,  // queue mode
+    // maxBatchSize: 10,  // direct mode
+  },
+});
+```
+
+**Create and Execute Workflow:**
+```typescript
+// Create the workflow using your spec (with or without retryConfig)
+const workflowId = await orchestrator.createWorkflow(specWithRetry);
+
+// Execute the workflow; returns final status when complete or terminal
+const { status, completed } = await orchestrator.executeWorkflow(workflowId);
+
+console.log('Workflow execution result:', { workflowId, status, completed });
+
+// Optional: Inspect task states after execution
+const tasks = await storageProvider.getAllTasks(workflowId);
+console.log(
+  'Task states:',
+  tasks.map((t) => ({ taskId: t.taskId, status: t.status }))
+);
+```
+
+**Ordering Guarantees:**
+- The system guarantees no inherent ordering beyond the defined task dependencies
+- Independent tasks may run in any order (or in parallel)
+- Ordering is governed by execution mode and concurrency settings
+
+**Forge KVS Usage, Issues & Mitigation:**
+- All workflow state is stored in Forge KVS via a StorageProvider
+- Keep values JSON-serializable and small; beware of KVS quotas
+- Use provided key utilities and avoid manual key collisions
+- On large workflows, use batch reads/writes and chunked processing
+
+**Large Tasks and Forge 15-minute Limit:**
+- If a task may exceed Forge's 15-minute execution limit, break it into smaller, independent sub-tasks
+- Each sub-task should complete within the allowed time
+- Chain sub-tasks via dependencies
+
+**Requirements:**
+- **MUST** define all tasks with handlerName in tasks object
+- **MUST** define dependencies as arrays of task IDs
+- **MUST** provide taskRegistry mapping handlerName to handler function
+- **CAN** configure retryConfig per task in TaskSpec
+- **SHOULD** break large tasks into smaller sub-tasks if exceeding 15-minute limit
+- **MUST** keep KVS values JSON-serializable and small
+- **MUST NOT** assume ordering for independent tasks
+
+### Rule 14: Queue Configuration
+
+**Manifest Configuration:**
+```yaml
+modules:
+  consumer:
+    - key: workflow-consumer
+      queue: my-workflow-queue
+      function: queue-handler
+  function:
+    - key: queue-handler
+      handler: index.queueHandler
+      timeoutSeconds: 900
+    - key: workflow-resolver
+      handler: index.workflowResolver
+```
+
+**Enqueuer Setup:**
+```typescript
+import { createEnqueuer } from '@appfire-platform/forge-enqueuer';
+import { createForgeKvsStorageProvider } from '@appfire-platform/forge-kvs-storage';
+
+const storageProvider = createForgeKvsStorageProvider('my-forge-app');
+const enqueuer = createEnqueuer(storageProvider, {
+  queueName: 'my-workflow-queue',
+});
+
+await enqueuer.enqueueTask({
+  context: {
+    workflowId: 'wf-1',
+    taskId: 'task-1',
+    attempt: 0,
+    input: {
+      message: 'hello',
+      timestamp: new Date().toISOString(),
+      source: 'resolver',
+    },
+    dependencyOutputs: {},
+    dependencyTaskIds: [],
+    startTime: new Date().toISOString(),
+    handlerName: 'doWork',
+  },
+  // Optional
+  // concurrency: { key: 'user-123', limit: 1 },
+  // delayInSeconds: 60,  // 1–900 allowed; 0 is invalid
+});
+```
+
+**Delay Edge Case (Important):**
+- Forge rejects `delayInSeconds: 0` with HTTP 400
+- Allowed range is 1–900 seconds (15 minutes)
+- The SDK validates this and will error on 0
+- **MUST NOT** use `delayInSeconds: 0`
+
+**Ordering Guarantees:**
+- No ordering is guaranteed beyond dependencies
+- Independent tasks may be delivered/executed in any order
+- Only dependency relationships guarantee execution order
+
+**When You Already Have a Queue:**
+- If your app already has a queue and listener, you can skip the SDK enqueuer
+- Invoke the orchestrator directly in your listener with `useQueue: false`
+- This allows you to use your existing queue infrastructure
+
+**Requirements:**
+- **MUST** configure consumer and function modules in manifest.yml
+- **MUST** set `timeoutSeconds: 900` for queue handlers (15 minutes)
+- **MUST** use same queue name in enqueuer configuration and manifest
+- **MUST NOT** use `delayInSeconds: 0` (minimum is 1 second)
+- **MUST NOT** assume ordering for independent tasks
+- **CAN** use existing queue infrastructure with `useQueue: false`
+
+### Rule 15: Consumer Setup
+
+**Manifest:**
+```yaml
+modules:
+  consumer:
+    - key: workflow-consumer
+      queue: my-workflow-queue
+      function: queue-handler
+  function:
+    - key: queue-handler
+      handler: index.queueHandler
+      timeoutSeconds: 900
+```
+
+**Handler Implementation:**
+```typescript
+import { createWorkflowConsumer } from '@appfire-platform/forge-consumer';
+import { createForgeKvsStorageProvider } from '@appfire-platform/forge-kvs-storage';
+
+import { taskHandlers } from './task-handlers';
+
+export async function queueHandler(event) {
+  const storageProvider = createForgeKvsStorageProvider('my-forge-app');
+  const consumer = createWorkflowConsumer(storageProvider, event);
+  await consumer.executeTask({ taskHandlers });
+}
+```
+
+**Notes:**
+- Ensure handlerName values used by tasks exist in your taskHandlers
+- Consumer requires `@forge/events` environment
+- Tasks may arrive in any order except where dependencies enforce sequence
+- Use same storage provider identifier as orchestrator
+
+**Requirements:**
+- **MUST** configure consumer module in manifest.yml
+- **MUST** set `timeoutSeconds: 900` for queue handler (15 minutes)
+- **MUST** register all task handlers in consumer
+- **MUST** use same storage provider identifier as orchestrator
+- **MUST** ensure handlerName values match between tasks and taskHandlers
+- **SHOULD** handle tasks arriving in any order
+- **MUST** have `@forge/events` package installed
+
+## Storage Provider
+
+### Rule 16: KVS Storage Provider
+
+```typescript
+import { createForgeKvsStorageProvider } from '@appfire-platform/forge-kvs-storage';
+
+const storageProvider = createForgeKvsStorageProvider('my-forge-app');
+```
+
+**Requirements:**
+- **MUST** use same storage provider instance in orchestrator and consumer
+- **MUST** use consistent app identifier across instances
+- **SHOULD** use app name or unique identifier for namespace isolation
+
+## Status Tracking
+
+### Rule 17: Status Tracking APIs
+
+**Workflow Status Calculation:**
+The orchestrator continuously monitors task states and derives the overall workflow status:
+- Fetches all task statuses for a workflow
+- Counts tasks per state
+- Calculates the workflow status based on distribution
+- Persists updates in storage
+
+**Workflow Statuses:**
+- `pending`: Initial state, waiting for execution to begin
+- `in_progress`: Active execution with tasks running
+- `done`: All tasks completed successfully
+- `failed`: All tasks failed
+- `partially_failed`: Some tasks failed, others succeeded
+
+**Task Status Lifecycle:**
+Tasks transition through these states:
+- `pending` → `ready` → `queued` (queue mode) → `running` → `done`
+- On failure: `running` → `failed` (retry manager may re-enqueue, moving status back to `queued`)
+
+**Status Tracking APIs:**
+```typescript
+import { StorageProvider } from '@appfire-platform/workflow-types';
+
+// Get workflow view with status and tasks
+async function getWorkflowView(storage: StorageProvider, workflowId: string) {
+  const status = await storage.getWorkflowStatus(workflowId);
+  const tasks = await storage.getAllTasks(workflowId);
+  return { status, tasks };
+}
+
+// Query by workflow and task ID
+const taskStatus = await storageProvider.getTaskStatus(workflowId, taskId);
+const taskResult = await storageProvider.getTaskResult(workflowId, taskId);
+```
+
+**Recommended Patterns:**
+- Poll workflow status from UI or admin tools
+- Use logs to correlate transitions (orchestrator, enqueuer, consumer)
+- Store and surface `retryMetadata` and `dispatchMetadata` for richer insights
+
+**Common Issues:**
+- Task never becomes ready: Verify dependency task IDs and ensure upstream tasks reach `done`
+- Workflow never reaches terminal state: Check dispatch failures and consumer errors; retries may be pending
+- In queue mode, tasks stuck in `queued`: Ensure consumer is deployed and subscribed to the correct queue
+
+**Requirements:**
+- **SHOULD** poll workflow status for long-running workflows
+- **MUST** check task statuses for debugging
+- **SHOULD** log workflow and task state changes
+- **MUST** handle failed tasks appropriately
+- **SHOULD** use StorageProvider APIs for status queries
+- **MUST** understand there is no ordering guarantee beyond dependencies
+
+## Workflow Execution
+
+### Rule 22: Creating and Executing Workflows
+
+```typescript
+import { createWorkflowOrchestrator } from '@appfire-platform/forge-orchestrator';
+
+const orchestrator = createWorkflowOrchestrator(storageProvider, {
+  useQueue: true,
+  queueName: 'my-workflow-queue',
+});
+
+// Create workflow
+const workflowId = await orchestrator.createWorkflow(workflowSpec);
+
+// Execute workflow
+const result = await orchestrator.executeWorkflow(workflowId);
+
+console.log('Workflow completed?', result.completed);
+console.log('Workflow status:', result.status);
+```
+
+**Requirements:**
+- **MUST** create workflow before execution
+- **MUST** store workflowId for tracking and monitoring
+- **SHOULD** check `result.completed` and `result.status` after execution
+- **CAN** execute workflow immediately after creation
+
+### Rule 23: Dependency Outputs
+
+```typescript
+// Task A produces output
+const taskA = async (context: TaskContext): Promise<TaskResult> => {
+  return {
+    status: 'done',
+    endTime: new Date().toISOString(),
+    output: { data: 'processed data', count: 42 },
+  };
+};
+
+// Task B receives the output
+const taskB = async (context: TaskContext): Promise<TaskResult> => {
+  const taskAOutput = context.dependencyOutputs['task-a'];
+  const data = (taskAOutput?.output as any)?.data;
+  const count = (taskAOutput?.output as any)?.count;
+
+  return {
+    status: 'done',
+    endTime: new Date().toISOString(),
+    output: { result: `Processed ${count} items: ${data}` },
+  };
+};
+```
+
+**Requirements:**
+- **MUST** access dependency outputs via `context.dependencyOutputs[taskId]`
+- **SHOULD** type cast outputs appropriately
+- **MUST** handle missing outputs (use optional chaining `?.`)
+- **SHOULD** validate output structure before use
+
+## Retry Mechanisms
+
+### Rule 18: Retry Configuration
+
+```typescript
+const workflowSpec: WorkflowSpec = {
+  tasks: {
+    'fetch-data': {
+      handlerName: 'fetchData',
+      retryConfig: {
+        maxAttempts: 3,
+        backoffMs: 1000,  // Exponential backoff starting at 1 second
+      },
+      timeoutSeconds: 300,  // 5 minutes timeout
+    },
+  },
+  dependencies: {
+    'fetch-data': [],
+  },
+  taskRegistry: {
+    fetchData: async (ctx) => {
+      // Task logic
+      return { status: 'done', output: {} };
+    },
+  },
+};
+```
+
+**Requirements:**
+- **CAN** configure `retryConfig` per task
+- **MUST** set `maxAttempts` (default: 3)
+- **MUST** set `backoffMs` for exponential backoff (default: 1000ms)
+- **CAN** set `timeoutSeconds` per task
+- **SHOULD** configure retries for tasks that may fail transiently
+
+### Rule 19: Retry Behavior
+
+**Automatic Retry:**
+- Failed tasks are automatically retried
+- Exponential backoff increases delays between attempts
+- Maximum attempts enforced by `retryConfig.maxAttempts`
+- Retry attempts are logged and monitored
+
+**Requirements:**
+- **MUST** handle retries gracefully in task handlers
+- **SHOULD** check `context.attempt` to track retry count
+- **MUST** return `status: 'failed'` to stop retries
+- **SHOULD** log retry attempts for debugging
+
+## Rate Limiting
+
+### Rule 20: Built-in Rate Limit Protection
+
+**Forge Queue Limits:**
+- Maximum 50 events per push
+- Maximum 500 events per minute
+- SDK automatically handles these limits
+
+**KVS Operations:**
+- SDK manages storage operation frequency
+- Prevents KVS rate limit errors
+
+**External APIs:**
+- Handles Jira, Confluence, and other service limits
+- Automatic detection and backoff
+
+**Requirements:**
+- **MUST** trust SDK's built-in rate limit handling
+- **SHOULD** configure appropriate `maxConcurrentTasks` or `maxBatchSize`
+- **MUST NOT** bypass SDK rate limiting mechanisms
+
+### Rule 21: Rate Limit Handling
+
+**Detection:**
+- SDK automatically identifies rate limit responses
+- Detects Forge Queue, KVS, and external API limits
+
+**Backoff:**
+- Intelligent delays before retry attempts
+- Respects `Retry-After` headers when available
+
+**Queue Management:**
+- Tasks are re-enqueued with appropriate delays
+- Prevents queue overflow
+
+**Requirements:**
+- **MUST** let SDK handle rate limits automatically
+- **SHOULD** monitor rate limit events in logs
+- **MUST NOT** implement custom rate limiting that conflicts with SDK
+
+## Debugging
+
+### Rule 31: Observability
+
+**Current Debugging Options:**
+
+**1. Application Logs**
+View detailed logs from your Fork Join SDK components in the Atlassian Developer Console:
+- **Orchestrator logs**: Workflow creation, execution, and status updates
+- **Enqueuer logs**: Task queuing operations and rate limiting
+- **Consumer/Worker logs**: Task execution and error handling
+- **Retry Manager logs**: Retry attempts and backoff calculations
+
+**2. Key-Value Store (KVS) Inspection**
+Monitor workflow and task state directly in the Developer Console:
+- **Workflow metadata**: Status, creation time, and configuration
+- **Task statuses**: Current state of individual tasks
+- **Execution progress**: Dependency resolution and completion tracking
+- **Error details**: Failure reasons and retry information
+
+**Accessing Debug Information:**
+1. Navigate to Atlassian Developer Console
+2. Select your Forge app
+3. Go to the Logs section to view application logs
+4. Use the Storage section to inspect KVS values
+
+**Requirements:**
+- **SHOULD** check application logs for component-level debugging
+- **SHOULD** inspect KVS values for workflow and task state
+- **SHOULD** monitor logs during workflow execution
+- **SHOULD** use Developer Console for debugging and troubleshooting
+
+### Rule 32: Debugging Guide
+
+**Logs to Check:**
+- **Orchestrator logs**: Creation, dependency resolution, dispatch
+- **Enqueuer logs**: Validation, batch size, rate limiting, delay validation
+- **Consumer logs**: Validation, handler execution, storage updates
+- **Retry manager logs**: Attempts, backoff, re-enqueue
+
+**Common Errors:**
+
+**1. 400 from Forge when enqueuing:**
+- **Likely cause**: `delayInSeconds` invalid (0)
+- **Solution**: Allowed range is 1–900. Update the value or omit it
+- **MUST NOT** use `delayInSeconds: 0`
+
+**2. Task stuck in queued:**
+- **Verify**: Consumer is deployed and subscribed to the correct queue
+- **Confirm**: `handlerName` exists and maps to a handler function
+- **Check**: Queue configuration in manifest.yml matches enqueuer configuration
+
+**3. Task never becomes ready:**
+- **Check**: All dependencies transition to `done`
+- **Ensure**: Dependency IDs are correct and exist in the DAG
+- **Verify**: No circular dependencies in workflow spec
+
+**Storage Inspection:**
+Use the Developer Console storage inspector to verify:
+- **Workflow status transitions**: pending → in_progress → done/failed/partially_failed
+- **Task status and results**: Current state, outputs, errors
+- **Retry metadata**: Attempt counts, backoff calculations, retry timestamps
+- **Dispatch metadata**: Task dispatch information, queue status
+
+**Troubleshooting Steps:**
+1. Check application logs for error messages
+2. Inspect KVS storage for workflow and task state
+3. Verify manifest.yml configuration matches code
+4. Confirm all handlers are registered correctly
+5. Check queue configuration and consumer setup
+6. Verify dependencies are correctly defined
+
+**Slack Help Channel:**
+Get help from the team: https://appfireworkspace.slack.com/archives/C09FE1LJQBG
+
+**Requirements:**
+- **SHOULD** check logs for each component when debugging
+- **MUST** verify `delayInSeconds` is between 1-900 (not 0)
+- **MUST** ensure consumer is deployed and configured correctly
+- **MUST** verify dependencies are correctly defined in workflow spec
+- **SHOULD** use storage inspection to verify workflow and task state
+- **SHOULD** check retry metadata and dispatch metadata for debugging
+
+## Best Practices
+
+### Rule 33: Task Design
+
+```typescript
+// Good: Small, focused tasks
+const fetchUserData = async (ctx: TaskContext): Promise<TaskResult> => {
+  const userId = ctx.input.source;
+  const user = await getUser(userId);
+  return { status: 'done', output: { user } };
+};
+
+const processUserData = async (ctx: TaskContext): Promise<TaskResult> => {
+  const user = ctx.dependencyOutputs['fetch-user']?.output?.user;
+  const processed = await processUser(user);
+  return { status: 'done', output: { processed } };
+};
+
+// Bad: Large, monolithic task
+const fetchAndProcessUser = async (ctx: TaskContext): Promise<TaskResult> => {
+  // Too much work in one task - may exceed timeout
+  const userId = ctx.input.source;
+  const user = await getUser(userId);
+  const processed = await processUser(user);
+  const report = await generateReport(processed);
+  return { status: 'done', output: { report } };
+};
+```
+
+**Requirements:**
+- **SHOULD** break large operations into smaller tasks
+- **MUST** ensure each task completes within timeout limits
+- **SHOULD** design tasks to be idempotent when possible
+- **MUST** handle errors gracefully in task handlers
+
+### Rule 34: Workflow Monitoring
+
+```typescript
+// Check workflow status
+const workflow = await orchestrator.getWorkflow(workflowId);
+console.log('Status:', workflow.status);
+console.log('Completed:', workflow.completed);
+
+// Check task statuses
+const tasks = await orchestrator.getWorkflowTasks(workflowId);
+tasks.forEach(task => {
+  console.log(`Task ${task.taskId}: ${task.status}`);
+  if (task.status === 'failed') {
+    console.error('Error:', task.error);
+  }
+});
+```
+
+**Requirements:**
+- **SHOULD** monitor workflow status for long-running workflows
+- **MUST** check task statuses for debugging
+- **SHOULD** log workflow and task state changes
+- **MUST** handle failed tasks appropriately
+
+### Rule 35: Error Handling in Task Handlers
+
+```typescript
+const processData = async (ctx: TaskContext): Promise<TaskResult> => {
+  try {
+    const data = ctx.dependencyOutputs['fetch-data']?.output?.data;
+    
+    if (!data) {
+      return {
+        status: 'failed',
+        endTime: new Date().toISOString(),
+        error: 'Missing dependency data',
+      };
+    }
+
+    const result = await performProcessing(data);
+    
+    return {
+      status: 'done',
+      endTime: new Date().toISOString(),
+      output: { result },
+    };
+  } catch (error) {
+    return {
+      status: 'failed',
+      endTime: new Date().toISOString(),
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+};
+```
+
+**Requirements:**
+- **MUST** wrap task logic in try-catch blocks
+- **MUST** return `status: 'failed'` on errors
+- **SHOULD** include error message in failure result
+- **MUST** validate dependency outputs before use
+- **SHOULD** handle missing dependencies gracefully
+
+### Rule 36: Task Input Design
+
+```typescript
+// Good: Structured task input
+const workflowSpec: WorkflowSpec = {
+  tasks: {
+    'process-page': {
+      handlerName: 'processPage',
+      taskInput: {
+        timestamp: new Date().toISOString(),
+        source: 'migration',
+        pageId: 'page-123',
+        spaceId: 'space-456',
+      },
+    },
+  },
+  // ...
+};
+
+// Task handler receives structured input
+const processPage = async (ctx: TaskContext): Promise<TaskResult> => {
+  const pageId = ctx.input.pageId;
+  const spaceId = ctx.input.spaceId;
+  // Use structured input
+};
+```
+
+**Requirements:**
+- **SHOULD** use structured `taskInput` for task-specific data
+- **MUST** include `timestamp` and `source` in taskInput
+- **CAN** include additional fields as needed
+- **SHOULD** validate input structure in task handlers
+
+## Common Patterns
+
+### Rule 37: Migration Workflow Pattern
+
+```typescript
+const migrationWorkflowSpec: WorkflowSpec = {
+  tasks: {
+    'fetch-entities': { handlerName: 'fetchEntities' },
+    'validate-entities': { handlerName: 'validateEntities' },
+    'convert-entities': { handlerName: 'convertEntities' },
+    'process-chunk-1': { handlerName: 'processChunk' },
+    'process-chunk-2': { handlerName: 'processChunk' },
+    'process-chunk-3': { handlerName: 'processChunk' },
+    'finalize': { handlerName: 'finalizeMigration' },
+  },
+  dependencies: {
+    'fetch-entities': [],
+    'validate-entities': ['fetch-entities'],
+    'convert-entities': ['validate-entities'],
+    'process-chunk-1': ['convert-entities'],
+    'process-chunk-2': ['convert-entities'],
+    'process-chunk-3': ['convert-entities'],
+    'finalize': ['process-chunk-1', 'process-chunk-2', 'process-chunk-3'],
+  },
+  taskRegistry: {
+    fetchEntities: async (ctx) => { /* ... */ },
+    validateEntities: async (ctx) => { /* ... */ },
+    convertEntities: async (ctx) => { /* ... */ },
+    processChunk: async (ctx) => { /* ... */ },
+    finalizeMigration: async (ctx) => { /* ... */ },
+  },
+};
+```
+
+**Requirements:**
+- **SHOULD** break large operations into sequential tasks
+- **CAN** process independent chunks in parallel
+- **MUST** ensure finalization waits for all chunks
+- **SHOULD** design for idempotency and retry
+
+### Rule 38: Batch Processing Pattern
+
+```typescript
+// Create multiple workflows for batch processing
+const items = ['item1', 'item2', 'item3', 'item4', 'item5'];
+
+for (const item of items) {
+  const workflowSpec: WorkflowSpec = {
+    tasks: {
+      'process-item': {
+        handlerName: 'processItem',
+        taskInput: {
+          timestamp: new Date().toISOString(),
+          source: 'batch-processing',
+          itemId: item,
+        },
+      },
+    },
+    dependencies: {
+      'process-item': [],
+    },
+    taskRegistry: {
+      processItem: async (ctx) => {
+        const itemId = ctx.input.itemId;
+        await processItem(itemId);
+        return { status: 'done', output: { itemId } };
+      },
+    },
+  };
+
+  const workflowId = await orchestrator.createWorkflow(workflowSpec);
+  await orchestrator.executeWorkflow(workflowId);
+}
+```
+
+**Requirements:**
+- **CAN** create multiple workflows for batch processing
+- **SHOULD** use direct execution mode for simple batch workflows
+- **MUST** track workflow IDs for monitoring
+- **SHOULD** process batches with appropriate concurrency limits
+
+## Advanced Topics
+
+### Rule 42: Concurrency Patterns
+
+**Concurrency Control Mechanisms:**
+
+**1. Queue-Based Concurrency (maxConcurrentTasks)**
+When using queue-based execution (`useQueue: true`), the `maxConcurrentTasks` option controls how many tasks can be processed simultaneously:
+
+```typescript
+const orchestrator = createWorkflowOrchestrator(storageProvider, {
+  useQueue: true,
+  queueName: 'my-workflow-queue',
+  defaultWorkflowOptions: {
+    maxConcurrentTasks: 5,  // Process up to 5 tasks concurrently
+  },
+});
+```
+
+**How it works:**
+- Tasks are enqueued with concurrency keys to limit parallel processing
+- The Enqueuer enforces concurrency limits when pushing to Forge Queues
+- Multiple consumers can process tasks up to the specified limit
+
+**2. Direct Execution Concurrency (maxBatchSize)**
+For non-queue execution (`useQueue: false`), the `maxBatchSize` option controls parallel task processing within the orchestrator:
+
+```typescript
+const orchestrator = createWorkflowOrchestrator(storageProvider, {
+  useQueue: false,
+  defaultWorkflowOptions: {
+    maxBatchSize: 10,  // Process up to 10 tasks in parallel
+  },
+});
+```
+
+**How it works:**
+- Ready tasks are executed in parallel batches up to the specified size
+- All tasks within a batch run simultaneously
+- The orchestrator waits for all tasks in a batch to complete before processing the next batch
+- Suitable for workflows that fit within Forge timeout limits
+
+**Use cases:**
+- **Simple Workflows**: Parallel processing without queue overhead
+- **Batch Operations**: Process multiple independent tasks simultaneously
+- **Quick Execution**: Immediate feedback for short-running workflows
+
+**Race Condition Prevention:**
+
+**KVS Versioning and Storage Isolation:**
+The SDK uses Forge KVS (Key-Value Store) with built-in versioning to prevent race conditions and eventual consistency issues:
+
+**Key Isolation Strategy:**
+```typescript
+// Each workflow gets isolated storage keys
+const keyBuilder = new KeyBuilder('my-orchestrator-name');
+
+// Workflow-specific keys prevent cross-workflow conflicts
+const workflowKey = keyBuilder.wfPrefix('workflow-123');
+const taskKey = keyBuilder.taskPrefix('workflow-123', 'task-456');
+```
+
+**Storage Structure:**
+- **Workflow Metadata**: `orchestrator:name:workflow:id:metadata`
+- **Task Status**: `orchestrator:name:workflow:id:task:taskId:status`
+- **Task Context**: `orchestrator:name:workflow:id:task:taskId:context`
+- **Task Results**: `orchestrator:name:workflow:id:task:taskId:result`
+
+**Benefits:**
+- **No Cross-Contamination**: Each workflow has isolated storage space
+- **Atomic Operations**: KVS operations are atomic at the key level
+- **Consistent Reads**: Forge KVS provides strong consistency guarantees
+- **Conflict Prevention**: Unique key patterns prevent naming collisions
+
+**Concurrent Task Execution Safety:**
+- **Task State Management**: Each task maintains its own isolated state
+- **Dependency Resolution**: Dependencies are checked atomically using KVS reads
+- **Status Updates**: Status updates are performed on isolated keys
+- **No Shared State**: No shared mutable state between concurrent tasks
+
+**Best Practices:**
+
+**Choose Appropriate Concurrency Levels:**
+
+**For Queue Mode:**
+```typescript
+// Conservative approach for external API calls
+maxConcurrentTasks: 3;
+
+// Balanced approach for mixed workloads
+maxConcurrentTasks: 10;
+
+// High throughput for independent tasks
+maxConcurrentTasks: 25;
+```
+
+**For Direct Execution:**
+```typescript
+// Small batches for simple workflows
+maxBatchSize: 5;
+
+// Medium batches for balanced performance
+maxBatchSize: 15;
+
+// Large batches for high-throughput scenarios
+maxBatchSize: 25;
+```
+
+**Requirements:**
+- **MUST** choose appropriate concurrency levels based on workload
+- **SHOULD** use lower concurrency for external API calls
+- **SHOULD** use higher concurrency for independent tasks
+- **MUST** understand that KVS provides isolation and atomic operations
+- **SHOULD** leverage storage isolation to prevent race conditions
+- **MUST NOT** assume shared mutable state between concurrent tasks
+
+### Rule 43: Forge Platform Limits
+
+**Understanding and working with Forge platform constraints is crucial for building reliable long-running workflows.**
+
+**1. Async Events Limits (Queue Operations)**
+
+The most critical limits for the Fork Join SDK are the Async Events API limits:
+
+| Resource | Limit | How Our Framework Prevents It |
+|----------|-------|-------------------------------|
+| Events per request | 50 | Enqueuer automatically splits large batches into chunks of 50 or fewer tasks |
+| Events per minute | 500 | Built-in rate limiting with automatic queuing when limits are approached |
+| Payload size | 200 KB | Automatic payload validation before queue push with clear error messages |
+| Payload size (long-running functions) | 100 KB | Stricter validation for long-running mode with automatic rejection of oversized payloads |
+
+**How We Handle These Limits:**
+- **Batch Splitting**: Enqueuer automatically chunks large task sets into compliant batches
+- **Rate Limiting**: Built-in throttling prevents exceeding 500 events per minute
+- **Payload Validation**: Automatic size checking with helpful error messages
+- **Rate Limit Handling**: Tasks are automatically retried with backoff when rate limits are hit
+
+**2. Key-Value Store (KVS) Limits**
+
+Future limits for KVS operations:
+
+| Parameter | Limit | How Our Framework Prevents It |
+|----------|-------|-------------------------------|
+| Request rate (RPS) | 1000 | Exponential backoff and retry mechanisms for KVS operations |
+| Read (10KB request per min) | 4000 | Efficient storage patterns and data compression to minimize read operations |
+| Write (10KB request per min) | 4000 | Batch write operations and smart caching to reduce individual write calls |
+
+**How We Handle These Limits:**
+- **Exponential Backoff**: Automatic retry with increasing delays when approaching RPS limits
+- **Efficient Storage**: Optimized data structures and compression to minimize storage operations
+- **Batch Operations**: Group multiple operations to stay within rate limits
+
+**3. Forge Function Timeout Limits**
+
+Runtime constraints that determine execution patterns:
+
+| Function Type | Timeout Limit | How Our Framework Prevents It |
+|---------------|---------------|-------------------------------|
+| Standard resolvers | 25 seconds | Automatic execution mode selection - switches to queue mode for long workflows |
+| Long-running functions | 15 minutes | Orchestrator queue mode enables extended execution time for complex workflows |
+
+**How We Handle These Limits:**
+- **Queue Mode**: Users can pass `useQueue: true` parameter to enable queue-based execution for workflows exceeding 25 seconds
+- **Orchestrator Queue**: Enables 15-minute orchestration time for complex workflows
+
+**Execution Mode Selection:**
+- **Queue mode**: Required for workflows exceeding 25 seconds (see Dual Queue Setup)
+- **Direct execution**: Limited to simple workflows within resolver timeouts (see Non-Queue Execution)
+- **Orchestrator queue**: Enables 15-minute orchestration time for complex workflows (see 1 Orchestrator Queue with useQueue false)
+
+**Requirements:**
+- **MUST** understand Async Events API limits (50 events/request, 500 events/minute)
+- **MUST** respect payload size limits (200 KB regular, 100 KB long-running)
+- **SHOULD** trust SDK's automatic limit handling
+- **MUST** choose appropriate execution mode based on timeout requirements
+- **SHOULD** be aware of KVS rate limits (1000 RPS, 4000 reads/writes per minute)
+- **MUST** use queue mode for workflows exceeding 25 seconds
+- **SHOULD** leverage SDK's built-in rate limiting and batch splitting
+
+**Reference:**
+- For comprehensive information on all Forge platform limits, see the official [Forge Platform Quotas and Limits documentation](https://developer.atlassian.com/platform/forge/platform-quotas-and-limits/)
+
+## Limitations and Constraints
+
+### Rule 45: Task Ordering Guarantees
+
+**No Ordering Beyond Dependencies:**
+- Tasks with no dependency relationship may execute in any order
+- Independent tasks may run in parallel
+- Only dependency relationships guarantee execution order
+
+**Requirements:**
+- **MUST NOT** assume execution order for independent tasks
+- **MUST** define dependencies explicitly if order matters
+- **SHOULD** design tasks to be order-independent when possible
+
+### Rule 46: Handler Registration
+
+**Task Registry Requirements:**
+- **MUST** register all handlers in `taskRegistry`
+- **MUST** ensure `handlerName` in tasks matches key in `taskRegistry`
+- **MUST** register same handlers in consumer (queue-based mode)
+- Workflow creation fails if handlerName not found in taskRegistry
+
+**Requirements:**
+- **MUST** validate handlerName exists before workflow creation
+- **SHOULD** use consistent handlerName across workflow spec and registry
+- **MUST** register all handlers in consumer for queue-based execution
+
+## Examples
+
+### Rule 47: Simple Workflow Example
+
+**Basic workflow implementation example demonstrating fundamental Fork Join SDK concepts.**
+
+**Queue-based (useQueue: true):**
+```typescript
+import { createWorkflowOrchestrator } from '@appfire-platform/forge-orchestrator';
+import { createForgeKvsStorageProvider } from '@appfire-platform/forge-kvs-storage';
+import {
+  WorkflowSpec,
+  TaskContext,
+  TaskResult,
+} from '@appfire-platform/workflow-types';
+
+// 1) Initialize a storage provider (one per app/environment is typical)
+const storageProvider = createForgeKvsStorageProvider('my-forge-app');
+
+// 2) Define task handlers (business logic lives here)
+const hello = async (ctx: TaskContext): Promise<TaskResult> => ({
+  status: 'done',
+  endTime: new Date().toISOString(),
+  output: { msg: 'hello' },
+});
+
+const world = async (ctx: TaskContext): Promise<TaskResult> => ({
+  status: 'done',
+  endTime: new Date().toISOString(),
+  output: { msg: 'world' },
+});
+
+// 3) Describe the workflow spec: tasks, dependencies, and registry
+// - 'world' depends on 'hello' and will run after it completes
+const spec: WorkflowSpec = {
+  tasks: { hello: { handlerName: 'hello' }, world: { handlerName: 'world' } },
+  dependencies: { hello: [], world: ['hello'] },
+  taskRegistry: { hello, world },
+};
+
+// 4) Configure the orchestrator
+// - useQueue: true => queue-backed execution mode
+// - queueName: queue to which task messages will be published
+// - defaultWorkflowOptions.maxConcurrentTasks applies in queue mode
+const orchestrator = createWorkflowOrchestrator(storageProvider, {
+  useQueue: true,
+  queueName: 'my-workflow-queue',
+  defaultWorkflowOptions: { maxConcurrentTasks: 5 },
+});
+
+// 5) Create and execute the workflow
+// - createWorkflow returns a workflowId
+// - executeWorkflow runs the workflow and returns the final result
+const workflowId = await orchestrator.createWorkflow(spec);
+const result = await orchestrator.executeWorkflow(workflowId);
+```
+
+**Direct execution (useQueue: false):**
+```typescript
+import { createWorkflowOrchestrator } from '@appfire-platform/forge-orchestrator';
+import { createForgeKvsStorageProvider } from '@appfire-platform/forge-kvs-storage';
+import {
+  WorkflowSpec,
+  TaskContext,
+  TaskResult,
+} from '@appfire-platform/workflow-types';
+
+// 1) Initialize a storage provider (one per app/environment is typical)
+const storageProvider = createForgeKvsStorageProvider('my-forge-app');
+
+// 2) Define task handlers (business logic lives here)
+const hello = async (ctx: TaskContext): Promise<TaskResult> => ({
+  status: 'done',
+  endTime: new Date().toISOString(),
+  output: { msg: 'hello' },
+});
+
+const world = async (ctx: TaskContext): Promise<TaskResult> => ({
+  status: 'done',
+  endTime: new Date().toISOString(),
+  output: { msg: 'world' },
+});
+
+// 3) Describe the workflow spec: tasks, dependencies, and registry
+// - 'world' depends on 'hello' and will run after it completes
+const spec: WorkflowSpec = {
+  tasks: { hello: { handlerName: 'hello' }, world: { handlerName: 'world' } },
+  dependencies: { hello: [], world: ['hello'] },
+  taskRegistry: { hello, world },
+};
+
+// 4) Configure the orchestrator
+// - useQueue: false => direct execution mode (no queue)
+// - defaultWorkflowOptions.maxBatchSize applies in direct mode
+const orchestrator = createWorkflowOrchestrator(storageProvider, {
+  useQueue: false,
+  defaultWorkflowOptions: { maxBatchSize: 5 },
+});
+
+// 5) Create and execute the workflow
+// - createWorkflow returns a workflowId
+// - executeWorkflow runs until a terminal status is reached and returns the result
+const workflowId = await orchestrator.createWorkflow(spec);
+const result = await orchestrator.executeWorkflow(workflowId);
+```
+
+**Key Points:**
+- **Step 1**: Initialize storage provider (one per app/environment is typical)
+- **Step 2**: Define task handlers (business logic lives here)
+- **Step 3**: Describe the workflow spec: tasks, dependencies, and registry
+- **Step 4**: Configure the orchestrator (queue-based or direct execution)
+- **Step 5**: Create and execute the workflow
+
+**Note:** No ordering is guaranteed beyond dependencies.
+
+**Requirements:**
+- **MUST** initialize storage provider before creating orchestrator
+- **MUST** define all task handlers before creating workflow spec
+- **MUST** ensure handlerName in tasks matches key in taskRegistry
+- **MUST** configure orchestrator with appropriate execution mode
+- **SHOULD** use queue-based execution for long-running workflows
+- **SHOULD** use direct execution for simple workflows within timeout limits
+- **MUST NOT** assume ordering for independent tasks
+
+### Rule 48: Complex Dependencies Example
+
+**Advanced dependency patterns demonstrating how to model real-world workflows that mix parallel and sequential steps, perform fan-out/fan-in, and merge independent branches.**
+
+**1. Mixed Parallel and Sequential:**
+```typescript
+const spec: WorkflowSpec = {
+  tasks: {
+    start: { handlerName: 'start' },
+    a: { handlerName: 'a' },
+    b: { handlerName: 'b' },
+    c: { handlerName: 'c' },
+    finish: { handlerName: 'finish' },
+  },
+  dependencies: {
+    start: [],
+    a: ['start'],
+    b: ['start'],
+    c: ['a', 'b'],
+    finish: ['c'],
+  },
+  taskRegistry: { start, a, b, c, finish },
+};
+```
+
+**Description:**
+- `start` runs first
+- `a` and `b` both depend on `start` and can run in parallel
+- `c` depends on both `a` and `b` (fan-in), then `finish` depends on `c`
+- **Note**: Only dependencies determine ordering. `a` and `b` may run in any order or parallel
+
+**2. Fan-out to Multiple Tasks and Aggregate:**
+```typescript
+const spec: WorkflowSpec = {
+  tasks: {
+    start: { handlerName: 'start' },
+    extract: { handlerName: 'extract' },
+    transform: { handlerName: 'transform' },
+    validate: { handlerName: 'validate' },
+    aggregate: { handlerName: 'aggregate' },
+  },
+  dependencies: {
+    start: [],
+    extract: ['start'],
+    transform: ['start'],
+    validate: ['start'],
+    aggregate: ['extract', 'transform', 'validate'],
+  },
+  taskRegistry: { start, extract, transform, validate, aggregate },
+};
+```
+
+**Description:**
+- Fan-out after `start` to three independent tasks: `extract`, `transform`, `validate`
+- `aggregate` waits for all three to complete and combines their outputs
+
+**3. Multi-level Parallel Waves:**
+```typescript
+const spec: WorkflowSpec = {
+  tasks: {
+    start: { handlerName: 'start' },
+    a1: { handlerName: 'a1' },
+    a2: { handlerName: 'a2' },
+    b1: { handlerName: 'b1' },
+    b2: { handlerName: 'b2' },
+    c: { handlerName: 'c' },
+  },
+  dependencies: {
+    start: [],
+    a1: ['start'],
+    a2: ['start'],
+    b1: ['a1'],
+    b2: ['a2'],
+    c: ['b1', 'b2'],
+  },
+  taskRegistry: { start, a1, a2, b1, b2, c },
+};
+```
+
+**Description:**
+- **Wave 1**: `a1` and `a2` run in parallel after `start`
+- **Wave 2**: `b1` waits for `a1`, `b2` waits for `a2` (still parallel overall)
+- **Final**: `c` fans-in results from `b1` and `b2`
+
+**4. Independent Chains Merged Later:**
+```typescript
+const spec: WorkflowSpec = {
+  tasks: {
+    a1: { handlerName: 'a1' },
+    a2: { handlerName: 'a2' },
+    b1: { handlerName: 'b1' },
+    b2: { handlerName: 'b2' },
+    finish: { handlerName: 'finish' },
+  },
+  dependencies: {
+    a1: [],
+    a2: ['a1'],
+    b1: [],
+    b2: ['b1'],
+    finish: ['a2', 'b2'],
+  },
+  taskRegistry: { a1, a2, b1, b2, finish },
+};
+```
+
+**Description:**
+- Two independent chains (`a1` → `a2` and `b1` → `b2`) progress in parallel
+- `finish` waits for the terminal task of both chains
+- **Tip**: For best throughput, keep branches as independent as possible and merge only where needed
+
+**Key Patterns:**
+- **Fan-out**: Multiple tasks depend on the same parent task
+- **Fan-in**: A task depends on multiple parent tasks
+- **Parallel Waves**: Multiple levels of parallel execution
+- **Independent Chains**: Separate chains that merge at the end
+
+**Requirements:**
+- **SHOULD** use fan-out patterns for parallel processing of independent operations
+- **SHOULD** use fan-in patterns to aggregate results from parallel tasks
+- **SHOULD** design multi-level parallel waves for complex workflows
+- **SHOULD** keep independent chains separate and merge only when necessary
+- **MUST** understand that only dependencies determine ordering
+- **MUST NOT** assume ordering for tasks with no dependency relationship
+- **SHOULD** design workflows for maximum parallelism where possible
+
+### Rule 49: Reference Applications
+
+**Complete reference applications and proof-of-concept repositories that demonstrate real-world Fork Join SDK usage.**
+
+**1. Long-Running Task Reference App**
+- **Location**: `apps/long-running-task-ref-app/`
+- **Repository**: Bitbucket - long-running-task-ref-app
+- **README**: See the app README for detailed setup and steps
+- **Shows**: Queue configuration, enqueuer usage, consumer implementation
+- **Includes**: Sample handlers, orchestration flow, input validation
+
+**How to Run:**
+1. Install dependencies at the monorepo root
+2. Navigate to `apps/long-running-task-ref-app/`
+3. Configure manifest.yml and queues
+4. Deploy with Forge CLI and test queue consumption
+
+**2. Direct Orchestrator (No Queue)**
+- **Repository**: Direct Orchestrator Ref App
+- **Shows**: Direct, non-queue execution mode (`useQueue: false`), immediate task execution
+- **Includes**: Simple workflow, handler mapping, storage provider wiring
+
+**3. Direct Orchestrator on Queue (useQueue false)**
+- **Repository**: Direct Orchestrator Queue Ref App
+- **Shows**: Orchestrator running in a queue for 15-minute window while executing tasks directly (`useQueue: false`)
+- **Includes**: Queue configuration for orchestrator, direct task execution, status updates
+
+**4. Orchestrator (Queue-Based)**
+- **Repository**: Orchestrator Ref App
+- **Shows**: Queue-based execution with enqueuer/consumer pattern
+- **Includes**: Queue listener, consumer handler, workflow orchestration
+
+**5. Orchestrator with Queue + Retry**
+- **Repository**: Orchestrator Queue Retry Ref App
+- **Shows**: Queue-based execution with retry manager and backoff
+- **Includes**: Retry configuration, failure handling, re-enqueue flow
+
+**Requirements:**
+- **SHOULD** review reference applications for real-world implementation examples
+- **SHOULD** use reference apps as starting points for your own workflows
+- **MUST** understand the differences between execution modes demonstrated in each app
+- **SHOULD** follow patterns from reference apps for queue configuration and consumer setup
+- **CAN** adapt reference app code for your specific use cases
+
+### Rule 50: Error Recovery
+
+**Examples of failure handling patterns and robust workflow design for error recovery.**
+
+**Retry with Exponential Backoff:**
+```typescript
+const failing = async (ctx: TaskContext): Promise<TaskResult> => {
+  // throw transiently
+  throw new Error('temporary');
+};
+
+const spec: WorkflowSpec = {
+  tasks: {
+    failing: {
+      handlerName: 'failing',
+      retryConfig: { maxAttempts: 3, backoffMs: 1000 },
+    },
+  },
+  dependencies: { failing: [] },
+  taskRegistry: { failing },
+};
+```
+
+**Handling Rate Limits:**
+- The system detects rate limits and schedules retries with delay
+- Enqueued retries use `delayInSeconds` in the 1–900 range
+- **Common Pitfall**: `delayInSeconds = 0` - Forge rejects 0 with HTTP 400; use at least 1 second
+
+**Components Involved:**
+- **Retry Manager**: Computes backoff and enqueues retries until max attempts are exhausted. Persists attempt metadata and updates task status.
+- **Rate Limit Detection**: Identifies 429 status or Retry-After header and extracts a server-suggested delay when present.
+- **Rate Limiter Wrapper**: Wraps any async operation. On error, decides if it is a rate limit or not and delegates to the Retry Manager with the appropriate delay.
+
+**Behavior:**
+- **Rate-limited errors (HTTP 429 or Retry-After)**: The wrapper uses the Retry-After header (if present) as the minimum delay before retrying, ensuring server-friendly pacing.
+- **Non rate-limited errors**: The wrapper schedules a retry using exponential backoff with optional jitter until max attempts are reached.
+- **Max attempts exceeded**: Retry Manager marks the task as failed; wrapper reports a terminal failure result.
+
+**Wrapper Result Contract:**
+```typescript
+interface RunWithRateLimitResult {
+  ok: boolean;
+  result?: TaskResult;
+  requeued?: boolean;
+}
+```
+
+**Example: Wrap a Handler with Rate Limiting:**
+```typescript
+import { createRateLimiterWrapper } from '@appfire-platform/rate-limit-and-retry-manager';
+import type {
+  RetryManagerDeps,
+  RetryPolicy,
+} from '@appfire-platform/rate-limit-and-retry-manager';
+
+// 1) Dependencies and policy
+const deps: RetryManagerDeps = {
+  storage: storageProvider,  // Your StorageProvider
+  enqueuerOptions: { queueName: 'q' },  // Required to re-enqueue retries
+};
+
+const policy: RetryPolicy = {
+  maxAttempts: 5,
+  backoffMs: 1000,  // starting backoff in ms
+  jitter: true,  // optional jitter
+  maxDelayMs: 60_000,  // optional cap
+};
+
+// 2) Create the wrapper
+const rlw = createRateLimiterWrapper(deps, policy);
+
+// 3) Use inside a task handler or any async function
+const run = async (ctx: TaskContext): Promise<TaskResult> => {
+  const result = await rlw.runWithRateLimit(
+    {
+      workflowId: ctx.workflowId,
+      taskId: ctx.taskId,
+    },
+    async () => {
+      // Your operation that may 429 or fail transiently
+      const res = await fetch('https://api.example.com/resource');
+      if (!res.ok) {
+        const e: any = new Error(`HTTP ${res.status}`);
+        e.status = res.status;
+        e.headers = Object.fromEntries(res.headers.entries());
+        throw e;
+      }
+      return await res.json();
+    }
+  );
+
+  if (result.ok) {
+    return (
+      result.result || {
+        status: 'done',
+        endTime: new Date().toISOString(),
+      }
+    );
+  }
+
+  if (result.requeued) {
+    // A retry has been scheduled (status will be updated to QUEUED by the Retry Manager)
+    // You can log and short-circuit; orchestration will re-run this task later.
+    console.log('[INFO] requeued for retry', {
+      taskId: ctx.taskId,
+    });
+    return {
+      status: 'failed',
+      endTime: new Date().toISOString(),
+      error: 'Task requeued for retry',
+    };
+  }
+
+  // Terminal failure (max attempts exceeded)
+  return {
+    status: 'failed',
+    endTime: new Date().toISOString(),
+    error: 'Retry scheduling failed or max attempts exceeded',
+  };
+};
+```
+
+**Notes:**
+- For queue-backed retries, delays are translated to `delayInSeconds` (1–900). Values below 1 are promoted to 1.
+- The Retry Manager persists attempt counts and timestamps, so retries remain consistent across executions.
+
+**Requirements:**
+- **MUST** configure `retryConfig` in TaskSpec for tasks that may fail transiently
+- **MUST** use `delayInSeconds` between 1-900 (not 0) for retries
+- **SHOULD** use Rate Limiter Wrapper for operations that may hit rate limits
+- **MUST** handle `RunWithRateLimitResult` appropriately in task handlers
+- **SHOULD** check `result.ok` and `result.requeued` to determine next steps
+- **MUST** return appropriate TaskResult based on wrapper result
+- **SHOULD** log retry attempts for debugging
+- **MUST** understand that Retry Manager persists attempt metadata
+
+### Rule 51: Platform Independence
+
+**Overview:**
+The Fork Join SDK is designed to work across different Forge compute offerings, providing flexibility for current and future platform capabilities.
+
+**Current Support:**
+- **Forge Serverless Functions**: Primary execution environment
+- **Forge Async Events**: Queue-based execution with extended timeouts
+- **Forge KVS**: Storage provider for workflow state
+
+**Future Compatibility:**
+- **Forge Containers**: Architecture supports container-based execution
+- **Other Compute Models**: Designed with abstraction layers for future platforms
+
+**Storage Provider Abstraction:**
+```typescript
+// Storage provider is pluggable
+interface StorageProvider {
+  getWorkflowStatus(workflowId: string): Promise<WorkflowStatus>;
+  getAllTasks(workflowId: string): Promise<Task[]>;
+  // ... other methods
+}
+
+// Current implementation uses Forge KVS
+const storageProvider = createForgeKvsStorageProvider('my-app');
+
+// Future implementations could use other storage backends
+// const storageProvider = createCustomStorageProvider(...);
+```
+
+**Design Principles:**
+- **Abstraction Layers**: Components use interfaces, not concrete implementations
+- **Storage Independence**: Storage provider is pluggable
+- **Execution Independence**: Execution mode can vary by platform
+- **API Consistency**: Same API works across different platforms
+
+**Requirements:**
+- **SHOULD** use storage provider abstraction for flexibility
+- **MUST** understand that storage provider can be swapped
+- **SHOULD** design workflows to be platform-agnostic
+- **MUST** use SDK APIs rather than platform-specific code
+- **SHOULD** test workflows on target platform before deployment
+
+### Rule 52: Testing Workflows
+
+**Unit Testing Task Handlers:**
+```typescript
+import { describe, it, expect } from 'vitest';
+import { TaskContext, TaskResult } from '@appfire-platform/workflow-types';
+
+describe('Task Handlers', () => {
+  it('should process data correctly', async () => {
+    const ctx: TaskContext = {
+      workflowId: 'test-wf',
+      taskId: 'test-task',
+      attempt: 0,
+      input: { data: 'test' },
+      dependencyOutputs: {},
+      dependencyTaskIds: [],
+      startTime: new Date().toISOString(),
+      handlerName: 'processData',
+    };
+
+    const result = await processData(ctx);
+    expect(result.status).toBe('done');
+    expect(result.output).toEqual({ processed: true });
+  });
+});
+```
+
+**Integration Testing:**
+```typescript
+import { createWorkflowOrchestrator } from '@appfire-platform/forge-orchestrator';
+import { createMockStorageProvider } from './test-utils';
+
+describe('Workflow Execution', () => {
+  it('should execute workflow with dependencies', async () => {
+    const storageProvider = createMockStorageProvider();
+    const orchestrator = createWorkflowOrchestrator(storageProvider, {
+      useQueue: false,
+    });
+
+    const workflowId = await orchestrator.createWorkflow(testSpec);
+    const result = await orchestrator.executeWorkflow(workflowId);
+
+    expect(result.completed).toBe(true);
+    expect(result.status).toBe('done');
+  });
+});
+```
+
+**Mock Storage Provider:**
+```typescript
+// Create mock storage for testing
+const createMockStorageProvider = (): StorageProvider => {
+  const storage = new Map();
+  return {
+    getWorkflowStatus: async (id) => storage.get(`workflow:${id}`),
+    getAllTasks: async (id) => storage.get(`tasks:${id}`) || [],
+    setTaskStatus: async (wfId, taskId, status) => {
+      storage.set(`task:${wfId}:${taskId}`, status);
+    },
+    // ... other methods
+  };
+};
+```
+
+**Testing Retry Logic:**
+```typescript
+it('should retry failed tasks', async () => {
+  let attemptCount = 0;
+  const failingTask = async (ctx: TaskContext): Promise<TaskResult> => {
+    attemptCount++;
+    if (attemptCount < 3) {
+      throw new Error('Transient failure');
+    }
+    return { status: 'done', endTime: new Date().toISOString() };
+  };
+
+  const spec: WorkflowSpec = {
+    tasks: {
+      failing: {
+        handlerName: 'failing',
+        retryConfig: { maxAttempts: 3, backoffMs: 100 },
+      },
+    },
+    dependencies: { failing: [] },
+    taskRegistry: { failing: failingTask },
+  };
+
+  // Test retry behavior
+});
+```
+
+**Requirements:**
+- **SHOULD** write unit tests for task handlers
+- **SHOULD** write integration tests for workflows
+- **SHOULD** use mock storage provider for testing
+- **SHOULD** test retry logic and error handling
+- **SHOULD** test dependency resolution
+- **MUST** test workflows before deployment
+- **SHOULD** test with realistic data and scenarios
+
+### Rule 53: Performance Optimization
+
+**Optimize Task Payloads:**
+```typescript
+// Good: Small, focused payload
+const taskInput = {
+  timestamp: new Date().toISOString(),
+  source: 'migration',
+  pageId: 'page-123',  // Only essential data
+};
+
+// Bad: Large payload with unnecessary data
+const taskInput = {
+  timestamp: new Date().toISOString(),
+  source: 'migration',
+  pageId: 'page-123',
+  fullPageContent: largeContentObject,  // Too large!
+  metadata: { /* lots of data */ },
+};
+```
+
+**Batch Operations:**
+```typescript
+// Process multiple items in batches
+const batchSize = 50;
+for (let i = 0; i < items.length; i += batchSize) {
+  const batch = items.slice(i, i + batchSize);
+  await processBatch(batch);
+}
+```
+
+**Concurrency Tuning:**
+```typescript
+// Adjust concurrency based on workload
+const orchestrator = createWorkflowOrchestrator(storageProvider, {
+  useQueue: true,
+  queueName: 'my-queue',
+  defaultWorkflowOptions: {
+    // Lower for external API calls
+    maxConcurrentTasks: 5,
+    // Higher for independent tasks
+    // maxConcurrentTasks: 25,
+  },
+});
+```
+
+**Storage Optimization:**
+- Keep workflow state small
+- Use efficient key patterns
+- Batch storage operations when possible
+- Clean up completed workflows periodically
+
+**Requirements:**
+- **SHOULD** keep task payloads small (< 200 KB)
+- **SHOULD** use batch operations for multiple items
+- **SHOULD** tune concurrency based on workload
+- **SHOULD** optimize storage operations
+- **SHOULD** clean up completed workflows
+- **MUST** respect Forge platform limits
+
+### Rule 54: Monitoring and Observability
+
+**Workflow Metrics:**
+```typescript
+// Track workflow metrics
+const metrics = {
+  workflowsCreated: 0,
+  workflowsCompleted: 0,
+  workflowsFailed: 0,
+  averageExecutionTime: 0,
+  tasksProcessed: 0,
+  tasksFailed: 0,
+};
+
+// Update metrics during execution
+async function trackWorkflowMetrics(workflowId: string) {
+  const workflow = await storageProvider.getWorkflowStatus(workflowId);
+  if (workflow.status === 'done') {
+    metrics.workflowsCompleted++;
+  } else if (workflow.status === 'failed') {
+    metrics.workflowsFailed++;
+  }
+}
+```
+
+**Logging Best Practices:**
+```typescript
+// Structured logging
+logger.info('Workflow started', {
+  workflowId,
+  taskCount: Object.keys(spec.tasks).length,
+  executionMode: 'queue',
+});
+
+logger.error('Task failed', {
+  workflowId,
+  taskId,
+  attempt,
+  error: error.message,
+  retryable: true,
+});
+```
+
+**Health Checks:**
+```typescript
+// Check system health
+async function checkSystemHealth(): Promise<HealthStatus> {
+  const storageHealth = await checkStorageHealth();
+  const queueHealth = await checkQueueHealth();
+  
+  return {
+    healthy: storageHealth && queueHealth,
+    storage: storageHealth,
+    queue: queueHealth,
+  };
+}
+```
+
+**Requirements:**
+- **SHOULD** track workflow metrics (created, completed, failed)
+- **SHOULD** track task metrics (processed, failed, retries)
+- **SHOULD** use structured logging with context
+- **SHOULD** implement health checks
+- **SHOULD** monitor storage and queue health
+- **MUST** log errors with sufficient context
+- **SHOULD** set up alerts for critical failures
+
+### Rule 55: Security Considerations
+
+**Input Validation:**
+```typescript
+const processData = async (ctx: TaskContext): Promise<TaskResult> => {
+  // Validate input
+  if (!ctx.input || typeof ctx.input.data !== 'string') {
+    return {
+      status: 'failed',
+      endTime: new Date().toISOString(),
+      error: 'Invalid input',
+    };
+  }
+
+  // Sanitize input
+  const sanitized = sanitizeInput(ctx.input.data);
+  
+  // Process safely
+  return { status: 'done', output: { result: sanitized } };
+};
+```
+
+**Access Control:**
+- Validate user permissions before workflow creation
+- Check access rights for workflow operations
+- Implement proper authentication and authorization
+
+**Data Protection:**
+- Don't log sensitive data (API tokens, passwords)
+- Encrypt sensitive data in storage
+- Follow GDPR/privacy requirements
+
+**Requirements:**
+- **MUST** validate all task inputs
+- **MUST** sanitize user-generated content
+- **MUST NOT** log sensitive data
+- **SHOULD** implement access control
+- **SHOULD** encrypt sensitive data
+- **MUST** follow security best practices
+
+### Rule 56: Common Error Patterns
+
+**Missing Dependencies:**
+```typescript
+// Error: Task depends on non-existent task
+dependencies: {
+  'task-a': ['non-existent-task'],  // ❌ Error
+}
+
+// Fix: Ensure all dependencies exist
+dependencies: {
+  'task-a': ['existing-task'],  // ✅ Correct
+}
+```
+
+**Circular Dependencies:**
+```typescript
+// Error: Circular dependency
+dependencies: {
+  'task-a': ['task-b'],
+  'task-b': ['task-a'],  // ❌ Circular!
+}
+
+// Fix: Remove circular dependency
+dependencies: {
+  'task-a': [],
+  'task-b': ['task-a'],  // ✅ Correct
+}
+```
+
+**Handler Not Found:**
+```typescript
+// Error: Handler not in registry
+tasks: {
+  'task-a': { handlerName: 'missingHandler' },
+},
+taskRegistry: {
+  // missingHandler not defined!
+}
+
+// Fix: Add handler to registry
+taskRegistry: {
+  missingHandler: async (ctx) => ({ status: 'done' }),
+}
+```
+
+**Requirements:**
+- **MUST** ensure all dependencies exist
+- **MUST NOT** create circular dependencies
+- **MUST** register all handlers in taskRegistry
+- **SHOULD** validate workflow spec before creation
+- **MUST** handle errors gracefully in task handlers
+
+### Rule 57: Deployment Considerations
+
+**Pre-Deployment Checklist:**
+- [ ] All dependencies installed (`@appfire-platform/forge-orchestrator`, etc.)
+- [ ] Manifest.yml configured correctly (consumers, functions, queues)
+- [ ] Storage provider initialized with correct app identifier
+- [ ] All task handlers registered in consumer
+- [ ] Queue names match between orchestrator and manifest
+- [ ] Timeout values set appropriately (900s for queue handlers)
+- [ ] Environment variables configured if needed
+- [ ] Permissions set correctly (`storage:app` scope)
+
+**Deployment Steps:**
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Build the app
+npm run build
+
+# 3. Deploy with Forge CLI
+forge deploy
+
+# 4. Install the app
+forge install
+
+# 5. Verify deployment
+forge logs
+```
+
+**Post-Deployment Verification:**
+```typescript
+// Verify workflow creation works
+const workflowId = await orchestrator.createWorkflow(testSpec);
+console.log('Workflow created:', workflowId);
+
+// Verify consumer is receiving events
+// Check logs for consumer invocations
+```
+
+**Rollback Strategy:**
+- Keep previous version available
+- Monitor error rates after deployment
+- Have rollback plan ready
+- Test deployment in staging first
+
+**Requirements:**
+- **MUST** test deployment in staging before production
+- **MUST** verify all components are configured correctly
+- **SHOULD** monitor logs after deployment
+- **SHOULD** have rollback plan ready
+- **MUST** verify queue consumers are working
+- **SHOULD** test workflow execution after deployment
+
+### Rule 58: Migration Patterns
+
+**Gradual Migration:**
+```typescript
+// Migrate workflows gradually
+const oldWorkflow = await createOldWorkflow();
+const newWorkflow = await orchestrator.createWorkflow(newSpec);
+
+// Run both in parallel during migration
+await Promise.all([
+  executeOldWorkflow(oldWorkflow),
+  orchestrator.executeWorkflow(newWorkflow),
+]);
+
+// Compare results and switch when confident
+```
+
+**Data Migration Workflow:**
+```typescript
+const migrationSpec: WorkflowSpec = {
+  tasks: {
+    'extract': { handlerName: 'extractData' },
+    'validate': { handlerName: 'validateData' },
+    'transform': { handlerName: 'transformData' },
+    'load-chunk-1': { handlerName: 'loadChunk' },
+    'load-chunk-2': { handlerName: 'loadChunk' },
+    'verify': { handlerName: 'verifyMigration' },
+  },
+  dependencies: {
+    'extract': [],
+    'validate': ['extract'],
+    'transform': ['validate'],
+    'load-chunk-1': ['transform'],
+    'load-chunk-2': ['transform'],
+    'verify': ['load-chunk-1', 'load-chunk-2'],
+  },
+  taskRegistry: {
+    extractData: async (ctx) => { /* ... */ },
+    validateData: async (ctx) => { /* ... */ },
+    transformData: async (ctx) => { /* ... */ },
+    loadChunk: async (ctx) => { /* ... */ },
+    verifyMigration: async (ctx) => { /* ... */ },
+  },
+};
+```
+
+**Idempotent Migration:**
+```typescript
+// Design tasks to be idempotent
+const migrateItem = async (ctx: TaskContext): Promise<TaskResult> => {
+  const itemId = ctx.input.itemId;
+  
+  // Check if already migrated
+  const existing = await checkIfMigrated(itemId);
+  if (existing) {
+    return { status: 'done', output: { skipped: true } };
+  }
+  
+  // Perform migration
+  await performMigration(itemId);
+  return { status: 'done', output: { migrated: true } };
+};
+```
+
+**Requirements:**
+- **SHOULD** design migration workflows to be idempotent
+- **SHOULD** break large migrations into chunks
+- **SHOULD** verify migration results
+- **SHOULD** have rollback capability
+- **MUST** handle partial failures gracefully
+- **SHOULD** track migration progress
+
+### Rule 59: Workflow Versioning
+
+**Version Workflow Specs:**
+```typescript
+interface VersionedWorkflowSpec extends WorkflowSpec {
+  version: string;
+  schemaVersion: string;
+}
+
+const v1Spec: VersionedWorkflowSpec = {
+  version: '1.0.0',
+  schemaVersion: '1.0',
+  tasks: { /* ... */ },
+  dependencies: { /* ... */ },
+  taskRegistry: { /* ... */ },
+};
+
+const v2Spec: VersionedWorkflowSpec = {
+  version: '2.0.0',
+  schemaVersion: '2.0',
+  tasks: { /* ... */ },
+  dependencies: { /* ... */ },
+  taskRegistry: { /* ... */ },
+};
+```
+
+**Backward Compatibility:**
+- Maintain compatibility with older workflow versions
+- Support migration between versions
+- Document breaking changes
+
+**Requirements:**
+- **SHOULD** version workflow specs
+- **SHOULD** maintain backward compatibility when possible
+- **MUST** document breaking changes
+- **SHOULD** provide migration paths between versions
+
+### Rule 60: Workflow Lifecycle Management
+
+**Workflow Cleanup:**
+```typescript
+// Clean up completed workflows
+async function cleanupCompletedWorkflows() {
+  const workflows = await getAllWorkflows();
+  const completed = workflows.filter(w => 
+    w.status === 'done' || w.status === 'failed'
+  );
+  
+  for (const workflow of completed) {
+    // Keep for retention period (e.g., 30 days)
+    const age = Date.now() - new Date(workflow.createdAt).getTime();
+    if (age > 30 * 24 * 60 * 60 * 1000) {
+      await deleteWorkflow(workflow.id);
+    }
+  }
+}
+```
+
+**Workflow Cancellation:**
+```typescript
+// Cancel running workflow
+async function cancelWorkflow(workflowId: string) {
+  const workflow = await storageProvider.getWorkflowStatus(workflowId);
+  if (workflow.status === 'in_progress') {
+    // Mark workflow as cancelled
+    await storageProvider.updateWorkflowStatus(workflowId, 'cancelled');
+    // Cancel pending tasks
+    await cancelPendingTasks(workflowId);
+  }
+}
+```
+
+**Workflow Pause/Resume:**
+```typescript
+// Pause workflow execution
+async function pauseWorkflow(workflowId: string) {
+  await storageProvider.updateWorkflowStatus(workflowId, 'paused');
+}
+
+// Resume paused workflow
+async function resumeWorkflow(workflowId: string) {
+  await storageProvider.updateWorkflowStatus(workflowId, 'in_progress');
+  await orchestrator.executeWorkflow(workflowId);
+}
+```
+
+**Requirements:**
+- **SHOULD** implement workflow cleanup for completed workflows
+- **SHOULD** support workflow cancellation
+- **CAN** implement pause/resume functionality
+- **SHOULD** set retention policies for workflow data
+- **MUST** handle cleanup gracefully
+
+### Rule 61: Advanced Error Handling
+
+**Error Classification:**
+```typescript
+enum ErrorType {
+  TRANSIENT = 'transient',      // Retryable
+  PERMANENT = 'permanent',      // Not retryable
+  RATE_LIMIT = 'rate_limit',    // Rate limited
+  VALIDATION = 'validation',    // Invalid input
+}
+
+function classifyError(error: Error): ErrorType {
+  if (error.status === 429) return ErrorType.RATE_LIMIT;
+  if (error.status >= 400 && error.status < 500) return ErrorType.VALIDATION;
+  if (error.status >= 500) return ErrorType.TRANSIENT;
+  return ErrorType.PERMANENT;
+}
+```
+
+**Custom Retry Logic:**
+```typescript
+const customRetryConfig: RetryConfig = {
+  maxAttempts: 5,
+  backoffMs: 1000,
+  backoffMultiplier: 2,
+  retryableErrors: [ErrorType.TRANSIENT, ErrorType.RATE_LIMIT],
+  nonRetryableErrors: [ErrorType.PERMANENT, ErrorType.VALIDATION],
+};
+```
+
+**Error Context:**
+```typescript
+const taskHandler = async (ctx: TaskContext): Promise<TaskResult> => {
+  try {
+    // Task logic
+  } catch (error) {
+    return {
+      status: 'failed',
+      endTime: new Date().toISOString(),
+      error: error.message,
+      errorType: classifyError(error),
+      errorContext: {
+        workflowId: ctx.workflowId,
+        taskId: ctx.taskId,
+        attempt: ctx.attempt,
+      },
+    };
+  }
+};
+```
+
+**Requirements:**
+- **SHOULD** classify errors appropriately
+- **SHOULD** implement custom retry logic for different error types
+- **MUST** include error context in failure results
+- **SHOULD** log errors with sufficient detail
+- **MUST** handle non-retryable errors differently
+
+### Rule 62: Storage Optimization
+
+**Efficient Key Patterns:**
+```typescript
+// Use consistent key patterns
+const keyPatterns = {
+  workflow: `orchestrator:${appName}:workflow:${workflowId}:metadata`,
+  taskStatus: `orchestrator:${appName}:workflow:${workflowId}:task:${taskId}:status`,
+  taskResult: `orchestrator:${appName}:workflow:${workflowId}:task:${taskId}:result`,
+};
+```
+
+**Batch Storage Operations:**
+```typescript
+// Batch multiple operations
+async function batchUpdateTaskStatuses(
+  workflowId: string,
+  updates: Array<{ taskId: string; status: TaskStatus }>
+) {
+  const operations = updates.map(update =>
+    storageProvider.setTaskStatus(workflowId, update.taskId, update.status)
+  );
+  await Promise.all(operations);
+}
+```
+
+**Storage Cleanup:**
+```typescript
+// Clean up old workflow data
+async function cleanupOldWorkflows(retentionDays: number = 30) {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+  
+  const workflows = await getAllWorkflows();
+  const oldWorkflows = workflows.filter(w => 
+    new Date(w.createdAt) < cutoffDate &&
+    (w.status === 'done' || w.status === 'failed')
+  );
+  
+  for (const workflow of oldWorkflows) {
+    await deleteWorkflowData(workflow.id);
+  }
+}
+```
+
+**Requirements:**
+- **SHOULD** use consistent key patterns
+- **SHOULD** batch storage operations when possible
+- **SHOULD** implement storage cleanup
+- **MUST** respect KVS rate limits
+- **SHOULD** monitor storage usage
+
+### Rule 63: Advanced Troubleshooting
+
+**Workflow Stuck Analysis:**
+```typescript
+async function analyzeStuckWorkflow(workflowId: string) {
+  const workflow = await storageProvider.getWorkflowStatus(workflowId);
+  const tasks = await storageProvider.getAllTasks(workflowId);
+  
+  const analysis = {
+    workflowStatus: workflow.status,
+    pendingTasks: tasks.filter(t => t.status === 'pending'),
+    readyTasks: tasks.filter(t => t.status === 'ready'),
+    queuedTasks: tasks.filter(t => t.status === 'queued'),
+    runningTasks: tasks.filter(t => t.status === 'running'),
+    failedTasks: tasks.filter(t => t.status === 'failed'),
+  };
+  
+  // Check for issues
+  if (analysis.readyTasks.length > 0 && analysis.queuedTasks.length === 0) {
+    console.warn('Tasks ready but not queued - check enqueuer');
+  }
+  
+  if (analysis.queuedTasks.length > 0) {
+    console.warn('Tasks stuck in queue - check consumer');
+  }
+  
+  return analysis;
+}
+```
+
+**Dependency Analysis:**
+```typescript
+function analyzeDependencies(spec: WorkflowSpec) {
+  const issues = [];
+  
+  // Check for missing dependencies
+  for (const [taskId, deps] of Object.entries(spec.dependencies)) {
+    for (const dep of deps) {
+      if (!spec.tasks[dep]) {
+        issues.push(`Task ${taskId} depends on non-existent task ${dep}`);
+      }
+    }
+  }
+  
+  // Check for circular dependencies
+  const visited = new Set();
+  const recStack = new Set();
+  
+  function hasCycle(taskId: string): boolean {
+    if (recStack.has(taskId)) return true;
+    if (visited.has(taskId)) return false;
+    
+    visited.add(taskId);
+    recStack.add(taskId);
+    
+    for (const dep of spec.dependencies[taskId] || []) {
+      if (hasCycle(dep)) return true;
+    }
+    
+    recStack.delete(taskId);
+    return false;
+  }
+  
+  for (const taskId of Object.keys(spec.tasks)) {
+    if (hasCycle(taskId)) {
+      issues.push(`Circular dependency detected involving ${taskId}`);
+    }
+  }
+  
+  return issues;
+}
+```
+
+**Performance Profiling:**
+```typescript
+async function profileWorkflowExecution(workflowId: string) {
+  const startTime = Date.now();
+  const result = await orchestrator.executeWorkflow(workflowId);
+  const endTime = Date.now();
+  
+  const tasks = await storageProvider.getAllTasks(workflowId);
+  const taskTimings = tasks.map(t => ({
+    taskId: t.taskId,
+    duration: t.endTime ? 
+      new Date(t.endTime).getTime() - new Date(t.startTime).getTime() : 
+      null,
+  }));
+  
+  return {
+    totalDuration: endTime - startTime,
+    taskTimings,
+    bottlenecks: taskTimings
+      .filter(t => t.duration && t.duration > 5000)
+      .sort((a, b) => (b.duration || 0) - (a.duration || 0)),
+  };
+}
+```
+
+**Requirements:**
+- **SHOULD** implement workflow analysis tools
+- **SHOULD** check for stuck workflows regularly
+- **SHOULD** analyze dependencies before workflow creation
+- **SHOULD** profile workflow execution for performance
+- **MUST** identify bottlenecks and optimize
+
+### Rule 64: Workflow Design Patterns
+
+**Pipeline Pattern:**
+```typescript
+// Sequential processing pipeline
+const pipelineSpec: WorkflowSpec = {
+  tasks: {
+    'extract': { handlerName: 'extract' },
+    'transform': { handlerName: 'transform' },
+    'load': { handlerName: 'load' },
+  },
+  dependencies: {
+    'extract': [],
+    'transform': ['extract'],
+    'load': ['transform'],
+  },
+  taskRegistry: { extract, transform, load },
+};
+```
+
+**Map-Reduce Pattern:**
+```typescript
+// Process items in parallel, then aggregate
+const mapReduceSpec: WorkflowSpec = {
+  tasks: {
+    'split': { handlerName: 'split' },
+    'process-1': { handlerName: 'process' },
+    'process-2': { handlerName: 'process' },
+    'process-3': { handlerName: 'process' },
+    'reduce': { handlerName: 'reduce' },
+  },
+  dependencies: {
+    'split': [],
+    'process-1': ['split'],
+    'process-2': ['split'],
+    'process-3': ['split'],
+    'reduce': ['process-1', 'process-2', 'process-3'],
+  },
+  taskRegistry: { split, process, reduce },
+};
+```
+
+**Fan-Out Fan-In Pattern:**
+```typescript
+// Fan out to multiple tasks, then aggregate
+const fanOutFanInSpec: WorkflowSpec = {
+  tasks: {
+    'start': { handlerName: 'start' },
+    'task-a': { handlerName: 'taskA' },
+    'task-b': { handlerName: 'taskB' },
+    'task-c': { handlerName: 'taskC' },
+    'aggregate': { handlerName: 'aggregate' },
+  },
+  dependencies: {
+    'start': [],
+    'task-a': ['start'],
+    'task-b': ['start'],
+    'task-c': ['start'],
+    'aggregate': ['task-a', 'task-b', 'task-c'],
+  },
+  taskRegistry: { start, taskA, taskB, taskC, aggregate },
+};
+```
+
+**Requirements:**
+- **SHOULD** use appropriate design patterns for workflows
+- **SHOULD** understand when to use each pattern
+- **SHOULD** design for maximum parallelism
+- **MUST** ensure patterns match use case
+
+### Rule 65: Best Practices Summary
+
+**Workflow Design:**
+- Keep workflows focused and single-purpose
+- Break large workflows into smaller, manageable pieces
+- Design tasks to be idempotent when possible
+- Use meaningful task and workflow names
+- Document workflow purpose and dependencies
+
+**Task Design:**
+- Keep tasks small and focused
+- Ensure tasks complete within timeout limits
+- Handle errors gracefully
+- Return appropriate TaskResult
+- Validate inputs and dependencies
+
+**Configuration:**
+- Choose appropriate execution mode
+- Configure concurrency based on workload
+- Set appropriate retry policies
+- Use proper timeout values
+- Configure queues correctly
+
+**Monitoring:**
+- Track workflow and task metrics
+- Log important events with context
+- Monitor error rates
+- Set up alerts for critical failures
+- Profile performance regularly
+
+**Security:**
+- Validate all inputs
+- Sanitize user-generated content
+- Don't log sensitive data
+- Implement access control
+- Follow security best practices
+
+**Requirements:**
+- **MUST** follow all best practices
+- **SHOULD** review workflows regularly
+- **SHOULD** optimize based on metrics
+- **MUST** maintain security standards
+- **SHOULD** document workflows thoroughly
+
+## References
+
+- **Forge Orchestrator**: https://www.npmjs.com/package/@appfire-platform/forge-orchestrator
+- **Forge Consumer**: https://www.npmjs.com/package/@appfire-platform/forge-consumer
+- **Forge KVS Storage**: https://www.npmjs.com/package/@appfire-platform/forge-kvs-storage
+- **Forge Enqueuer**: https://www.npmjs.com/package/@appfire-platform/forge-enqueuer
+- **Workflow Types**: https://www.npmjs.com/package/@appfire-platform/workflow-types
+- **Forge Queue Documentation**: https://developer.atlassian.com/platform/forge/runtime-reference/async-events-api/
+- **Reference Apps**: See monorepo at `apps/long-running-task-ref-app/`

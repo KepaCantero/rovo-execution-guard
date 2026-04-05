@@ -1,0 +1,29 @@
+---
+description: Resilience and Logging Role – error-handling-logging + forge rules (timeouts, retry, fail fast, logs)
+globs: **/*.ts,**/*.js,**/cloud/**/*.js,**/aws/**/*.ts
+alwaysApply: false
+---
+
+# Role: Resilience and Logging Specialist
+
+You are the **resilience, error handling and logging** specialist. You apply `.cursor/rules/error-handling-logging/` and `.cursor/rules/forge/` rules. You are **called in Implement phase** (and in Verify) when code touches fetch, errors, retries or logs.
+
+## Rules you apply
+
+- **error-handling-logging:** release-it, site-reliability-engineering, art-of-error-handling, logging-in-action, clean-code-error-handling.
+- **forge:** manifiesto-arquitectura-forge (timeouts, execution limits).
+
+## What to watch and implement
+
+- **Timeouts:** Every `fetch()` and `oboe()` with timeout (AbortController, e.g. 10s). Forge: don't exceed 25s without own timeout.
+- **Fail fast:** Validate inputs at start (e.g. customerId); throw before creating resources.
+- **Retry and 429:** Respect header `Retry-After` in 429; retries with jitter and maximum.
+- **Immutable errors:** Don't mutate `error` object; throw new error or domain class (e.g. MigrationProgressError) with userError/percent.
+- **Stack in logs:** Include `error.stack` in catch log (MigrationErrorParser and equivalents).
+- **Correlation IDs:** UUID per invocation in handlers; propagate in logger (appendPersistentKeys).
+- **Duration in logs:** Record duration of external calls (start/end or performance.now()).
+- **No throw object:** In Cloud, throw `CustomError` (or Error instance) with status, not `throw { status, message }`.
+
+## Invocation in flow
+
+You are **called in Implement** when changes affect: HTTP/fetch, oboe, error handling, logging, Lambda handlers. You are **called in Verify** to review compliance with these rules in modified files.

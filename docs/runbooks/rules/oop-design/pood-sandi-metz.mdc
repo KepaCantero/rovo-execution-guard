@@ -1,0 +1,30 @@
+---
+description: Rules based on Practical Object-Oriented Design (POOD) - Adapted to JS/TS (Sandi Metz)
+globs: **/*.ts,**/*.tsx,**/*.js,**/*.jsx
+alwaysApply: false
+---
+
+# Practical Object-Oriented Design (POOD) - Adapted to JS/TS (Sandi Metz)
+
+Although the original is in Ruby, its rules are the worldwide reference for class design.
+
+- **Single Responsibility Principle (SRP)**: A class should have one reason to change. If you can't describe it in one sentence without "and", it's too big.
+- **Depend on abstractions, not concretions**: Use TS interfaces to define what you expect from a collaborator.
+- **Data encapsulation**: Class data should be private; expose only behavior.
+- **Law of Demeter**: A class should only talk to its "immediate friends". Avoid this.a.b.c.doSomething().
+- **Composition over Inheritance**: Inheritance is for "being something", composition is for "having behavior".
+- **Duck Typing in TS**: Use interfaces to define what an object "does", not what it "is".
+- **Inject dependencies**: Never instantiate a class inside another; pass it via constructor.
+- **Seek loose coupling**: If changing class A forces changing B, design is failing.
+- **Design small interfaces**: Better to have many 2-method interfaces than one with 20.
+- **Avoid geographical knowledge**: A class shouldn't know where its collaborators are in the file tree.
+- **Manage visibility**: Use private, protected, and public with scientific rigor.
+- **Create "Value Objects"**: For concepts like Money, DateRange, or WorkflowStatus.
+- **Use the "Factory" pattern**: To encapsulate complex creation logic.
+- **Don't inherit to reuse code**: Inherit only to fulfill type specialization.
+- **Write classes that are easy to delete**: Extreme modularity allows drama-free replacement.
+- **Hide complexity**: The "public" of your class should be a simple facade.
+- **Avoid excessive static methods**: They hinder testing and polymorphism.
+- **Use domain names**: Classes should be named like Jira/Confluence concepts.
+- **Liskov Principle**: A subclass should be able to replace its parent without breaking the system.
+- **Keep classes small**: Less than 100 lines is a good target.

@@ -1,0 +1,137 @@
+# The Functional Art (Alberto Cairo)
+
+**Source:** "The Functional Art" by Alberto Cairo  
+**Focus:** Gráficos que funcionan como herramientas cognitivas.
+
+## 1. PURPOSE-DRIVEN DESIGN
+
+- **La forma sigue a la función:** El gráfico debe ayudar a resolver una duda técnica
+  - ✅ Each diagram has clear purpose
+  - ❌ Decorative diagrams
+
+- **El diseño no es "hacerlo bonito":** Es hacerlo comprensible
+  - ✅ Clarity over decoration
+  - ❌ Aesthetic over function
+
+- **Usa el "Modelo de Visualización":** Piensa si el usuario necesita comparar, conectar o ver flujo
+  - **Compare:** Bar charts, tables
+  - **Connect:** Network diagrams, flowcharts
+  - **Flow:** Sequence diagrams, timelines
+
+- **Define el objetivo:** ¿Este diagrama es para explicar la arquitectura o para debatirla?
+  - ✅ Clear objective for each diagram
+  - ❌ Generic diagrams
+
+## 2. COGNITIVE LOAD
+
+- **Evita la sobrecarga cognitiva:** Demasiados nodos en un diagrama de flujo matan la atención
+  - ✅ Break complex diagrams into smaller ones
+  - ✅ Maximum 7-10 elements per diagram
+  - ❌ One diagram with 50+ elements
+
+- **Usa jerarquía visual:** Lo más importante debe ser lo más grande o de color más intenso
+  - ✅ Size = importance
+  - ✅ Color intensity = importance
+  - ❌ Everything same size
+
+- **La paradoja de la claridad:** A veces, más detalles ayudan si están bien organizados
+  - ✅ Organized detail aids understanding
+  - ❌ Random detail confuses
+
+- **Usa contrastes cromáticos fuertes:** Para separar módulos distintos
+  - ✅ High contrast between modules
+  - ✅ Low contrast within modules
+  - ❌ Everything same color
+
+## 3. DIAGRAM CLARITY
+
+- **El diagrama debe ser "autosuficiente":** Debe entenderse sin leer 10 párrafos previos
+  - ✅ Clear title and labels
+  - ✅ Legend if needed
+  - ❌ Requires extensive explanation
+
+- **Aplica las leyes de la Gestalt:** Agrupa elementos similares mediante proximidad
+  - ✅ Related elements grouped together
+  - ✅ Visual grouping matches logical grouping
+  - ❌ Random placement
+
+- **Usa líneas de conexión claras:** Evita que se crucen excesivamente en diagramas de secuencia
+  - ✅ Minimize line crossings
+  - ✅ Clear routing
+  - ❌ Spaghetti diagrams
+
+- **Utiliza iconos estándar:** (ej. Nube para internet, cilindro para base de datos)
+  - ✅ Cloud for internet/cloud
+  - ✅ Cylinder for database
+  - ✅ Gear for processing
+  - ❌ Custom icons requiring explanation
+
+- **Crea un "camino visual":** Guía el ojo del usuario de arriba a abajo o izquierda a derecha
+  - ✅ Clear reading flow
+  - ✅ Numbered steps if sequential
+  - ❌ Random arrangement
+
+- **Usa anotaciones marginales:** Para explicar puntos críticos del diagrama
+  - ✅ Callouts for important details
+  - ✅ Notes explaining complexity
+  - ❌ No explanation for complex parts
+
+- **Valida con el "test del novato":** ¿Entiende el gráfico alguien que no está en el proyecto?
+  - ✅ Test with new team members
+  - ✅ Get feedback from non-experts
+  - ❌ Only experts can understand
+
+- **Usa metáforas visuales conocidas:**
+  - ✅ Standard symbols and conventions
+  - ❌ Invented symbols
+
+- **Diferencia claramente entre flujo de datos y flujo de control:**
+  - ✅ Different line styles (dashed vs solid)
+  - ✅ Different colors
+  - ✅ Clear legend
+  - ❌ Same style for both
+
+## 4. CONSISTENCY
+
+- **No uses más de 3 tipos de fuente en un solo diagrama:**
+  - ✅ Maximum 2-3 fonts
+  - ✅ Consistent font usage
+  - ❌ Font chaos
+
+- **Usa el tamaño de las cajas para indicar importancia, no solo para que quepa el texto:**
+  - ✅ Important components larger
+  - ❌ All boxes same size regardless of importance
+
+- **El espacio en blanco es tan importante como los datos:**
+  - ✅ Generous spacing
+  - ✅ Breathing room
+  - ❌ Cramped layout
+
+- **Mantén la consistencia de los símbolos en todo el Tech Spec:**
+  - ✅ Same symbols mean same things
+  - ✅ Consistent iconography
+  - ❌ Different symbols for same concept
+
+- **Usa leyendas solo si el símbolo no es universal:**
+  - ✅ Self-explanatory symbols preferred
+  - ✅ Legend only when necessary
+  - ❌ Legend for obvious symbols
+
+- **Destaca el "Happy Path" (el flujo principal) con un grosor de línea mayor:**
+  - ✅ Primary flow emphasized
+  - ✅ Error paths lighter/thinner
+  - ❌ All paths same weight
+
+- **Usa diagramas de secuencia para explicar tiempos y respuestas de API:**
+  - ✅ Sequence diagrams for temporal flow
+  - ✅ Show timing relationships
+  - ❌ Flowcharts for timing
+
+- **Documenta los estados de error visualmente:**
+  - ✅ Error paths clearly marked
+  - ✅ Error states in different color/style
+  - ❌ Errors same as success paths
+
+---
+
+**Key Principle:** Form follows function. Design for comprehension, not decoration. Minimize cognitive load and maximize clarity through visual hierarchy and consistency.

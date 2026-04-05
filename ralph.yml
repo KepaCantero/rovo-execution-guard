@@ -2,10 +2,13 @@
 # Adapted from code-assist preset for an Atlassian Forge + TypeScript project
 #
 # Hats:
-#   planner   → Reads task spec, breaks into subtasks, manages execution queue
-#   builder   → TDD implementer (RED → GREEN → REFACTOR), one subtask at a time
-#   critic    → Fresh-eyes adversarial review of each increment
-#   finalizer → Final gate: whole-task completeness, final verification, LOOP_COMPLETE
+#   planner    → Reads task spec, breaks into subtasks, manages execution queue
+#   researcher → Pre-implementation RULEBOOK consultation — extracts relevant rules
+#   builder    → TDD implementer (RED → GREEN → REFACTOR), one subtask at a time
+#   critic     → Fresh-eyes adversarial review of each increment
+#   enforcer   → RULEBOOK compliance verification — checks against CRITICAL rules
+#   debugger   → Diagnoses and repairs gate failures and enforcement violations
+#   finalizer  → Final gate: whole-task completeness, final verification, LOOP_COMPLETE
 #
 # Usage:
 #   ralph run -c ralph.yml -p "Implement RTASK-001: Project Foundation"
@@ -13,7 +16,7 @@
 
 event_loop:
   completion_promise: "LOOP_COMPLETE"
-  required_events: ["review.passed"]
+  required_events: ["enforcement.passed"]
   starting_event: "build.start"
   max_iterations: 100
   max_runtime_seconds: 14400
@@ -34,6 +37,9 @@ core:
     - "Confidence protocol: >80 proceed; 50-80 proceed + note in decisions.md; <50 choose safe default + note."
     - "No over-engineering: if something can wait to another task, let it wait."
     - "Commit after each completed subtask. Never commit .ralph/ files."
+    - "Read the RULEBOOK (docs/rulebook/RULEBOOK.md) at the start of each iteration before acting — use .claude/skills/RULEBOOK-INDEX.md to identify applicable categories."
+    - "Every design decision must cite the RULEBOOK rule ID that supports it: // [ARCH-SOLID-003]. If no rule applies, note it in decisions.md."
+    - "If an action violates a CRITICAL RULEBOOK rule, stop and emit build.blocked instead of proceeding. CRITICAL rules are non-negotiable."
 
 backpressure:
   gates:
@@ -49,6 +55,12 @@ backpressure:
     - name: format
       command: npm run format:check
       on_fail: "Formatting check failed. Run `npm run format` and retry."
+    - name: rulebook_available
+      command: test -f docs/rulebook/RULEBOOK.md
+      on_fail: "RULEBOOK not found at docs/rulebook/RULEBOOK.md. Complete RTASK-002 first."
+    - name: rulebook_populated
+      command: grep -q "DEFINICION" docs/rulebook/RULEBOOK.md
+      on_fail: "RULEBOOK exists but has no rules. Complete RTASK-002 first."
 
 memories:
   enabled: true
@@ -111,10 +123,61 @@ hats:
       Good: "Create src/backend/types/errors.ts with REGError base class and tests"
       Bad: "Implement all domain types"
 
+  researcher:
+    name: "Researcher"
+    description: "Pre-implementation RULEBOOK consultation — extracts relevant rules before Builder acts"
+    triggers: ["tasks.ready"]
+    publishes: ["research.done"]
+    default_publishes: "research.done"
+    instructions: |
+      ## RESEARCHER MODE - RULEBOOK Pre-Flight
+
+      You are the pre-flight check before implementation. Your job is to read the
+      RULEBOOK and extract all rules relevant to the current runtime task.
+
+      ### MANDATORY Reading (EVERY activation)
+      1. Read the runtime task from event payload
+      2. Read `docs/rulebook/RULEBOOK.md`
+      3. Read `.claude/skills/RULEBOOK-INDEX.md` for category mapping
+      4. Read `context.md` from `.ralph/specs/{task_name}/`
+
+      ### Process
+      1. Identify which RULEBOOK categories apply to this task
+      2. Extract all CRITICAL and HIGH priority rules from those categories
+      3. If the task involves external APIs (Rovo, GitHub, Jira) — verify
+         rate limits, permissions, and sandbox restrictions
+      4. Write findings to `.ralph/specs/{task_name}/rulebook-context.md`
+
+      ### Output Format (rulebook-context.md)
+      ```markdown
+      ## RULEBOOK Context for [Task Name]
+
+      ### Applicable Categories: [list]
+
+      ### CRITICAL Rules (non-negotiable)
+      - [FORGE-OPS-005]: [definition] -> Builder must [action]
+
+      ### HIGH Priority Rules
+      - [ARCH-SOLID-003]: [definition] -> Builder must [action]
+
+      ### API Constraints (if applicable)
+      - Rate limit: ...
+      - Timeout: ...
+      - Permissions: ...
+      ```
+
+      ### On Completion
+      1. Verify `rulebook-context.md` is written and not empty
+      2. Emit `research.done` with task_id and task_key
+
+      ### Failure Handling
+      If RULEBOOK.md is missing or empty:
+      - Emit `build.blocked` with reason "RULEBOOK not available for research"
+
   builder:
     name: "Builder"
     description: "TDD implementer following RED -> GREEN -> REFACTOR, one task at a time"
-    triggers: ["tasks.ready", "review.rejected", "finalization.failed"]
+    triggers: ["research.done", "review.rejected", "finalization.failed"]
     publishes: ["review.ready", "build.blocked"]
     default_publishes: "review.ready"
     instructions: |
@@ -217,10 +280,85 @@ hats:
 
       If you discover durable patterns, record: `ralph tools memory add "pattern" -t pattern`
 
+  enforcer:
+    name: "Enforcer"
+    description: "RULEBOOK compliance verification — checks deliverables against CRITICAL rules"
+    triggers: ["review.passed"]
+    publishes: ["enforcement.passed", "enforcement.failed"]
+    default_publishes: "enforcement.failed"
+    instructions: |
+      ## ENFORCER MODE - RULEBOOK Compliance Gate
+
+      The Critic already approved the code quality. You verify RULEBOOK compliance.
+
+      ### MANDATORY Reading
+      1. Read `docs/rulebook/RULEBOOK.md`
+      2. Read `rulebook-context.md` from `.ralph/specs/{task_name}/`
+      3. Identify CRITICAL and HIGH rules applicable to this deliverable
+
+      ### Process
+      1. For each CRITICAL rule: verify implementation satisfies it
+      2. For each HIGH rule: verify or document justified exception
+      3. MEDIA priority rules: record but never block
+
+      ### Decision
+      ALL CRITICAL rules satisfied -> emit `enforcement.passed`
+        Add to progress.md: "Enforcement: [N] CRITICAL rules verified"
+
+      ANY CRITICAL rule violated -> emit `enforcement.failed` with:
+        - Rule ID violated
+        - Exact file and line
+        - Required correction
+
+      ### Never Block On
+      - MEDIA priority rules (record only)
+      - Style preferences not backed by a CRITICAL rule
+      - Rules from categories that do not apply to this task type
+
+  debugger:
+    name: "Debugger"
+    description: "Diagnoses and repairs gate failures and enforcement violations"
+    triggers: ["enforcement.failed", "build.blocked"]
+    publishes: ["tasks.ready", "debug.escalate"]
+    default_publishes: "tasks.ready"
+    instructions: |
+      ## DEBUGGER MODE - Failure Diagnosis and Repair
+
+      A gate or enforcement check failed. Diagnose and repair.
+
+      ### Process
+      1. Read the exact error from the triggering event
+      2. Locate the file and line of the problem
+      3. Read the RULEBOOK — identify which rule was violated
+      4. Classify the fix:
+         - TRIVIAL (< 10 lines) -> repair directly
+         - COMPLEX (requires redesign) -> document and escalate
+         - FALSE POSITIVE (gate is wrong) -> document and escalate
+      5. Apply fix if trivial
+      6. Update progress.md with debug session notes
+
+      ### Anti-Loop Protection
+      If this is the 3rd consecutive failure of the same gate:
+      - ALWAYS emit `debug.escalate` regardless of complexity
+
+      ### Required Debug Log in progress.md
+      ```
+      ## Debug Session [timestamp]
+      - Failed gate/event: [name]
+      - Root cause: [description]
+      - Fix applied: [description or ESCALATED]
+      - Related RULEBOOK rule: [ID]
+      - Attempt N of 3
+      ```
+
+      ### On Completion
+      TRIVIAL fix -> emit `tasks.ready` (retry through normal flow)
+      ESCALATED -> emit `debug.escalate` for human intervention
+
   finalizer:
     name: "Finalizer"
     description: "Final completion gate - whole-task completeness check"
-    triggers: ["review.passed"]
+    triggers: ["enforcement.passed"]
     publishes: ["queue.advance", "finalization.failed", "LOOP_COMPLETE"]
     default_publishes: "finalization.failed"
     instructions: |

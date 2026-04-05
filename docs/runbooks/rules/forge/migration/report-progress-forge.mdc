@@ -1,0 +1,65 @@
+# Report Progress for Forge - 25 Rules
+
+Rules derived from: https://developer.atlassian.com/platform/app-migration/report-progress-for-forge/
+
+## Progress Reporting Components
+
+1. **Platform-Managed Progress**: When implementing Forge listener interface correctly, app migration platform manages progress reporting automatically. Focus on proper implementation.
+
+2. **Status Component**: Platform reports `IN_PROGRESS` status in real time during migration. Your app should complement this with detailed status messages.
+
+3. **Percent Component**: Platform calculates percent (1-99) based on app-data uploaded and `messageProcessed` acknowledgements. Ensure proper acknowledgement timing.
+
+4. **Message Component**: Platform provides progress messages. Complement with vendor-sent status messages using `addLog()` method for detailed information.
+
+## Vendor-Sent Status Messages
+
+5. **addLog Method Usage**: Use `migration.addLog(transferId, logMessage)` to send status messages throughout migration process. Messages visible in Cloud Migration Assistant.
+
+6. **Message Length Limit**: Ensure each status message doesn't exceed 65536 characters. Split long messages into multiple log entries if needed.
+
+7. **Progress Milestones**: Send status messages at key milestones: data export start, batch processing, data import progress, completion stages.
+
+8. **Customer Communication**: Use status messages to inform customers of progress, especially during long-running export steps. Keep customers informed of migration status.
+
+9. **Message Timing**: Send status messages at regular intervals (every 10-15 minutes) during long operations. Don't spam with too frequent messages.
+
+## Transfer Settlement
+
+10. **Settlement Components**: Platform settles transfers with status (`SUCCESS`, `FAILED`, `TIMED_OUT`), percent (100 for SUCCESS, 1-99 otherwise), and message.
+
+11. **SUCCESS Status**: Status set to `SUCCESS` when migration completes and all entities migrated successfully. Percent set to 100.
+
+12. **FAILED Status**: Status set to `FAILED` when migration doesn't complete due to problems (unexpected errors). Percent reflects proportion migrated.
+
+13. **TIMED_OUT Status**: Status set to `TIMED_OUT` when migration doesn't complete due to missing acknowledgement for `app-data-uploaded` event. Percent reflects progress.
+
+14. **Settlement Message**: Platform provides supporting message according to status. Your status messages complement platform messages.
+
+## Progress Calculation
+
+15. **completeExport Requirement**: Platform requires explicit call to `completeExport()` method in server app to enable progress monitoring. Without it, assumes completion after 15 minutes inactivity.
+
+16. **Data Upload Tracking**: Platform calculates progress based on amount of app-data uploaded. Ensure all data is uploaded before calling `completeExport()`.
+
+17. **Acknowledgement Tracking**: Platform tracks `messageProcessed` method calls for each `app-data-uploaded` event. Acknowledge events promptly to maintain accurate progress.
+
+18. **15-Minute Window**: After receiving `app-data-uploaded` event, you have 15-minute window to send `messageProcessed` acknowledgement. Failure causes timeout.
+
+## Progress Display
+
+19. **CMA Integration**: Cloud Migration Assistant displays migration status updates from your cloud app in real time. Ensure proper event handling for accurate display.
+
+20. **Status Visibility**: Migration status appears on Migration Details screen in CMA. Customers can monitor progress and see when migration is ready.
+
+21. **Real-Time Updates**: Platform provides real-time progress updates. Your status messages provide additional context and details.
+
+## Error Handling
+
+22. **Timeout Prevention**: Prevent timeouts by acknowledging events within 15-minute window. Monitor processing time and optimize if approaching limits.
+
+23. **Error Status Reporting**: Report errors through status messages using `addLog()`. Provide actionable information to help customers understand issues.
+
+24. **Transfer Error Handling**: Handle transfer errors gracefully. Use `messageFailed()` when data cannot be processed, but provide clear error messages first.
+
+25. **Progress Accuracy**: Ensure progress reporting accuracy by acknowledging events as data is processed, not when events are received. Provides more accurate status information.

@@ -1,0 +1,28 @@
+---
+description: Rules based on Effective JavaScript (David Herman)
+globs: **/*.js,**/*.jsx
+alwaysApply: false
+---
+
+# Effective JavaScript (David Herman)
+
+- **Leverage "Run-to-Completion"**: Understand that JS is not multi-threaded.
+- **Use Object.create(null)**: For pure maps without inherited properties.
+- **Array-Like Objects**: Know how to convert them to real arrays.
+- **Avoid Mono-morphism**: Don't change the type of a variable.
+- **Variable Scope**: Use let and const to avoid leaks.
+- **Higher-Order Functions**: Pass functions as data.
+- **Object Iteration**: Use Object.keys() or for...of with Object.entries().
+- **Prototypes**: Don't modify native object prototypes.
+- **Constructors**: Ensure they work with or without new.
+- **Error Handling**: Throw Error instances, not strings.
+- **Strict Mode**: Always enable it.
+- **Type Coercion**: Be explicit: Number(x), not +x.
+- **Maintainability**: Prefer clear code over "clever" code.
+- **Internal Documentation**: Explain the "why" of complex decisions.
+- **API Design**: Keep interfaces small and consistent.
+- **Callbacks**: Avoid "callback hell" using promises.
+- **Date Object**: Use libraries like date-fns to avoid native Date bugs.
+- **JSON**: Always validate JSON before parsing.
+- **Stack Limits**: Watch out for deep recursion.
+- **Encapsulation**: Use modules to hide implementation details.

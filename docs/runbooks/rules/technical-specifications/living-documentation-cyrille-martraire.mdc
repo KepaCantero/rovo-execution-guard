@@ -1,0 +1,144 @@
+# Living Documentation (Cyrille Martraire)
+
+**Source:** "Living Documentation" by Cyrille Martraire  
+**Focus:** Keeping specs relevant and making them "attractive" through automation.
+
+## 1. LOW-MAINTENANCE DOCUMENTATION
+
+- **Documentation should be "Low-Maintenance":**
+  - Extract specs from code when possible (Swagger/OpenAPI)
+  - Use executable specifications (Cucumber/Gherkin)
+  - Automate where possible
+
+- **Extract specs from code when possible:** (e.g., Swagger/OpenAPI)
+  - API documentation from code
+  - Type definitions from TypeScript
+  - Database schema from migrations
+
+- **Use "Executable Specifications":** (e.g., Cucumber/Gherkin)
+  - Behavior-driven development
+  - Living test documentation
+  - Examples as documentation
+
+- **Eliminate "Dead Documentation":** Delete specs for deleted features
+  - Regular audits
+  - Archive old versions
+  - Remove obsolete sections
+
+## 2. UBIQUITOUS LANGUAGE
+
+- **Use "Ubiquitous Language":** Everyone (Biz & Tech) uses the same words
+  - Define terms in glossary
+  - Use consistently throughout
+  - Avoid jargon without definition
+
+- **Focus on "Knowledge Gaps":** Document what isn't in the code
+  - Business logic
+  - Design decisions
+  - Historical context
+
+- **Avoid "Obvious" comments:** Don't document getUserId()
+  - Document complex logic
+  - Explain "why" not "what"
+  - Focus on non-obvious parts
+
+## 3. STRUCTURE AND ORGANIZATION
+
+- **Structure by "Domain":** Group features by business value
+  - Workflow Domain
+  - Content State Domain
+  - Migration Domain
+
+- **Visualize "Domain Models":** Use Class Diagrams for data relationships
+  - Entity relationships
+  - Cardinality
+  - Key attributes
+
+- **Keep "Tutorials" separate from "Reference Material":**
+  - Tutorials: Step-by-step guides
+  - Reference: API contracts, data models
+
+- **Keep specs near the code:** In the same repository (Docs-as-Code)
+  - Documentation in repo
+  - Version controlled
+  - Easy to update
+
+## 4. DESIGN RATIONALE
+
+- **Include "Design Rationale":** Why did we choose SQL over NoSQL?
+  - Decision context
+  - Alternatives considered
+  - Trade-offs
+
+- **Use "Decision Logs" (ADRs):** Keep a history of architectural choices
+  - Architecture Decision Records
+  - Date, context, decision, consequences
+
+- **Document "Workarounds":** Admit where the code is "hacky"
+  - Temporary solutions
+  - Known issues
+  - Future fixes
+
+- **Document "Technical Debt":** State what you are leaving for later
+  - Known limitations
+  - Future improvements
+  - Workarounds
+
+## 5. VISUALIZATION AND AUTOMATION
+
+- **Automate Diagram generation:** Use Mermaid.js or PlantUML
+  - Keep diagrams in sync with code
+  - Version control diagrams
+  - Auto-generate from code
+
+- **Focus on "Stability":** Document the parts of the system that won't change
+  - Architecture decisions
+  - Data models
+  - Core workflows
+
+- **Use "Annotation" as documentation:**
+  - Code annotations
+  - Type definitions
+  - Interface documentation
+
+- **Make it "Searchable":** Use tools like Docusaurus or GitBook
+  - Full-text search
+  - Tagged content
+  - Cross-references
+
+## 6. CONTENT FOCUS
+
+- **Emphasize "Crucial Logic":** Bold the algorithms that matter
+  - Highlight critical paths
+  - Emphasize key decisions
+  - Make important parts stand out
+
+- **Use "Example Tables":** Show inputs vs. expected outputs
+  - Test cases
+  - API examples
+  - Data transformations
+
+- **Limit the "Scope":** Don't let a spec turn into a novel
+  - Focus on one feature/system at a time
+  - Link to related specs instead of duplicating
+
+- **Be "Outcome-Oriented":** Focus on the result, not the implementation
+  - What problem does it solve?
+  - What value does it provide?
+  - What's the business outcome?
+
+## 7. INTEGRATION AND TRACKING
+
+- **Link to "Jira/Tickets":** Connect the "Task" to the "Specification"
+  - Reference tickets in specs
+  - Link specs from tickets
+  - Track implementation status
+
+- **Include "User Personas":** Remind devs who they are building for
+  - User types
+  - Use cases
+  - User needs
+
+---
+
+**Key Principle:** Documentation should be low-maintenance, code-aligned, domain-focused, and outcome-oriented. Extract from code when possible and focus on knowledge gaps.

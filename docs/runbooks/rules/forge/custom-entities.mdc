@@ -1,0 +1,65 @@
+# Custom Entities - 25 Rules
+
+Rules derived from: https://developer.atlassian.com/platform/forge/runtime-reference/custom-entities/
+
+## Entity Definition
+
+1. **Manifest Definition**: Define custom entities in `manifest.yml` under `app.storage.entities`. Entities are user-defined data structures for structured data storage.
+
+2. **Typed Attributes**: Define attributes with types: `string`, `integer`, `float`, `boolean`, or `any`. Types strictly enforced by Custom Entity Store.
+
+3. **Entity Name Rules**: Entity names must follow regex `[_a-z0-9:-.]`, cannot start with `-` or `_`, cannot begin/end with `.`, cannot contain `..`.
+
+4. **Entity Limits**: Maximum 20 entities per app. Each entity can have maximum 7 custom indexes and 50 attributes. Entity names 3-60 characters.
+
+5. **Object Limits**: Objects stored as custom entities have maximum depth of 31 and maximum size of 240KiB (RAW) per object.
+
+## Attribute Configuration
+
+6. **Attribute Naming**: Attribute names must follow regex `[_A-Za-z][_0-9A-Za-z]*`. Maximum length 64 characters.
+
+7. **Type Enforcement**: Custom Entity Store strictly enforces attribute types. Attempting to store wrong type results in error.
+
+8. **Integer Limits**: Integer values must be 32-bit signed integers: -2,147,483,648 to 2,147,483,647 (inclusive).
+
+9. **Float Limits**: Float values must be 0 or within range 1E-130 to 9.9999999999999999999999999999999999999E+125 (positive) or -9.9999999999999999999999999999999999999E+125 to -1E-130 (negative).
+
+10. **String Requirements**: String values must be UTF-8, contain at least one non-whitespace character, and not be empty.
+
+## Index Configuration
+
+11. **Key Index**: Forge automatically creates `by-key` index for each entity. Allows filtering by key without declaring index. Doesn't count toward index limit.
+
+12. **Simple Indexes**: Create simple indexes specifying single attribute. Use attribute name directly in `indexes` array.
+
+13. **Named Indexes**: Create named indexes for complex query patterns. Use `name`, `range`, and `partition` parameters.
+
+14. **Range Parameter**: `range` optimizes index for query conditions. Can only have one attribute. Accepts all data types except `any`.
+
+15. **Partition Parameter**: `partition` optimizes index for exact matches. Can have multiple attributes. Accepts all data types except `any`.
+
+## Index Limits
+
+16. **Index Count Limit**: Maximum 7 custom indexes per entity. Plan indexes based on query patterns you intend to use.
+
+17. **Index Name Rules**: Index names must follow regex `[a-zA-Z0-9:-._]`, cannot begin/end with `.`, cannot contain `..`, must be unique within entity.
+
+18. **Index Size Limits**: Combined values for all range attributes cannot exceed 900 bytes. Combined values for all partition attributes cannot exceed 1700 bytes.
+
+19. **Index Name Length**: Index names must be 3-50 characters in length. Use descriptive names for clarity.
+
+## Deployment and Indexing
+
+20. **Indexing Process**: `forge deploy` sends indexing request to storage service. Indexing duration scales with data set size, minimum 5 minutes.
+
+21. **Deployment Independence**: Indexing process independent of deployment. `forge deploy` completes while indexing still ongoing.
+
+22. **Installation Blocking**: Cannot install app on sites until indexing completes. Check index status with `forge storage entities indexes list`.
+
+23. **Index Status**: Indexes have `ACTIVE` status when ready. Wait for all indexes to be `ACTIVE` before testing app installation.
+
+24. **Index Deletion**: Can delete indexes in development and custom environments. Indexes deployed to staging/production cannot be deleted in any environment.
+
+## Entity Management
+
+25. **Entity Deletion Restriction**: Once deployed, entities and attributes cannot be deleted. Forge returns error if attempted. Can still add new attributes to existing entities.

@@ -1,0 +1,30 @@
+---
+description: Rules from Unit Testing Principles (Vladimir Khorikov) - focus on integration tests that save the project
+globs: **/*.test.js,**/*.test.ts,**/*.spec.js,**/*.spec.ts
+alwaysApply: false
+---
+
+# Unit Testing Principles, Practices, and Patterns (Vladimir Khorikov) - Integration Focus
+
+Although title says "Unit", 50% of book is about how integration tests really save the project.
+
+- **Refactoring Resistance**: Integration test shouldn't break if you change internal function name.
+- **Regression Protection**: Test should fail if business logic alters.
+- **Fast Feedback**: Optimize Atlassian API mocks so test flies.
+- **Maintainability**: Avoid code duplication in test setups.
+- **Use "Humble Object Pattern"**: Extract hard-to-test logic from Forge UI components.
+- **Don't test constants**: Don't verify a string is a string.
+- **Integration Test vs End-to-End**: In Forge, integration test is your E2E (since you don't control Jira).
+- **Use "Mockist" vs "Classic" Testing**: Prefer "Classic" style (using real objects) for integration.
+- **Identify external dependencies**: Classify which you can control and which you can't.
+- **Test "Database Schema"**: Ensure data in Storage remains compatible.
+- **Avoid "Fragile Tests"**: Those failing due to irrelevant UI Kit changes.
+- **Use "Parameterize Tests"**: Test multiple Jira states with same logic.
+- **Verify final state**: Test ends checking what remained in Storage.
+- **Don't test third-party logic**: Don't test lodash works, test YOUR usage of it.
+- **Isolate CI Environment**: Use environment variables for Forge development environments.
+- **Use "Test Double" with precision.**
+- **Test state transitions.**
+- **Avoid spaghetti code in test files.**
+- **Use "Setup Decorators" to prepare Confluence context.**
+- **Prioritize quality over quantity.**

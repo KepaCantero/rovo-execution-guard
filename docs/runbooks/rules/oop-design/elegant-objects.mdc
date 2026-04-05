@@ -1,0 +1,20 @@
+---
+description: Rules based on Elegant Objects (Yegor Bugayenko)
+globs: **/*.ts,**/*.tsx,**/*.js,**/*.jsx
+alwaysApply: false
+---
+
+# Elegant Objects (Yegor Bugayenko)
+
+A radical and purist approach to object-orientation that fits well with strict TypeScript.
+
+- **Don't use Getters/Setters**: Objects aren't data bags; they're entities with behavior.
+- **Immutability by default**: Use readonly on all class properties.
+- **Short and powerful names**: User, not UserManager or UserHelper.
+- **Don't use NULL**: Use "Null Object" patterns or TS optional types.
+- **Clean constructors**: Don't put logic in constructor; only assignment.
+- **Avoid -ER suffixes**: If a class ends in Manager, Controller, or Helper, it's probably a collection of procedural functions.
+- **Objects should be small**: Maximum 4-5 public methods.
+- **Don't use inheritance**: Use interfaces and delegation.
+- **Use decorators to add functionality**: Instead of modifying the original class.
+- **The object should own its data**: Don't expose for others to manipulate.

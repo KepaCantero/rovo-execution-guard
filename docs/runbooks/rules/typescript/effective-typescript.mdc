@@ -1,0 +1,27 @@
+---
+description: TypeScript rules based on Effective TypeScript (Dan Vanderkam)
+globs: **/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Effective TypeScript (Dan Vanderkam)
+
+- **Don't use `any`**: Use `unknown` for external data (APIs, request body). Validate before using.
+- **TS/JS relationship**: TypeScript doesn't change runtime behavior; types disappear when compiling.
+- **Interfaces for objects, `type` for unions**: Prefer `interface` for extensible objects; `type` for unions and intersections.
+- **Structural types**: TypeScript is based on shape, not name. Two types are compatible if they have the same structure.
+- **Limit `as T`**: Only use type assertions when you know something the compiler can't infer. Prefer runtime validation.
+- **`null` vs `undefined`**: Be consistent. In this project, use `undefined` for optionals and document the convention.
+- **JSDoc only when helpful**: If name and type are clear, avoid redundant comments.
+- **`readonly` to avoid mutation**: Use `readonly` in state properties and DTOs that shouldn't change.
+- **Don't repeat types**: Derive with `Pick<T, K>`, `Omit<T, K>`, `Partial<T>`, `Required<T>`.
+- **Narrowing**: Use `typeof`, `instanceof`, type guards, and discriminated unions to refine types.
+- **Types as documentation**: Types should explain intent and code contract.
+- **Tuples for fixed length**: When structure is strict (e.g. `[string, number]`).
+- **Avoid unnecessary generics**: Keep complexity to a minimum.
+- **`keyof T`**: To stay in sync with object keys and avoid typos.
+- **Types vs values**: Don't confuse a class (runtime value) with its type (compile-time only).
+- **Template Literal Types**: For strings with patterns (e.g. `\`jira:\${string}\``).
+- **Avoid `!` (non-null assertion)**: They're fragile; use optional chaining or explicit checks.
+- **Exhaustive check in switches**: Ensure you cover all cases of a union; use `never` in default.
+- **Strict `tsconfig`**: Enable `strict`, `noImplicitAny`, `strictNullChecks` as first line of defense.

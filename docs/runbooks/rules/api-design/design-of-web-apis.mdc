@@ -1,0 +1,30 @@
+---
+description: Rules from The Design of Web APIs (Arnaud Lauret) - usability and DX
+globs: **/routes/**/*.js,**/apiRoutes/**/*.js,**/controllers/**/*.js,**/dc-bps-migration/**/*.js
+alwaysApply: false
+---
+
+# The Design of Web APIs (Arnaud Lauret)
+
+Focus on usability and developer experience (DX). Applicable to cloud and dc-bps-migration endpoints.
+
+- **Score Your API**: Evaluate readability and ease of learning of your endpoints.
+- **Predictable Names**: If Jira calls something issueId, don't call it ticketNum in your API.
+- **Minimize Cognitive Load**: Don't force developer to make 5 calls to get simple data.
+- **Useful Error Messages**: "Error 400" is garbage. "Error 400: Field 'status' must be 'OPEN' or 'CLOSED'" is gold.
+- **Sandbox**: Provide testing environment where developers can "break" things without fear.
+- **Parameter Handling**: Be strict with data types in query parameters.
+- **Search Support**: Implement simple query language if resource is complex.
+- **Partial Responses**: Allow client to request only fields they need (?fields=id,name).
+- **Documentation with Examples**: Include real fetch code snippets.
+- **Cross-Sectional Consistency**: Use same standards as native Atlassian APIs to reduce learning curve.
+- **Transparent Security**: Clearly document what scopes each endpoint requires.
+- **Enum Usage**: Define allowed values to avoid invalid inputs.
+- **Health Checks**: /health endpoint to verify backend is alive.
+- **Latency Monitoring**: Log how long each call to Forge resolver takes.
+- **Style Guides**: Create API standards document for your monorepo.
+- **Empty Collection Handling**: Return [], not 404, if no results in search.
+- **Don't Expose Stack Traces**: Never send internal system errors to client.
+- **Custom Headers**: Use X- prefix for app-specific metadata.
+- **Compression**: Ensure large payloads travel compressed.
+- **Usability Testing**: Watch another dev try to use your API for first time.

@@ -1,0 +1,62 @@
+# CONFLUENCE REST API V2 RULES
+
+Reglas exhaustivas para usar Confluence REST API v2 durante migraciones y desarrollo, basadas en la documentación oficial y uso en el proyecto.
+
+## AUDITORÍA
+
+1. **Verificar versión de API**: Siempre usar `/wiki/api/v2` para Confluence Cloud REST API v2, nunca mezclar con v1 en la misma operación
+2. **Validar autenticación**: Verificar que las llamadas usan `api.asApp()` o `api.asUser()` según corresponda para autenticación Forge
+3. **Revisar scopes requeridos**: Cada endpoint requiere scopes específicos (granular o classic) - verificar que el manifest los incluye
+4. **Auditar paginación cursor-based**: Endpoints que retornan múltiples objetos usan `limit` y `cursor` - verificar manejo correcto
+5. **Validar Link headers**: Verificar presencia de header `Link` con relación `next` para determinar si hay más resultados
+6. **Revisar manejo de errores**: Verificar que se manejan correctamente códigos 400, 401, 403, 404 según documentación
+7. **Auditar uso de \_links.next**: Verificar que se usa `_links.next` en respuesta JSON además de header Link para paginación
+8. **Validar tipos de contenido**: Verificar que se usa endpoint correcto según tipo: `pages` vs `blogposts` en URLs
+9. **Revisar Data Security Policy**: Algunos endpoints están exentos de app access rules, otros no - verificar comportamiento esperado
+10. **Auditar uso de operaciones**: Verificar que se usa `/operations` endpoint para verificar permisos antes de operaciones sensibles
+
+## DISEÑO
+
+11. **Diseñar paginación cursor-based**: Usar `limit` apropiado (típicamente 250) y `cursor` del `_links.next` para iterar
+12. **Minimizar requests**: Preferir endpoints que retornan datos completos sobre múltiples llamadas para obtener datos relacionados
+13. **Diseñar manejo de rate limits**: Implementar retry logic con backoff exponencial para respuestas 429
+14. **Estructurar validación de IDs**: Validar formato de IDs antes de hacer requests (strings no vacíos)
+15. **Diseñar manejo de estados**: Validar estados de contenido (current, trashed, archived, draft) antes de operaciones
+16. **Estructurar manejo de versiones**: Para actualizaciones, usar VersionApi para obtener versión actual antes de actualizar
+17. **Diseñar fallbacks**: Implementar fallback cuando endpoints v2 no estén disponibles o fallen
+18. **Estructurar manejo de propiedades**: Usar Content Properties API v2 (`/properties`) en lugar de v1 cuando sea posible
+19. **Diseñar manejo de labels**: Usar Labels API v2 (`/labels`) que retorna estructura más clara que v1
+20. **Estructurar manejo de ancestros**: Usar `/pages/{id}/ancestors` solo para páginas, blogposts no tienen estructura jerárquica
+
+## IMPLEMENTACIÓN
+
+21. **Usar route template literal**: Siempre usar `route` template literal de `@forge/api` para URLs: `route`/wiki/api/v2/pages/${id}``
+22. **Implementar validación de entrada**: Validar que IDs no estén vacíos o sean null antes de hacer requests
+23. **Usar asApp() para operaciones de app**: Usar `api.asApp()` cuando la operación es del contexto de la app, no del usuario
+24. **Implementar manejo de 404**: Retornar null o lanzar ContentNotFoundError cuando contenido no existe (404)
+25. **Usar asUser() para operaciones de usuario**: Usar `api.asUser(accountId)` cuando se necesita contexto de usuario específico
+26. **Implementar paginación cursor**: Extraer cursor de `_links.next` o header Link, usar en siguiente request con `cursor` parameter
+27. **Usar endpoints específicos por tipo**: Usar `/pages/{id}` para páginas, `/blogposts/{id}` para blogposts, no genérico
+28. **Implementar manejo de versiones**: Usar VersionApi para obtener versiones, ordenar por `-modified-date` para última versión
+29. **Usar Content-Type header**: Incluir `Content-Type: application/json` en requests POST/PUT que envían JSON
+30. **Implementar logging de errores**: Registrar todos los errores de API con contexto (endpoint, payload, status) usando Logger
+31. **Usar Accept header**: Incluir `Accept: application/json` en requests GET para asegurar respuesta JSON
+32. **Implementar validación de respuestas**: Verificar `response.ok` antes de parsear JSON, manejar errores apropiadamente
+33. **Usar SpaceApi correctamente**: Para obtener espacio por ID, usar `SpaceApi.getSpaceById({ id })` del SDK o endpoint directo
+34. **Implementar manejo de propiedades**: Para propiedades v2, usar GET para leer lista, POST para crear, PUT para actualizar con version
+35. **Usar PageApi/BlogPostApi**: Preferir SDK methods cuando estén disponibles (ej: `PageApi.getPageById`) sobre requests directos
+36. **Implementar manejo de labels**: Para labels v2, usar `/labels` endpoint que retorna array con `results` y estructura clara
+37. **Usar OperationApi para permisos**: Para verificar permisos, usar `OperationApi.getPageOperations` o `getBlogPostOperations`
+38. **Implementar manejo de ancestros**: Para ancestros, usar `/pages/{id}/ancestors` que retorna array de objetos con `id` y `type`
+39. **Usar VersionApi correctamente**: Para versiones, usar `VersionApi.getPageVersions` o `getBlogPostVersions` con sort y limit
+40. **Implementar manejo de espacios**: Para obtener espacio por key, usar `/spaces?keys={key}&limit=1` y extraer ID del primer resultado
+41. **Usar classification level endpoint**: Para nivel de clasificación, usar `/pages/{id}/classification-level` o `/blogposts/{id}/classification-level`
+42. **Implementar manejo de operaciones**: Para verificar operaciones disponibles, usar `/operations` endpoint que retorna array de operaciones
+43. **Usar cursor extraction**: Extraer cursor de URL en `_links.next` parseando query parameters, no asumir formato específico
+44. **Implementar prevención de loops infinitos**: Verificar que cursor cambia entre requests para prevenir loops infinitos en paginación
+45. **Usar limit apropiado**: Usar límite máximo de 250 para paginación eficiente, ajustar según necesidades
+46. **Implementar manejo de respuestas vacías**: Manejar casos donde `results` puede estar vacío o undefined en respuestas paginadas
+47. **Usar sort parameters**: Para versiones, usar `sort=-modified-date` para obtener última versión primero
+48. **Implementar validación de tipos**: Validar que contentType sea 'page' o 'blogpost' antes de construir endpoints específicos
+49. **Usar SDK cuando disponible**: Preferir métodos del SDK `@appfire-platform/confluence-v2` sobre requests directos cuando estén disponibles
+50. **Implementar manejo de errores específicos**: Manejar 410 (Gone) para recursos eliminados, 409 (Conflict) para versiones incorrectas, 403 para permisos

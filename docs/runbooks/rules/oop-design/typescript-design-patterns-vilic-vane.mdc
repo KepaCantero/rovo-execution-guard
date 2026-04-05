@@ -1,0 +1,20 @@
+---
+description: Rules based on TypeScript Design Patterns (Vilic Vane)
+globs: **/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# TypeScript Design Patterns (Vilic Vane)
+
+How to implement classic patterns leveraging TS unique features (Generics, Decorators, Enums).
+
+- **Generic Constraints**: Use class Repository<T extends BaseEntity> to ensure consistency.
+- **Safe Singleton**: Implement Singletons that can't be accidentally instantiated.
+- **Strategy Pattern with Unions**: Use union types to simplify the Strategy pattern.
+- **Abstract Factory for UI**: Centralize creation of Custom UI components.
+- **Native Decorator Pattern**: Use TS decorators for cross-cutting concerns (logging, permissions).
+- **Mapped Types for DTOs**: Create classes that automatically transform from API to your Domain.
+- **Discriminated Unions in Classes**: To handle different behaviors per ticket type.
+- **Observer Pattern with RxJS**: For complex event systems in your Forge app.
+- **Command Pattern for Jira Actions**: Encapsulate "Approve", "Reject", and "Publish" as classes.
+- **Dependency Inversion with InversifyJS**: (Or similar) to manage large class systems.

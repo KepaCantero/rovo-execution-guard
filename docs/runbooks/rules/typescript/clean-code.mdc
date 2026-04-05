@@ -1,0 +1,27 @@
+---
+description: Clean Code rules adapted to TypeScript (Robert C. Martin)
+globs: **/*.ts,**/*.tsx,**/*.js,**/*.jsx
+alwaysApply: false
+---
+
+# Clean Code (adapted to TypeScript)
+
+- **Intention-revealing names**: `userAccount` instead of `u`; `isApproved` instead of `flag`.
+- **Small functions**: Target maximum ~20 lines; one responsibility per function.
+- **One level of abstraction per function**: Don't mix high-level orchestration with details (e.g. HTTP calls and parsing in the same function).
+- **Arguments**: Maximum 3. If you need more, use a typed options object.
+- **No side effects**: The function should do only what its name indicates.
+- **DRY**: Centralize repeated logic in `libraries/` or shared modules.
+- **Classes**: Noun names (e.g. `WorkflowManager`, `MigrationCurrentStateService`).
+- **Methods**: Verbs (e.g. `executeTransition`, `saveMetadata`, `resolveContentVersion`).
+- **Comments**: Avoid the obvious; code should be self-explanatory.
+- **Formatting**: Use the project formatter (Biome/Prettier) consistently.
+- **Error handling**: Use try/catch in a structured way; don't swallow errors.
+- **Readable conditions**: `if (isAuthorized(user))` better than inline long conditions.
+- **Guard clauses**: Return early to reduce nesting.
+- **SRP**: One class, one reason to change; keep classes focused.
+- **Dependency injection**: Inject repositories and services to facilitate testing and decoupling.
+- **Booleans**: Names with `is`, `has`, `can` prefix (e.g. `isRerun`, `hasLabels`).
+- **Eliminate dead code**: If not used, delete it (history is in Git).
+- **Magic numbers**: Use named constants (e.g. `STATUS_PROPERTY_NAME`, `MAX_RETRIES`).
+- **Boy Scout**: Leave code in better state than you found it.

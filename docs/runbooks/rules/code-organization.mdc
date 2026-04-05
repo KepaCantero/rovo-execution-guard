@@ -1,0 +1,19 @@
+---
+alwaysApply: true
+---
+
+# CODE ORGANIZATION STANDARDS
+
+## File Structure
+
+- We are following screaming architecture approach: https://www.milanjovanovic.tech/blog/screaming-architecture
+- One class/interface per file
+- Use barrel exports (index.ts) for clean imports
+- Group related functionality in modules
+- Keep functions under 50 lines when possible
+
+## Naming Conventions
+
+- Use descriptive names: `getWorkflowApprovalStatus` not `getStatus`
+- Constants in UPPER_SNAKE_CASE
+- Enums in PascalCase

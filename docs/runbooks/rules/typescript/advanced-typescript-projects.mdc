@@ -1,0 +1,18 @@
+---
+description: Rules for advanced TypeScript projects (Peter O'Hanlon) – monorepo and CI
+globs: **/*.ts,**/*.tsx,package.json,pnpm-workspace.yaml
+alwaysApply: false
+---
+
+# Advanced TypeScript Programming Projects (Peter O'Hanlon)
+
+- **Monorepo (pnpm workspaces)**: This project uses pnpm; maintain separation between packages (aws/batch-processes, frontend, libraries).
+- **Internal libraries**: Share logic in `libraries/` (e.g. engine-adapter); avoid duplicating types and utilities.
+- **CI/CD**: Run lint and tests on every PR; use scripts defined in bamboo-specs or equivalents.
+- **Bundle size**: In frontend and add-ons, watch the size; Forge has limits.
+- **Dynamic imports**: Use for lazy loading when it reduces initial load.
+- **Environment variables**: Don't expose secrets; use per-environment configuration (CDA, CDC, CDM).
+- **Configuration by environment**: Keep vars separated by environment (sandbox, demo, production) as in infrastructure/.
+- **Centralized logging**: Use the project logger for errors and traceability.
+- **Testing**: Don't stay only in unit tests; consider integration for critical flows (migration, workflows).
+- **Dependencies**: Audit and update with criteria; review vulnerabilities in CI.

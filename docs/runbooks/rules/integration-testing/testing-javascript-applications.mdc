@@ -1,0 +1,30 @@
+---
+description: Rules from Testing JavaScript Applications (Lucas da Costa) - integration tests in Node and browsers
+globs: **/*.test.js,**/*.test.ts,**/*.spec.js,**/*.spec.ts,**/vitest.config.*,**/jest.config.*
+alwaysApply: false
+---
+
+# Testing JavaScript Applications (Lucas da Costa)
+
+Rules for integration tests in Node.js and browser environments. Applicable: cloud (Express), dc-bps-migration, batch-processes and Forge.
+
+- **Test "Contract", not Code**: Integration should verify Resolver and UI still speak same language.
+- **Use In-Memory Databases**: To test Storage logic without latency (use Map mock to simulate Forge Storage).
+- **Don't mock what you don't own**: Avoid deeply mocking Atlassian APIs; use a "Wrapper" and mock the Wrapper.
+- **Visual Integration Layer**: Use component testing tools to ensure Atlassian UI Kit elements render.
+- **Avoid "Mock Hell"**: If you need 50 setup lines for a test, your architecture is too coupled.
+- **Test "Boundary Hooks"**: Verify what happens when Jira connection fails (500 errors).
+- **Use Factories for Jira Data**: Create generators of realistic "Issue" or "Page" objects.
+- **Test Asynchrony**: Ensure Forge awaits don't cause race conditions.
+- **Parallelize but Carefully**: Integration tests must be independent to run in parallel.
+- **Clean State**: Clean simulated Storage between each integration test.
+- **Timeout Handling**: Integration tests are slower; adjust Vitest timeouts.
+- **Spying on Side Effects**: Verify storage.set was called with correct data.
+- **Use supertest or similar**: If you expose endpoints, test complete HTTP request.
+- **Test Auth Flow**: Simulate different Atlassian user contexts.
+- **Integration over Unit**: If short on time, prioritize integration tests; they give more confidence.
+- **Use Snapshot Testing for JSONs**: Ideal to verify Jira API responses.
+- **Avoid Real Network Dependencies**: Use msw (Mock Service Worker) to intercept Atlassian calls.
+- **Test Idempotency**: Running same resolver twice should give same integration result.
+- **Log Failures in CI**: Ensure error log in GitHub Actions is readable.
+- **Test manifest.yml**: Verify exported functions match resolvers.

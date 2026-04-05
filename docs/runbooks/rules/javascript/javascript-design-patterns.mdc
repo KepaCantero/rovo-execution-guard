@@ -1,0 +1,28 @@
+---
+description: Rules based on JavaScript Design Patterns (Addy Osmani)
+globs: **/*.js,**/*.jsx
+alwaysApply: false
+---
+
+# JavaScript Design Patterns (Addy Osmani)
+
+- **Constructor Pattern**: To initialize objects with specific values.
+- **Module Pattern**: Encapsulate privacy and state.
+- **Singleton Pattern**: Use it for the database client or logger.
+- **Observer Pattern**: For event systems in your UI Kit.
+- **Publish/Subscribe Pattern**: Decouple emitters from receivers.
+- **Mediator Pattern**: Centralize complex communication between components.
+- **Prototype Pattern**: Create objects based on existing ones.
+- **Command Pattern**: Encapsulate Jira actions as executable objects.
+- **Facade Pattern**: Create a simple interface for complex Atlassian APIs.
+- **Factory Pattern**: Generate different types of UI components dynamically.
+- **Mixin Pattern**: Share functionality between classes without rigid inheritance.
+- **Decorator Pattern**: Add responsibilities to objects dynamically.
+- **Flyweight Pattern**: Share data to save memory in long lists.
+- **MVC/MVVM Pattern**: Use it to organize your Custom UI in React.
+- **Strategy Pattern**: For different SLA calculation algorithms.
+- **State Pattern**: To handle document approval lifecycle.
+- **Proxy Pattern**: Control access to expensive or remote objects.
+- **Chain of Responsibility Pattern**: For sequential permission validations.
+- **Template Pattern**: Define fixed steps in a deployment process.
+- **Namespacing Pattern**: Avoid name collisions in large apps.

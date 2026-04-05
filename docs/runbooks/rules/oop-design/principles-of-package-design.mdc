@@ -1,0 +1,20 @@
+---
+description: Rules based on Principles of Package Design (Matthias Noback)
+globs: **/*.ts,**/*.tsx,**/*.js,**/*.jsx
+alwaysApply: false
+---
+
+# Principles of Package Design (Matthias Noback)
+
+Although about packages, its class cohesion rules are gold for a monorepo.
+
+- **Common Closure Principle**: Classes that change together should live in the same file/module.
+- **Common Reuse Principle**: Don't force a user to depend on methods they don't use.
+- **Reuse-Release Equivalence Principle**: Design your libraries/engine-adapter as if it were a public library.
+- **Acyclic Dependencies Principle**: Forbidden for class A to depend on B and B on A.
+- **Stable Dependencies Principle**: Depend only on classes more stable than yours.
+- **Stable Abstractions Principle**: The more stable a class, the more abstract it should be.
+- **Avoid hidden dependencies**: Every collaborator should be visible in the constructor.
+- **Divide by context, not type**: Don't put all "services" together; put "Approval Service" with "Approval Model".
+- **Clear boundaries**: Use index.ts to expose only what the rest of the monorepo needs to see.
+- **Minimize contact area**: The less the system knows about your internal classes, the better.

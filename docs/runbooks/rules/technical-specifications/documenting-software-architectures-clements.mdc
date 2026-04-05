@@ -1,0 +1,181 @@
+# Documenting Software Architectures (Paul Clements et al.)
+
+**Source:** "Documenting Software Architectures" by Paul Clements et al.  
+**Focus:** Estándares profesionales para elegir qué vista del sistema mostrar.
+
+## 1. VIEWS AND PERSPECTIVES
+
+- **Usa el concepto de "Vistas":** No intentes mostrar todo en un mapa; crea una vista de módulos, otra de componentes y otra de asignación física
+  - ✅ Separate views: Module view, Component view, Allocation view
+  - ✅ Each view shows different aspect
+  - ❌ One diagram showing everything
+
+- **Usa el principio de "Divulgación Progresiva":** Empieza simple y añade detalle en páginas anexas
+  - ✅ High-level overview first
+  - ✅ Detailed views in appendices
+  - ❌ All detail in one diagram
+
+- **Incluye un índice de diagramas:**
+  - ✅ Table of diagrams
+  - ✅ Page references
+  - ✅ View type for each diagram
+  - ❌ No diagram index
+
+## 2. NOTATION AND SYMBOLS
+
+- **Define la "Notación":** Si usas círculos para microservicios y rectángulos para bases de datos, decláralo formalmente
+  - ✅ Legend explaining all symbols
+  - ✅ Consistent symbol usage
+  - ✅ Formal notation declaration
+  - ❌ Unexplained symbols
+
+- **Usa el estándar UML solo como lenguaje base, adáptalo si es necesario:**
+  - ✅ UML as base
+  - ✅ Adapt when needed for clarity
+  - ❌ Rigid UML adherence when it doesn't help
+
+- **Asegúrate de que cada caja tenga una sola responsabilidad:**
+  - ✅ Single responsibility per component
+  - ✅ Clear component purpose
+  - ❌ Components doing multiple things
+
+## 3. EXECUTION ENVIRONMENT
+
+- **Muestra el "Entorno de Ejecución":** Dónde vive el código (nube, servidor on-premise, dispositivo móvil)
+  - ✅ Execution environment clearly shown
+  - ✅ Cloud vs on-premise distinction
+  - ✅ Platform identification
+  - ❌ No environment information
+
+- **Muestra el "Mapa de Despliegue":** Cómo se distribuyen los componentes en los nodos de hardware
+  - ✅ Deployment map showing hardware nodes
+  - ✅ Component distribution
+  - ✅ Node relationships
+  - ❌ No deployment information
+
+- **Anota las restricciones de hardware:**
+  - ✅ Hardware requirements documented
+  - ✅ Resource constraints shown
+  - ❌ Missing hardware info
+
+- **Muestra la topología de la red:**
+  - ✅ Network topology diagram
+  - ✅ Network boundaries
+  - ✅ Communication paths
+  - ❌ No network information
+
+## 4. CONNECTORS AND INTERFACES
+
+- **Documenta los "Puertos" y "Conectores":** No solo qué se conecta, sino cómo (REST, SOAP, Pipes)
+  - ✅ Connector types labeled (REST, gRPC, AMQP)
+  - ✅ Ports clearly marked
+  - ✅ Communication protocols shown
+  - ❌ Unlabeled connections
+
+- **Documenta las interfaces externas:** Usa tablas para definir cada endpoint, parámetro y tipo de dato
+  - ✅ Interface tables
+  - ✅ Endpoint definitions
+  - ✅ Parameter types documented
+  - ❌ No interface documentation
+
+- **Documenta los protocolos de autenticación entre cajas:**
+  - ✅ Authentication protocols shown
+  - ✅ Security mechanisms documented
+  - ❌ No security information
+
+## 5. ARCHITECTURAL DIAGRAMS
+
+- **Usa Diagramas de Capas (Layer Diagrams):** Para mostrar qué partes del código pueden "tocar" a otras
+  - ✅ Layer diagrams showing dependencies
+  - ✅ Clear layer boundaries
+  - ✅ Dependency direction
+  - ❌ No layer structure
+
+- **Usa Diagramas de Secuencia para "Casos de Uso" críticos:**
+  - ✅ Sequence diagrams for critical use cases
+  - ✅ Show timing and interactions
+  - ❌ Flowcharts for temporal sequences
+
+- **Usa diagramas de "Máquina de Estados":** Para ciclos de vida de objetos complejos (ej. el estado de un pedido)
+  - ✅ State machine diagrams for complex lifecycles
+  - ✅ State transitions clear
+  - ✅ Trigger conditions shown
+  - ❌ No state modeling
+
+- **Usa diagramas de paquetes para organizar el código fuente:**
+  - ✅ Package diagrams showing code organization
+  - ✅ Module structure
+  - ❌ No code organization shown
+
+## 6. SYSTEM BEHAVIOR
+
+- **Identifica los "Recursos Compartidos":** (ej. una base de datos central o un caché)
+  - ✅ Shared resources clearly marked
+  - ✅ Centralized services identified
+  - ❌ Unclear resource sharing
+
+- **Indica la Concurrencia:** Usa símbolos para procesos paralelos o hilos de ejecución
+  - ✅ Concurrency symbols
+  - ✅ Parallel processes marked
+  - ✅ Threading shown
+  - ❌ No concurrency indication
+
+- **Diferencia entre flujo de datos y flujo de eventos (mensajería):**
+  - ✅ Data flow vs event flow distinction
+  - ✅ Different line styles
+  - ✅ Clear legend
+  - ❌ Same style for both
+
+- **Indica el manejo de errores en el flujo principal:**
+  - ✅ Error handling shown in main flow
+  - ✅ Error paths documented
+  - ❌ Only happy path shown
+
+## 7. SECURITY AND QUALITY
+
+- **Muestra los límites de seguridad:** Usa sombreados para indicar zonas de red (pública vs. privada)
+  - ✅ Security boundaries shown
+  - ✅ Public vs private zones
+  - ✅ Network zones clearly marked
+  - ❌ No security boundaries
+
+- **Documenta los "Atributos de Calidad":** Cómo el diseño soporta la latencia, carga y disponibilidad
+  - ✅ Quality attributes documented
+  - ✅ Performance characteristics
+  - ✅ Availability patterns
+  - ❌ No quality attributes
+
+## 8. DOMAIN AND BUSINESS ALIGNMENT
+
+- **Vincula cada diagrama con los requerimientos de negocio que satisface:**
+  - ✅ Business requirements linked
+  - ✅ Requirement traceability
+  - ✅ Business value shown
+  - ❌ No business linkage
+
+- **Documenta la infraestructura como parte de la arquitectura:**
+  - ✅ Infrastructure as architecture
+  - ✅ Infrastructure diagrams
+  - ✅ Infrastructure decisions documented
+  - ❌ Infrastructure separate from architecture
+
+## 9. MODELING TECHNIQUES
+
+- **Muestra cómo se propagan los cambios en el sistema:**
+  - ✅ Change propagation shown
+  - ✅ Impact analysis
+  - ❌ No change impact shown
+
+- **Evita dependencias circulares en tus gráficos:**
+  - ✅ No circular dependencies
+  - ✅ Clear dependency direction
+  - ❌ Circular references
+
+- **Usa diagramas de colaboración entre objetos:**
+  - ✅ Collaboration diagrams
+  - ✅ Object interactions
+  - ❌ No collaboration modeling
+
+---
+
+**Key Principle:** Use multiple views (module, component, allocation) to show different aspects. Define notation formally, document connectors and interfaces, and link diagrams to business requirements. Show execution environment and deployment clearly.

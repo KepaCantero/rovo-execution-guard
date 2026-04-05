@@ -1,0 +1,1350 @@
+Bases de Conocimiento con LLMs
+Es un flujo de trabajo personal para investigar temas de forma sistemática, donde el LLM no solo responde preguntas sino que construye y mantiene activamente una enciclopedia privada tuya. Te lo explico por capas:
+
+El problema que resuelve
+Cuando investigas un tema complejo, acumulas decenas de artículos, papers, repos... que acaban siendo un caos. Los RAG clásicos te permiten buscar en esos documentos, pero aquí la idea es más ambiciosa: sintetizar todo ese material en una wiki coherente, como si contratases a un editor que lee todo y lo organiza por ti.
+
+El flujo, paso a paso
+1. Ingestión de datos brutos (raw/)
+Guardas tus fuentes tal cual: PDFs, artículos web (convertidos a .md con el plugin de Obsidian), imágenes, datasets, repos. Es tu "materia prima", no la tocas.
+2. Compilación de la wiki
+El LLM lee esos documentos crudos y construye automáticamente una colección de archivos .md organizados por conceptos. Por ejemplo, si tu tema es "modelos de difusión", crea artículos como diffusion_basics.md, score_matching.md, applications.md, con resúmenes, backlinks entre ellos, y referencias a los documentos originales. Tú nunca escribes la wiki directamente.
+3. Q&A sobre la wiki
+Una vez que la wiki tiene ~100 artículos, puedes hacerle preguntas complejas. El LLM usa los índices que él mismo mantiene para navegar eficientemente sin necesidad de RAG sofisticado. Es como tener un asistente que ya leyó todo y sabe dónde está cada cosa.
+4. Outputs visuales
+Las respuestas no son solo texto en terminal: el LLM genera slides (formato Marp), gráficas (matplotlib), o nuevos artículos .md, todo visible directamente en Obsidian. Y lo más interesante: esos outputs se archivan de vuelta en la wiki, enriqueciéndola para futuras preguntas.
+5. "Linting" de conocimiento
+Periódicamente pasas al LLM un "health check": que detecte inconsistencias, rellene datos faltantes buscando en la web, proponga nuevos artículos donde hay huecos, o encuentre conexiones no obvias entre conceptos.
+
+La metáfora clave
+Piénsalo como un compilador de conocimiento:
+Fuentes brutas (raw/)  →  [LLM como compilador]  →  Wiki estructurada
+                                    ↑
+                          Tus preguntas y queries
+                          también alimentan el ciclo
+Al igual que un compilador convierte código fuente en un binario optimizado, el LLM convierte datos dispersos en conocimiento estructurado y navegable. Y al igual que el código fuente es "la verdad" y el binario es derivado, raw/ es la fuente y la wiki es el artefacto derivado.
+
+Por qué es poderoso
+
+Acumulativo: cada pregunta que haces enriquece la base, no se pierde en el historial de chat.
+Escala bien: a ~400K palabras sigue siendo manejable sin RAG complejo porque el propio LLM mantiene índices y resúmenes.
+Multimodal: incluye imágenes junto a los textos.
+No depende de tu memoria: Obsidian te da la vista, el LLM da el mantenimiento, tú solo diriges la investigación.
+
+El autor apunta que esto todavía es una colección de scripts hacky, y ve potencial para un producto serio — algo así como un "Notion o Obsidian, pero donde el LLM es el escritor principal, no un chatbot adjunto".Créame un prompt para crear una tarea de Ralph con este sistema en docs tendré una carpeta con los links y los nombre de los articulos11:41Diseñó prompt para compilar base de conocimiento desde carpeta de artículosDiseñó prompt para compilar base de conocimiento desde carpeta de artículosNecesito un poco más de contexto para hacerlo bien:Cuéntame esos tres puntos y te armo el prompt exacto para Ralph. 👆[User dismissed — do not proceed, wait for next instruction]11:432 / 2Thinking about the dismissal instruction and awaiting further guidanceThinking about the dismissal instruction and awaiting further guidanceSin problema, aquí estoy cuando quieras continuar. 👋Hazlo Q: ¿Cuál es el tema de investigación de esta primera wiki?
+A: OtroQ: ¿Qué formato tiene tu archivo de links en docs/?
+A: Para que el sistema agéntico no se sature y mantenga la calidad AAA, vamos a fragmentar el Prompt Maestro Omni-Instinct en 6 Tareas de Infraestructura y Ejecución. Cada tarea debe ser completada y auditada por Ralph antes de pasar a la siguiente. 📂 Tarea 1: El Génesis del Rulebook (Extracción y Normativa) Objetivo: Crear la base de conocimientos que regirá todas las decisiones futuras. • Instrucción: Analiza los 50 links técnicos y los 50 libros de ingeniería proporcionados. • Entregable: Un archivo RULEBOOK.md con IDs únicos (ej. [FORGE-OPS-001], [ARCH-SOLID-002]). • Filtro de Ralph: Eliminar redundancias y priorizar límites de Forge sobre estética de código. 📂 Tarea 2: Estructura de Repositorio y Blindaje (Husky & Git) Objetivo: Configurar el entorno local para que sea imposible subir código de baja calidad. • Instrucción: Configurar la estructura de carpetas (Dominio, Infra, UI, Adapters). Instalar y configurar Husky, commitlint y lint-staged. • Entregable: Configuración de pre-commit (lint + unit tests) y commit-msg (regex de Conventional Commits + Jira ID). • Filtro de Ralph: Verificar que el comando git commit falle si no se cumple el estándar. 📂 Tarea 3: Pipeline CI/CD y Gestión de Entornos (GitHub Actions) Objetivo: Automatizar el despliegue multi-entorno y el versionado semántico. • Instrucción: Crear los archivos .yml para GitHub Actions. Implementar Semantic Release. Definir los 3 entornos de Forge (development, staging, production). • Entregable: Pipelines funcionales con Deployment Gates (aprobación manual para Prod) y ejecución de Playwright en Staging. • Filtro de Ralph: Simular un fallo en el pipeline para asegurar que el despliegue se detiene automáticamente. 📂 Tarea 4: Core de Integración y Resiliencia (Rovo & GitHub API) Objetivo: Implementar la lógica de comunicación segura y robusta. • Instrucción: Crear los adaptadores para Rovo y GitHub. Implementar AbortController (timeouts), Exponential Backoff (reintentos) y Circuit Breaker. • Entregable: Código en /src/adapters con sus respectivos archivos .reqs.md (Sidecar) y tests de integración (Mocks). • Filtro de Ralph: Auditar que el executionId se pase correctamente en cada log para trazabilidad. 📂 Tarea 5: Capa de Presentación y Observabilidad (UI & Sentry) Objetivo: Crear la interfaz de usuario de alto impacto y el sistema de alertas. • Instrucción: Implementar el Spider Chart en el panel de Jira usando el ADS. Configurar el SDK de Sentry tanto en Custom UI como en el Backend de Forge. • Entregable: Dashboard de métricas de ROI y panel de inconsistencias visual en Jira. • Filtro de Ralph: Validar que los errores capturados en Sentry incluyan el contexto del ticket de Jira afectado. 📂 Tarea 6: Sistema de Reversión y Hardening (Rollback & E2E) Objetivo: Asegurar la recuperación ante desastres y la validación de negocio. • Instrucción: Crear el script de Rollback automático. Escribir la suite final de Playwright que cubra el flujo: Ticket inconsistente -> Bloqueo de PR en GitHub. • Entregable: Video/Log de éxito de un test E2E y prueba de concepto de un rollback exitoso a la versión v-1. • Filtro de Ralph: Firma final del Definition of Done (DoD) global. 🛠️ Instrucción de Ejecución para los Agentes:Q: ¿Qué quieres que haga Ralph en esta primera tarea?
+A: Todo el flujo completoShow more11:44Orchestrated comprehensive prompt structure para Ralph's inaugural rulebook taskOrchestrated comprehensive prompt structure para Ralph's inaugural rulebook taskAquí tienes el prompt para Ralph — Tarea 1:
+
+markdown# RALPH — TAREA 1: EL GÉNESIS DEL RULEBOOK
+## Estado: PENDIENTE DE EJECUCIÓN ⏳
+
+---
+
+## 🎯 MISIÓN
+
+Eres Ralph, un agente de ingeniería de software senior con estándares AAA.
+Tu única prioridad en esta tarea es: **leer, analizar y sintetizar** el corpus
+de conocimiento técnico proporcionado en `docs/` para producir un
+`RULEBOOK.md` autoritativo que gobierne todas las decisiones futuras del
+proyecto Forge.
+
+No improvises reglas. Cada regla del Rulebook debe tener trazabilidad
+directa a una fuente del corpus.
+
+---
+
+## 📂 INPUTS
+
+Tienes dos fuentes en `docs/`:
+
+### `docs/links.md`
+Lista de 50 artículos técnicos en formato:
+
+TÍTULO DEL ARTÍCULO
+
+
+### `docs/books.md`
+Lista de 50 libros de ingeniería en formato:
+
+TÍTULO DEL LIBRO — Autor
+
+
+---
+
+## 📋 PROTOCOLO DE EJECUCIÓN
+
+Sigue estos pasos **en orden estricto**. Reporta el estado de cada paso
+antes de continuar al siguiente.
+
+### PASO 1 — Ingestión de fuentes web
+Para cada link en `docs/links.md`:
+1. Descarga y convierte el artículo a `raw/articles/[slug-del-titulo].md`
+2. Extrae: título, autor, fecha, resumen de 3 líneas, y conceptos clave
+3. Si el link falla (404, paywall), márcalo como `[INACCESIBLE]` y continúa
+4. Registra el progreso en `raw/_index.md` con formato:
+   `| ID | Título | Fuente | Estado | Conceptos clave |`
+
+### PASO 2 — Ingestión de libros
+Para cada libro en `docs/books.md`:
+1. Crea `raw/books/[slug-del-titulo].md` con lo que conozcas del libro
+2. Extrae: tesis central, capítulos relevantes para Forge, principios
+   aplicables
+3. Marca con `[CONOCIMIENTO INTERNO]` si usas training knowledge,
+   `[REQUIERE VERIFICACIÓN]` si hay incertidumbre
+4. Añádelo al índice `raw/_index.md`
+
+### PASO 3 — Análisis de patrones y clustering
+Con todo el corpus ingestado:
+1. Identifica los **grandes dominios temáticos** que emergen (ej: Clean
+   Architecture, CI/CD, Resiliencia, Observabilidad, etc.)
+2. Detecta **contradicciones** entre fuentes — regístralas en
+   `raw/_conflicts.md`
+3. Detecta **redundancias** — anota qué fuentes dicen lo mismo con
+   distintas palabras
+
+### PASO 4 — Compilación del RULEBOOK.md
+Genera `wiki/RULEBOOK.md` con la siguiente estructura:
+
+---
+
+#### Estructura obligatoria de RULEBOOK.md:
+```markdown
+# RULEBOOK — Forge Engineering Standards
+> Versión: 1.0.0 | Generado por Ralph | Fecha: [HOY]
+> Corpus: [N] artículos + [N] libros analizados
+
+## ÍNDICE DE DOMINIOS
+- [FORGE-OPS] — Operaciones y Despliegue
+- [ARCH] — Arquitectura y Diseño
+- [QUALITY] — Calidad y Testing
+- [RESILIENCE] — Resiliencia e Integración
+- [OBSERVABILITY] — Observabilidad y Logging
+- [SECURITY] — Seguridad y Hardening
+
+---
+
+## DOMINIO: [FORGE-OPS] Operaciones y Despliegue
+
+### [FORGE-OPS-001] — [NOMBRE DE LA REGLA]
+- **Regla**: [Enunciado imperativo claro, máx 2 líneas]
+- **Fundamento**: [Por qué existe esta regla]
+- **Fuente**: [[slug-del-articulo]] / [Libro — Capítulo X]
+- **Conflictos conocidos**: [ID de conflicto en _conflicts.md o "Ninguno"]
+- **Aplica a**: [Tareas 2, 3, 4, 5, 6 / Todas]
+- **Prioridad**: [CRÍTICA / ALTA / MEDIA]
+
+[... repetir para cada regla ...]
+```
+
+---
+
+### PASO 5 — Filtros de calidad (auto-auditoría)
+
+Antes de declarar la tarea completa, verifica:
+
+- [ ] **Trazabilidad**: ¿Cada regla tiene al menos 1 fuente citada?
+- [ ] **Sin redundancias**: ¿Hay reglas que digan lo mismo con distintos IDs?
+- [ ] **Forge-first**: ¿Los límites operacionales de Forge tienen mayor
+      prioridad que preferencias estéticas de código?
+- [ ] **Conflictos documentados**: ¿Todas las contradicciones detectadas
+      están en `_conflicts.md`?
+- [ ] **IDs únicos y secuenciales**: ¿No hay IDs duplicados o saltos?
+- [ ] **Cobertura**: ¿Los 6 dominios tienen al menos 5 reglas cada uno?
+
+---
+
+## 📁 ESTRUCTURA DE ARCHIVOS A GENERAR
+raw/
+_index.md              ← Índice maestro de todas las fuentes
+_conflicts.md          ← Contradicciones detectadas entre fuentes
+articles/
+[slug].md            ← Un archivo por artículo
+books/
+[slug].md            ← Un archivo por libro
+wiki/
+RULEBOOK.md            ← EL ENTREGABLE PRINCIPAL
+
+---
+
+## ✅ DEFINICIÓN DE DONE — TAREA 1
+
+La tarea está completa cuando:
+
+1. `raw/_index.md` tiene una entrada por cada una de las 100 fuentes
+2. `wiki/RULEBOOK.md` existe con mínimo **30 reglas** distribuidas en
+   los 6 dominios
+3. Cada regla tiene ID único formato `[DOMINIO-SUBDOMAIN-NNN]`
+4. `raw/_conflicts.md` existe (puede estar vacío si no hay conflictos)
+5. Los 5 filtros de auto-auditoría del Paso 5 están marcados como ✅
+
+**Firma de Ralph al completar:**
+AUDITORÍA FINAL — TAREA 1
+
+Fuentes procesadas: [N]/100
+Reglas generadas: [N]
+Conflictos detectados: [N]
+Filtros superados: [N]/5
+Estado: ✅ APROBADA / ❌ REQUIERE REVISIÓN
+Siguiente tarea habilitada: TAREA 2 — Estructura de Repositorio
+
+
+---
+
+## ⚠️ RESTRICCIONES
+
+- **NO** pases a Tarea 2 sin completar la firma de auditoría
+- **NO** inventes reglas sin respaldo en el corpus
+- **NO** omitas fuentes inaccesibles — documéntalas como `[INACCESIBLE]`
+- **NO** mezcles opiniones propias con reglas derivadas del corpus;
+  si aportas algo de tu conocimiento, márcalo con `[RALPH-INFERENCE]`
+
+Cómo usarlo: pégalo directamente como primer mensaje a Ralph junto con tus archivos docs/links.md y docs/books.md. El formato está pensado para que Ralph no tenga ambigüedad en ningún paso y puedas auditar cada decisión que tome antes de habilitar la Tarea 2.uso este Ralphhttps://github.com/mikeyobrien/ralph-orchestrator11:45Delineó arquitectura Ralph para compilar base conocimiento desde múltiples fuentesDelineó arquitectura Ralph para compilar base conocimiento desde múltiples fuentesAhora entiendo exactamente cómo funciona. Ralph usa un ralph.yml de hats + un PROMPT.md para la tarea. Te genero ambos archivos adaptados a su arquitectura real:
+
+ralph.knowledge-base.yml
+yamlevent_loop:
+  completion_promise: LOOP_COMPLETE
+  max_iterations: 200
+  max_runtime_seconds: 36000
+  starting_event: work.start
+
+cli:
+  backend: claude
+
+core:
+  specs_dir: ./specs/
+
+guardrails:
+  - "Lee el scratchpad al inicio de cada iteración antes de actuar."
+  - "Cada regla del RULEBOOK debe tener trazabilidad a una fuente del corpus."
+  - "No inventes datos — si una fuente es inaccesible, márcala [INACCESIBLE] y continúa."
+  - "No pases a la siguiente fase sin completar la auditoría de la fase actual."
+  - "Confidence protocol: >80 procede; 50-80 procede + nota en scratchpad; <50 elige default seguro + nota."
+  - "Preserva fuentes primarias — cita el documento origen en cada regla del RULEBOOK."
+  - "Nunca emitas LOOP_COMPLETE sin que la firma de auditoría esté completa en wiki/RULEBOOK.md."
+
+backpressure:
+  gates:
+    - name: index_exists
+      command: test -f raw/_index.md
+      on_fail: "El índice maestro raw/_index.md no existe. El Ingester debe crearlo primero."
+    - name: rulebook_exists
+      command: test -f wiki/RULEBOOK.md
+      on_fail: "wiki/RULEBOOK.md no existe. El Compiler debe generarlo antes de la revisión."
+    - name: rulebook_min_rules
+      command: grep -c "###\s\[" wiki/RULEBOOK.md | awk '{exit ($1 < 30)}'
+      on_fail: "El RULEBOOK tiene menos de 30 reglas. El Compiler debe completar el corpus."
+
+hats:
+  planner:
+    name: "📋 Planner"
+    description: "Desglosa la tarea en sub-tareas de ingestión y compilación"
+    triggers: ["work.start", "subtask.done"]
+    publishes: ["subtask.ready", "all_steps.done"]
+    default_publishes: "subtask.ready"
+    instructions: |
+      Gestiona el desglose de sub-tareas para construir la base de conocimientos.
+
+      ## Lee el Estado Actual
+      1. Lee PROMPT.md para el plan de implementación
+      2. Lee el scratchpad para el progreso actual
+      3. Revisa raw/_index.md si existe para saber cuántas fuentes están procesadas
+
+      ## Lógica de Planificación
+
+      ### FASE 1 — Ingestión (si raw/_index.md no existe o tiene < 100 entradas)
+      Divide en lotes de 10 fuentes:
+      - Sub-tarea: "Ingestar artículos docs/links.md lote 1-10"
+      - Sub-tarea: "Ingestar artículos docs/links.md lote 11-20"
+      - ... (hasta completar los 50 artículos)
+      - Sub-tarea: "Ingestar libros docs/books.md lote 1-10"
+      - ... (hasta completar los 50 libros)
+
+      ### FASE 2 — Compilación (si ingestión completa y wiki/RULEBOOK.md no existe)
+      - Sub-tarea: "Analizar patrones y crear raw/_conflicts.md"
+      - Sub-tarea: "Compilar dominio FORGE-OPS en RULEBOOK.md"
+      - Sub-tarea: "Compilar dominio ARCH en RULEBOOK.md"
+      - Sub-tarea: "Compilar dominio QUALITY en RULEBOOK.md"
+      - Sub-tarea: "Compilar dominio RESILIENCE en RULEBOOK.md"
+      - Sub-tarea: "Compilar dominio OBSERVABILITY en RULEBOOK.md"
+      - Sub-tarea: "Compilar dominio SECURITY en RULEBOOK.md"
+
+      ### FASE 3 — Auditoría (si RULEBOOK.md tiene ≥ 30 reglas)
+      - Sub-tarea: "Ejecutar auto-auditoría y escribir firma final"
+
+      ## Formato del Scratchpad
+```markdown
+      # KB Progress
+
+      ## Fase Actual: [1-Ingestión / 2-Compilación / 3-Auditoría]
+
+      ### Sub-tareas:
+      - [x] 1.1 Artículos lote 1-10
+      - [ ] 1.2 Artículos lote 11-20
+
+      ### Métricas:
+      - Fuentes ingestadas: N/100
+      - Reglas compiladas: N
+      - Conflictos detectados: N
+
+      ## Sub-tareas Completadas:
+```
+
+  ingester:
+    name: "📥 Ingester"
+    description: "Lee fuentes de docs/ y las convierte a raw/"
+    triggers: ["subtask.ready"]
+    publishes: ["subtask.done"]
+    default_publishes: "subtask.done"
+    instructions: |
+      Procesa SOLO el lote de fuentes asignado en la sub-tarea actual.
+
+      ## Para artículos web (docs/links.md)
+      Por cada URL del lote asignado:
+      1. Lee el contenido con WebFetch o tus herramientas de filesystem
+      2. Crea `raw/articles/[slug].md` con esta estructura:
+```markdown
+         # [Título del artículo]
+         **Fuente**: [URL]
+         **Fecha**: [fecha si disponible]
+         **Estado**: [PROCESADO / INACCESIBLE]
+
+         ## Resumen (3 líneas)
+         ...
+
+         ## Conceptos Clave
+         - concepto1
+         - concepto2
+
+         ## Extractos Relevantes para Forge
+         > [cita directa relevante]
+```
+      3. Si el link falla → escribe el archivo con `**Estado**: INACCESIBLE`
+      4. Añade una fila al índice `raw/_index.md`:
+         `| raw/articles/[slug].md | [Título] | web | [PROCESADO/INACCESIBLE] | concepto1, concepto2 |`
+
+      ## Para libros (docs/books.md)
+      Por cada libro del lote asignado:
+      1. Crea `raw/books/[slug].md` con esta estructura:
+```markdown
+         # [Título] — [Autor]
+         **Tipo**: libro
+         **Estado**: CONOCIMIENTO-INTERNO
+         **Fuente-conocimiento**: [RALPH-INFERENCE si no estás seguro]
+
+         ## Tesis Central
+         ...
+
+         ## Capítulos Relevantes para Forge
+         - Cap X: ...
+
+         ## Principios Aplicables
+         - [ARCH-001-CANDIDATE]: ...
+```
+      2. Añade al índice `raw/_index.md`
+
+      ## Verificación antes de emitir subtask.done
+      - [ ] Todos los archivos del lote existen en raw/
+      - [ ] Todas las entradas están en raw/_index.md
+      - [ ] Ningún archivo está vacío
+
+      Actualiza el scratchpad con las métricas y emite subtask.done.
+
+  compiler:
+    name: "🧠 Compiler"
+    description: "Sintetiza el corpus raw/ en wiki/RULEBOOK.md"
+    triggers: ["subtask.ready"]
+    publishes: ["subtask.done"]
+    default_publishes: "subtask.done"
+    instructions: |
+      Compila SOLO el dominio o análisis asignado en la sub-tarea actual.
+
+      ## Sub-tarea de Análisis de Conflictos
+      1. Lee todos los archivos de raw/ relevantes
+      2. Identifica contradicciones entre fuentes
+      3. Crea `raw/_conflicts.md`:
+```markdown
+         # Conflictos Detectados en el Corpus
+         | ID | Fuente A | Fuente B | Descripción del Conflicto | Resolución |
+         |---|---|---|---|---|
+```
+      4. Emite subtask.done
+
+      ## Sub-tarea de Compilación de Dominio
+      Para el dominio asignado (ej: FORGE-OPS):
+      1. Lee todos los raw/ relevantes para ese dominio
+      2. Extrae principios, reglas, y límites
+      3. Añade al `wiki/RULEBOOK.md` (créalo si no existe):
+```markdown
+         ## DOMINIO: [FORGE-OPS] Operaciones y Despliegue
+
+         ### [FORGE-OPS-001] — [Nombre de la Regla]
+         - **Regla**: [Enunciado imperativo, máx 2 líneas]
+         - **Fundamento**: [Por qué existe]
+         - **Fuente**: [raw/articles/slug.md] o [raw/books/slug.md]
+         - **Conflictos**: [ID en _conflicts.md o "Ninguno"]
+         - **Aplica a**: [Tareas 2,3,4,5,6 / Todas]
+         - **Prioridad**: [CRÍTICA / ALTA / MEDIA]
+```
+      4. Mínimo 5 reglas por dominio
+      5. Emite subtask.done
+
+      ## Reglas de Calidad
+      - Prioridad CRÍTICA = límites operacionales de Forge (sobre estética de código)
+      - Marca con [RALPH-INFERENCE] si deduces una regla que no está explícita en raw/
+      - IDs únicos y secuenciales dentro de cada dominio
+
+  auditor:
+    name: "✅ Auditor"
+    description: "Verifica integridad del RULEBOOK y emite firma final"
+    triggers: ["subtask.ready"]
+    publishes: ["subtask.done", "audit.failed"]
+    default_publishes: "subtask.done"
+    instructions: |
+      Ejecuta la auditoría completa del RULEBOOK.md.
+
+      ## Checklist de Auditoría
+      Verifica cada punto y registra ✅ o ❌:
+
+      - [ ] **Trazabilidad**: ¿Cada regla tiene al menos 1 fuente citada?
+      - [ ] **Sin redundancias**: ¿Hay reglas duplicadas con distintos IDs?
+      - [ ] **Forge-first**: ¿Los límites de Forge tienen mayor prioridad que estética?
+      - [ ] **Conflictos documentados**: ¿Todas las contradicciones están en _conflicts.md?
+      - [ ] **IDs únicos**: ¿No hay duplicados ni saltos en la numeración?
+      - [ ] **Cobertura mínima**: ¿Los 6 dominios tienen ≥ 5 reglas cada uno?
+
+      ## Si todos pasan → añade al final de wiki/RULEBOOK.md:
+```markdown
+      ---
+      ## AUDITORÍA FINAL — TAREA 1
+      - Fuentes procesadas: N/100
+      - Reglas generadas: N
+      - Conflictos detectados: N
+      - Filtros superados: N/6
+      - Estado: ✅ APROBADA
+      - Siguiente tarea habilitada: TAREA 2 — Estructura de Repositorio
+      - Firmado por: Ralph Orchestrator
+      - Fecha: [HOY]
+```
+      Emite subtask.done
+
+      ## Si alguno falla → emite audit.failed con lista de correcciones requeridas
+
+  reviewer:
+    name: "👀 Reviewer"
+    description: "Revisa calidad de cada entregable antes de avanzar"
+    triggers: ["all_steps.done", "audit.failed"]
+    publishes: ["review.approved", "review.changes_requested"]
+    default_publishes: "review.approved"
+    instructions: |
+      Revisa la calidad del trabajo completado.
+
+      ## Checks de Calidad
+
+      ### Integridad del Índice
+      - raw/_index.md tiene entrada por cada archivo en raw/?
+      - Las columnas de estado son correctas?
+      FALLA si hay archivos huérfanos.
+
+      ### Calidad del RULEBOOK
+      - Las reglas son accionables (imperativas, no descriptivas)?
+      - Hay al menos 30 reglas totales?
+      - Los 6 dominios están cubiertos?
+      FALLA si el RULEBOOK es demasiado genérico o tiene reglas vacías.
+
+      ### Coherencia con el Proyecto Forge
+      - Las reglas de FORGE-OPS reflejan los constraints reales de Atlassian Forge?
+      - Las reglas de ARCH cubren Clean Architecture / DDD?
+      - Las reglas de QUALITY cubren Conventional Commits, Husky, etc.?
+      FALLA si el RULEBOOK ignora el contexto específico de Forge.
+
+      Si todo es sólido → emite review.approved
+      Si hay problemas → emite review.changes_requested con referencias específicas
+
+  finalizer:
+    name: "📝 Finalizer"
+    description: "Cierra la Tarea 1 y habilita la Tarea 2"
+    triggers: ["review.approved"]
+    publishes: ["LOOP_COMPLETE"]
+    instructions: |
+      Documenta y cierra la Tarea 1.
+
+      ## Resumen Final
+      Crea `specs/tarea-1/SUMMARY.md` con:
+      - Fecha de completado
+      - Estadísticas finales (fuentes, reglas, conflictos)
+      - Lista de los 3-5 principios más importantes que emergieron del corpus
+      - Sugerencias para la Tarea 2 basadas en lo aprendido
+
+      ## Commit Final
+      `docs(knowledge-base): complete Tarea 1 - RULEBOOK genesis`
+
+      Emite LOOP_COMPLETE
+
+skills:
+  enabled: true
+  dirs:
+    - .claude/skills
+
+RObot:
+  enabled: false
+  timeout_seconds: 120
+
+PROMPT.md (colócalo en la raíz del repo):
+markdown# TAREA 1 — El Génesis del Rulebook
+
+## Contexto del Proyecto
+Estamos construyendo Forge, una aplicación sobre la plataforma Atlassian Forge
+(Jira/Confluence). Esta tarea construye el RULEBOOK.md que gobernará todas las
+decisiones de arquitectura, CI/CD, calidad, resiliencia, observabilidad y
+seguridad del proyecto.
+
+## Inputs
+- `docs/links.md` — 50 artículos técnicos (formato: `- [Título](URL)`)
+- `docs/books.md` — 50 libros de ingeniería (formato: `- Título — Autor`)
+
+## Outputs Esperados
+raw/
+_index.md              ← Índice maestro (tabla markdown)
+_conflicts.md          ← Contradicciones entre fuentes
+articles/[slug].md     ← Un archivo por artículo web
+books/[slug].md        ← Un archivo por libro
+wiki/
+RULEBOOK.md            ← Entregable principal con ≥30 reglas en 6 dominios
+specs/
+tarea-1/SUMMARY.md     ← Resumen de cierre
+
+## Dominios del RULEBOOK
+| Prefijo | Dominio |
+|---|---|
+| FORGE-OPS | Operaciones y Despliegue (límites de Forge Platform) |
+| ARCH | Arquitectura y Diseño (Clean Arch, DDD, SOLID) |
+| QUALITY | Calidad y Testing (Husky, commitlint, Playwright) |
+| RESILIENCE | Resiliencia e Integración (Circuit Breaker, Backoff) |
+| OBSERVABILITY | Observabilidad y Logging (Sentry, trazabilidad) |
+| SECURITY | Seguridad y Hardening |
+
+## Prioridad de Reglas
+Los límites operacionales de Forge Platform tienen SIEMPRE mayor prioridad
+que las preferencias estéticas de código o patrones genéricos de libros.
+
+## Definition of Done
+- [ ] raw/_index.md con 100 entradas
+- [ ] wiki/RULEBOOK.md con ≥30 reglas en los 6 dominios
+- [ ] Cada regla con ID único [DOMINIO-NNN] y fuente citada
+- [ ] raw/_conflicts.md existe
+- [ ] Firma de auditoría al final de RULEBOOK.md
+- [ ] specs/tarea-1/SUMMARY.md creado
+
+Comando para lanzarlo:
+bashralph run -c ralph.knowledge-base.yml -p "Ejecuta la Tarea 1 completa según PROMPT.md"
+La diferencia clave con el prompt genérico anterior es que ahora está estructurado como Ralph lo espera: hats con triggers/publishes, backpressure gates ejecutables, y el loop solo cierra cuando la firma de auditoría está escrita en el RULEBOOK.Este rulebook tiene que usarse de manera automática en las posteriores tareas de Ralph11:54Architected persistent rulebook integration across Ralph task pipelineArchitected persistent rulebook integration across Ralph task pipelineHay tres mecanismos nativos de Ralph para conseguir esto. Te muestro cómo combinarlos:
+
+1. El Finalizer de Tarea 1 publica el RULEBOOK como Skill
+Modifica el hat finalizer en ralph.knowledge-base.yml:
+yaml  finalizer:
+    name: "📝 Finalizer"
+    description: "Cierra la Tarea 1 y publica el RULEBOOK como skill global"
+    triggers: ["review.approved"]
+    publishes: ["LOOP_COMPLETE"]
+    instructions: |
+      Documenta, publica el RULEBOOK y cierra la Tarea 1.
+
+      ## PASO CRÍTICO — Publicar el RULEBOOK como Skill Global
+
+      1. Copia wiki/RULEBOOK.md → .claude/skills/RULEBOOK.md
+         (Ralph carga automáticamente todo lo que esté en .claude/skills/)
+
+      2. Crea .claude/skills/RULEBOOK-INDEX.md con este contenido:
+```markdown
+         # RULEBOOK — Cómo Usarlo
+
+         Este skill se carga automáticamente en cada tarea de Ralph.
+
+         ## Reglas de Aplicación Obligatoria
+         - Antes de tomar cualquier decisión de arquitectura → consulta sección ARCH
+         - Antes de configurar CI/CD → consulta sección FORGE-OPS
+         - Antes de escribir tests → consulta sección QUALITY
+         - Antes de integrar APIs externas → consulta sección RESILIENCE
+         - Antes de añadir logs → consulta sección OBSERVABILITY
+         - Antes de exponer endpoints → consulta sección SECURITY
+
+         ## Cómo Citar en Scratchpad
+         Cuando apliques una regla, escribe en el scratchpad:
+         `→ Aplicando [FORGE-OPS-003]: [descripción breve]`
+```
+
+      3. Actualiza CLAUDE.md (créalo si no existe) añadiendo al inicio:
+```markdown
+         # Forge Project — Instrucciones para Claude
+
+         ## RULEBOOK ACTIVO
+         El archivo `.claude/skills/RULEBOOK.md` contiene las reglas maestras
+         del proyecto. Debes leerlo y aplicarlo en CADA tarea antes de actuar.
+         Las reglas con prioridad CRÍTICA son no negociables.
+```
+
+      4. Crea specs/tarea-1/SUMMARY.md con estadísticas finales
+
+      ## Commit Final
+      `chore(knowledge-base): publish RULEBOOK as global Ralph skill`
+
+      Emite LOOP_COMPLETE
+
+2. Añade un gate de RULEBOOK a todas las tareas posteriores
+En cada ralph.tarea-N.yml (Tareas 2-6), añade este bloque de backpressure:
+yamlbackpressure:
+  gates:
+    - name: rulebook_available
+      command: test -f .claude/skills/RULEBOOK.md
+      on_fail: "RULEBOOK.md no encontrado en .claude/skills/. Ejecuta Tarea 1 primero."
+
+    - name: rulebook_signed
+      command: grep -q "APROBADA" .claude/skills/RULEBOOK.md
+      on_fail: "El RULEBOOK no está firmado. La Tarea 1 no se completó correctamente."
+
+    # ... gates específicos de cada tarea
+
+3. Guardrail universal en todas las tareas posteriores
+En cada ralph.tarea-N.yml, añade estos guardrails al bloque core:
+yamlguardrails:
+  # --- Guardrail RULEBOOK (presente en TODAS las tareas) ---
+  - "Al inicio de cada iteración: lee .claude/skills/RULEBOOK.md antes de actuar."
+  - "Toda decisión de arquitectura debe citar el ID de la regla del RULEBOOK que la respalda."
+  - "Si una acción viola una regla CRÍTICA del RULEBOOK → detente y emite work.blocked."
+  - "Registra en el scratchpad cada regla del RULEBOOK aplicada: '→ [FORGE-OPS-003]: motivo'"
+  # --- Guardrails específicos de esta tarea ---
+  - "..."
+
+4. Hat enforcer compartido (opcional pero potente)
+Si quieres que Ralph auto-verifique el cumplimiento en cada tarea, añade este hat reutilizable a todos los YML:
+yamlhats:
+  enforcer:
+    name: "⚖️ Enforcer"
+    description: "Verifica que cada entregable cumple el RULEBOOK antes de aprobarlo"
+    triggers: ["implementation.done", "subtask.done"]
+    publishes: ["enforcement.passed", "enforcement.failed"]
+    default_publishes: "enforcement.passed"
+    instructions: |
+      Verifica que el trabajo entregado cumple el RULEBOOK.
+
+      ## Proceso
+      1. Lee .claude/skills/RULEBOOK.md completo
+      2. Identifica qué dominios son relevantes para el entregable actual
+         (ej: si es un commit de CI → revisa FORGE-OPS y QUALITY)
+      3. Para cada regla CRÍTICA relevante → verifica si el código/config la cumple
+      4. Para cada regla ALTA relevante → verifica o justifica la excepción
+
+      ## Decisión
+      Si todas las reglas CRÍTICAS se cumplen → emite enforcement.passed
+        (añade al scratchpad: "✅ Enforcement: [N] reglas CRÍTICAS verificadas")
+
+      Si alguna regla CRÍTICA se viola → emite enforcement.failed con:
+        - ID de la regla violada
+        - Línea/archivo específico donde ocurre
+        - Corrección requerida
+
+      ## Nunca bloquees por reglas MEDIA
+      Las reglas de prioridad MEDIA son recomendaciones — regístralas pero no bloquees.
+Y en el reviewer de cada tarea posterior, añade enforcement.passed como trigger:
+yaml  reviewer:
+    triggers: ["all_steps.done", "enforcement.passed"]
+
+Flujo resultante
+Tarea 1 Finalizer
+    │
+    ├── wiki/RULEBOOK.md
+    ├── .claude/skills/RULEBOOK.md  ← auto-cargado por Ralph en cada iteración
+    ├── .claude/skills/RULEBOOK-INDEX.md
+    └── CLAUDE.md (referencia al RULEBOOK)
+
+Tareas 2-6
+    │
+    ├── gate: rulebook_available  ← bloquea si Tarea 1 no corrió
+    ├── gate: rulebook_signed     ← bloquea si Tarea 1 no se auditó
+    ├── guardrail: "lee RULEBOOK antes de actuar"
+    └── enforcer hat              ← verifica cada entregable contra el RULEBOOK
+El mecanismo más importante es el .claude/skills/ — Ralph lo carga automáticamente en cada sesión, así que el agente tendrá el RULEBOOK en contexto sin que tengas que hacer nada manual entre tareas.Hay algún otro hat que necesitaría ?12:012 / 2Identificó cuatro hats faltantes para optimizar orquestaciónIdentificó cuatro hats faltantes para optimizar orquestaciónAnalizando las 6 tareas de tu proyecto, veo 4 gaps que los hats actuales no cubren:
+
+🔍 researcher — El más crítico para tu proyecto
+Lo que tienes ahora no tiene nadie que consulte documentación de Forge Platform antes de implementar. Sin esto, el builder puede generar código que viola los límites de Forge sin saberlo.
+yamlresearcher:
+  name: "🔍 Researcher"
+  description: "Consulta RULEBOOK y docs externas antes de que el Builder actúe"
+  triggers: ["subtask.ready"]
+  publishes: ["research.done"]
+  default_publishes: "research.done"
+  instructions: |
+    Antes de que se implemente cualquier cosa, investiga los constraints reales.
+
+    ## Proceso
+    1. Lee la sub-tarea asignada en el scratchpad
+    2. Identifica qué dominios del RULEBOOK aplican
+    3. Extrae las reglas relevantes y escríbelas en el scratchpad bajo
+       "## Contexto RULEBOOK para esta sub-tarea"
+    4. Si la sub-tarea involucra APIs de Forge/Rovo/GitHub → busca los
+       límites exactos (rate limits, permisos, restricciones de sandbox)
+    5. Si hay ambigüedad entre lo que dice el RULEBOOK y la realidad
+       de la API → documéntalo en raw/_conflicts.md y elige el más restrictivo
+
+    ## Output en Scratchpad
+```markdown
+    ## Contexto RULEBOOK para sub-tarea [N]
+    - Aplicando [FORGE-OPS-003]: los custom UIs no pueden hacer fetch directo
+    - Aplicando [RESILIENCE-002]: timeout máximo 5s en llamadas a Rovo
+    - ⚠️ Conflicto detectado: RULEBOOK dice X, Forge docs dice Y → usando Y
+```
+
+    Emite research.done (el Builder escuchará este evento)
+Ajusta el builder para que escuche research.done en vez de subtask.ready:
+yamlbuilder:
+  triggers: ["research.done", "review.changes_requested"]
+
+🐛 debugger — Para cuando los gates fallen
+Ahora mismo si un gate falla (tests, lint, enforcement), el loop simplemente se detiene. No hay nadie que diagnostique y repare.
+yamldebugger:
+  name: "🐛 Debugger"
+  description: "Diagnostica y repara fallos de gates o enforcement"
+  triggers: ["enforcement.failed", "work.blocked"]
+  publishes: ["subtask.ready", "debug.escalate"]
+  default_publishes: "subtask.ready"
+  instructions: |
+    Un gate o enforcement ha fallado. Diagnostica y repara.
+
+    ## Proceso
+    1. Lee el error exacto del evento que te disparó
+    2. Localiza el archivo y línea específica del problema
+    3. Consulta el RULEBOOK para entender qué regla se violó
+    4. Determina si el fix es:
+       - TRIVIAL (< 10 líneas) → repara directamente y emite subtask.ready
+       - COMPLEJO (requiere rediseño) → documenta en scratchpad y emite debug.escalate
+       - FALSO POSITIVO (el gate está mal) → documenta el caso y emite debug.escalate
+
+    ## Límite de Intentos
+    Si esta es la 3ª vez seguida que el mismo gate falla → siempre emite
+    debug.escalate (no entres en loop infinito de reparaciones).
+
+    ## Registro Obligatorio en Scratchpad
+```markdown
+    ## Debug Session [timestamp]
+    - Gate fallido: [nombre]
+    - Causa raíz: [descripción]
+    - Fix aplicado: [descripción o "ESCALADO"]
+    - Regla RULEBOOK relacionada: [ID]
+```
+Y añade debug.escalate al reviewer para que intervenga manualmente:
+yamlreviewer:
+  triggers: ["all_steps.done", "enforcement.passed", "debug.escalate"]
+
+🧪 tester — Separar implementación de tests
+Tu builder actual hace las dos cosas. Para un proyecto con Playwright + Husky + Jest, mezclarlas genera tests superficiales. Un hat dedicado lee el código ya escrito y construye tests reales contra él.
+yamltester:
+  name: "🧪 Tester"
+  description: "Escribe tests reales contra el código implementado por Builder"
+  triggers: ["implementation.done"]
+  publishes: ["tests.done"]
+  default_publishes: "tests.done"
+  instructions: |
+    Lee el código que acaba de implementar el Builder y escribe sus tests.
+
+    ## Jerarquía de Tests (del RULEBOOK — QUALITY)
+    1. Unit tests → funciones puras, adaptadores, utils
+    2. Integration tests → llamadas a Rovo/GitHub con mocks
+    3. E2E (Playwright) → solo en flujos críticos de negocio
+
+    ## Reglas No Negociables
+    - Ningún test con `it.skip`, `xit`, `pending`, o cuerpo vacío
+    - Los mocks deben reflejar el contrato real de la API (no inventar respuestas)
+    - Cada test de integración debe incluir el caso de fallo (timeout, 4xx, 5xx)
+    - Los tests de Forge Custom UI usan el ADS component testing utilities
+
+    ## Verificación Antes de Emitir tests.done
+    - [ ] Cobertura del happy path
+    - [ ] Cobertura de al menos 2 casos de error
+    - [ ] `npm test` o `cargo test -p <crate>` pasa en verde
+    - [ ] Sin tests stub o placeholder
+
+    Emite tests.done — el Enforcer tomará desde aquí.
+Actualiza el flujo:
+yamlbuilder:
+  publishes: ["implementation.done"]   # ← ya no publica subtask.done directamente
+
+tester:
+  triggers: ["implementation.done"]
+  publishes: ["tests.done"]
+
+enforcer:
+  triggers: ["tests.done"]             # ← enforcer verifica después de tests
+
+📄 documenter — Para los Sidecar .reqs.md de Tarea 4
+Tu Tarea 4 menciona explícitamente archivos .reqs.md junto a cada adaptador. Sin un hat dedicado esto se olvida o se hace mal.
+yamldocumenter:
+  name: "📄 Documenter"
+  description: "Escribe y mantiene los archivos sidecar .reqs.md de cada módulo"
+  triggers: ["tests.done"]
+  publishes: ["subtask.done"]
+  default_publishes: "subtask.done"
+  instructions: |
+    Por cada módulo que acaben de implementar Builder y Tester, crea o actualiza
+    su archivo sidecar .reqs.md.
+
+    ## Formato del Sidecar
+```markdown
+    # [NombreDelMódulo] — Requirements Sidecar
+    **Path**: src/adapters/[nombre].ts
+    **Última actualización**: [fecha]
+
+    ## Responsabilidad
+    [Una línea describiendo qué hace este módulo]
+
+    ## Contratos de Entrada/Salida
+    | Función | Input | Output | Errores posibles |
+    |---|---|---|---|
+
+    ## Reglas del RULEBOOK Aplicadas
+    | ID | Regla | Cómo se implementa aquí |
+    |---|---|---|
+    | RESILIENCE-002 | Timeout 5s | AbortController con 5000ms |
+
+    ## Decisiones de Diseño
+    - [Por qué se eligió X sobre Y]
+
+    ## TODO / Deuda Técnica
+    - [ ] [items pendientes]
+```
+
+    ## Cuándo Actualizar vs Crear
+    - Si ya existe .reqs.md → actualiza solo las secciones afectadas
+    - Si no existe → créalo completo
+
+    Emite subtask.done
+
+Flujo completo con todos los hats
+work.start
+    │
+    ▼
+[planner] → subtask.ready
+    │
+    ▼
+[researcher] → research.done
+    │
+    ▼
+[builder] → implementation.done
+    │
+    ▼
+[tester] → tests.done
+    │
+    ├──→ [enforcer] → enforcement.passed ──→ [documenter] → subtask.done
+    │                └─ enforcement.failed ─→ [debugger]
+    │                                              │
+    │                                   fix trivial┤ escalate
+    │                                              │        │
+    │                              subtask.ready ◄─┘        ▼
+    │                                                  [reviewer]
+    ▼
+[planner] (próxima sub-tarea o all_steps.done)
+    │
+    ▼
+[reviewer] → review.approved
+    │
+    ▼
+[finalizer] → LOOP_COMPLETE
+Los dos más urgentes son researcher y debugger — el primero evita que el Builder viole Forge Platform desde el inicio, y el segundo evita que el loop se quede atascado en silencio cuando algo falla.Créame un pronto para que las tareas de Ralph los usen sino existe que los creen12:08Diseñó estrategia para verificar y crear sombreros automáticamenteDiseñó estrategia para verificar y crear sombreros automáticamenteTe creo un skill de bootstrap que Ralph carga automáticamente en cada tarea y se auto-repara si faltan hats. Son tres archivos:
+
+.claude/skills/HATS-BOOTSTRAP.md
+markdown# HAT BOOTSTRAP — Auto-verificación y creación de hats
+
+Este skill se ejecuta automáticamente al inicio de cada tarea Ralph.
+Tu primera acción en cualquier tarea es ejecutar este protocolo completo.
+
+## PROTOCOLO DE ARRANQUE OBLIGATORIO
+
+### PASO 1 — Leer el YML activo
+Lee el archivo ralph.yml (o el ralph.*.yml que se está usando en esta sesión).
+Si no existe ningún ralph.yml → ejecuta el BOOTSTRAP COMPLETO (sección más abajo).
+
+### PASO 2 — Verificar hats presentes
+Comprueba que estos hats existen en el YML activo:
+
+| Hat | Trigger esperado | Crítico |
+|---|---|---|
+| planner | work.start, subtask.done | ✅ SÍ |
+| researcher | subtask.ready | ✅ SÍ |
+| builder | research.done, review.changes_requested | ✅ SÍ |
+| tester | implementation.done | ✅ SÍ |
+| enforcer | tests.done | ✅ SÍ |
+| debugger | enforcement.failed, work.blocked | ✅ SÍ |
+| documenter | tests.done | ⚠️ ALTA |
+| reviewer | all_steps.done, enforcement.passed, debug.escalate | ✅ SÍ |
+| finalizer | review.approved | ✅ SÍ |
+
+### PASO 3 — Por cada hat ausente
+1. Añádelo al YML activo usando la definición canónica de HATS-CANONICAL.md
+2. Registra en el scratchpad:
+Hat Bootstrap [fecha]
+
+Hats encontrados: [lista]
+Hats creados: [lista]
+YML modificado: [nombre del archivo]
+
+3. Continúa con la tarea — NO emitas ningún evento todavía
+
+### PASO 4 — Verificar guardrails del RULEBOOK
+Comprueba que el YML activo tiene estos guardrails en su bloque `core`:
+- "Al inicio de cada iteración: lee .claude/skills/RULEBOOK.md antes de actuar."
+- "Toda decisión debe citar el ID de la regla del RULEBOOK que la respalda."
+- "Si una acción viola una regla CRÍTICA → detente y emite work.blocked."
+
+Si faltan → añádelos al YML antes de continuar.
+
+### PASO 5 — Verificar gates del RULEBOOK
+Comprueba que el YML activo tiene estos gates en `backpressure.gates`:
+````yaml
+- name: rulebook_available
+  command: test -f .claude/skills/RULEBOOK.md
+  on_fail: "RULEBOOK no encontrado. Ejecuta Tarea 1 primero."
+- name: rulebook_signed
+  command: grep -q "APROBADA" .claude/skills/RULEBOOK.md
+  on_fail: "RULEBOOK no está firmado. Tarea 1 incompleta."
+````
+
+Si faltan → añádelos. Si RULEBOOK.md no existe aún (Tarea 1 no corrió),
+escribe en scratchpad `⚠️ RULEBOOK PENDIENTE — ejecutar Tarea 1` y continúa.
+
+### PASO 6 — Verificar flujo de eventos
+Comprueba que la cadena de eventos es coherente:
+work.start → [planner] → subtask.ready
+→ [researcher] → research.done
+→ [builder] → implementation.done
+→ [tester] → tests.done
+→ [enforcer] → enforcement.passed / enforcement.failed
+→ [debugger si fallo] → subtask.ready / debug.escalate
+→ [documenter] → subtask.done
+→ [planner] (loop) o all_steps.done
+→ [reviewer] → review.approved
+→ [finalizer] → LOOP_COMPLETE
+
+Si algún hat publica un evento que nadie escucha → corrígelo en el YML.
+
+### PASO 7 — Confirmar y arrancar
+Escribe en scratchpad:
+````markdown
+## ✅ Bootstrap Completado
+- YML verificado: [nombre]
+- Hats activos: [N]/9
+- Hats creados en esta sesión: [lista o "ninguno"]
+- RULEBOOK: [disponible / pendiente]
+- Estado: LISTO PARA EJECUTAR
+````
+
+Ahora sí puedes emitir `work.start` y comenzar la tarea real.
+
+---
+
+## BOOTSTRAP COMPLETO (cuando no existe ralph.yml)
+
+Si no hay ningún ralph.yml, crea `ralph.yml` con esta estructura base y
+luego rellena todos los hats desde HATS-CANONICAL.md:
+````yaml
+event_loop:
+  completion_promise: LOOP_COMPLETE
+  max_iterations: 200
+  max_runtime_seconds: 36000
+  starting_event: work.start
+
+cli:
+  backend: claude
+
+core:
+  specs_dir: ./specs/
+
+guardrails:
+  - "Al inicio de cada iteración: lee .claude/skills/RULEBOOK.md antes de actuar."
+  - "Toda decisión debe citar el ID de la regla del RULEBOOK que la respalda."
+  - "Si una acción viola una regla CRÍTICA → detente y emite work.blocked."
+  - "Lee el scratchpad al inicio de cada iteración antes de actuar."
+  - "No pases a la siguiente fase sin completar la auditoría de la fase actual."
+  - "Confidence protocol: >80 procede; 50-80 procede + nota; <50 elige default seguro."
+
+backpressure:
+  gates:
+    - name: rulebook_available
+      command: test -f .claude/skills/RULEBOOK.md
+      on_fail: "RULEBOOK no encontrado. Ejecuta Tarea 1 primero."
+    - name: rulebook_signed
+      command: grep -q "APROBADA" .claude/skills/RULEBOOK.md
+      on_fail: "RULEBOOK no firmado. Tarea 1 incompleta."
+
+hats: 
+{}  # ← los hats se añaden desde HATS-CANONICAL.md
+
+skills:
+  enabled: true
+  dirs:
+    - .claude/skills
+
+RObot:
+  enabled: false
+  timeout_seconds: 120
+````
+
+.claude/skills/HATS-CANONICAL.md
+markdown# HATS CANÓNICOS — Definiciones de referencia
+
+Cuando el bootstrap detecte un hat ausente, usa exactamente esta definición.
+No improvises — copia el bloque YAML correspondiente al ralph.yml activo.
+
+---
+
+## planner
+````yaml
+  planner:
+    name: "📋 Planner"
+    description: "Desglosa la tarea en sub-tareas ordenadas"
+    triggers: ["work.start", "subtask.done"]
+    publishes: ["subtask.ready", "all_steps.done"]
+    default_publishes: "subtask.ready"
+    instructions: |
+      Gestiona el desglose y secuenciación de sub-tareas.
+
+      ## Lee el Estado Actual
+      1. Lee PROMPT.md para el plan de la tarea
+      2. Lee el scratchpad para el progreso actual
+      3. Lee .claude/skills/RULEBOOK.md — identifica qué dominios aplican
+
+      ## Lógica
+      Si no hay sub-tarea activa en scratchpad:
+        - Identifica el siguiente paso incompleto de PROMPT.md
+        - Divídelo en sub-tareas atómicas (una función, un archivo, un test)
+        - Escríbelas en scratchpad bajo "## Sub-tareas Actuales"
+        - Emite subtask.ready con la primera sub-tarea
+
+      Si hay sub-tareas pendientes:
+        - Encuentra la primera sin completar
+        - Emite subtask.ready con esa sub-tarea
+
+      Si todas las sub-tareas completadas:
+        - Mueve al bloque "## Completadas" del scratchpad
+        - Si quedan pasos en PROMPT.md → siguiente desglose
+        - Si no quedan pasos → emite all_steps.done
+
+      ## Formato Scratchpad
+```markdown
+      # Progreso
+
+      ## Sub-tareas Actuales: Paso N — [nombre]
+      - [ ] N.1 [sub-tarea] (dominio: [módulo])
+      - [ ] N.2 [sub-tarea]
+
+      ## RULEBOOK aplicable a este paso:
+      - [FORGE-OPS-001]: [descripción corta]
+
+      ## Completadas:
+      - Paso 0: ...
+```
+````
+
+---
+
+## researcher
+````yaml
+  researcher:
+    name: "🔍 Researcher"
+    description: "Consulta RULEBOOK y docs externas antes de que el Builder actúe"
+    triggers: ["subtask.ready"]
+    publishes: ["research.done"]
+    default_publishes: "research.done"
+    instructions: |
+      Antes de cualquier implementación, investiga constraints reales.
+
+      ## Proceso
+      1. Lee la sub-tarea del scratchpad
+      2. Lee .claude/skills/RULEBOOK.md completo
+      3. Extrae todas las reglas relevantes para esta sub-tarea
+      4. Si involucra Forge/Rovo/GitHub API → verifica límites exactos
+         (rate limits, permisos, restricciones de sandbox)
+      5. Si hay conflicto entre RULEBOOK y la realidad de la API:
+         - Documenta en raw/_conflicts.md
+         - Elige siempre el constraint más restrictivo
+
+      ## Output Obligatorio en Scratchpad
+```markdown
+      ## Contexto RULEBOOK para sub-tarea [N]
+      - Aplicando [ID]: [descripción]
+      - Aplicando [ID]: [descripción]
+      - ⚠️ Conflicto (si existe): RULEBOOK dice X / API dice Y → usando Y
+```
+
+      Emite research.done
+````
+
+---
+
+## builder
+````yaml
+  builder:
+    name: "⚡ Builder"
+    description: "Implementa una sub-tarea siguiendo el contexto del Researcher"
+    triggers: ["research.done", "review.changes_requested"]
+    publishes: ["implementation.done"]
+    default_publishes: "implementation.done"
+    instructions: |
+      Implementa SOLO la sub-tarea asignada. No trabajes adelantado.
+
+      ## Antes de Escribir Código
+      1. Lee el contexto RULEBOOK que dejó el Researcher en el scratchpad
+      2. Cada decisión de diseño debe citar su regla: `// [ARCH-003]`
+
+      ## Scope
+      - Una sub-tarea = un cambio pequeño y enfocado
+      - Sigue los patrones de los archivos vecinos
+      - Si necesitas más de 200 líneas → la sub-tarea es demasiado grande,
+        escríbelo en scratchpad y emite work.blocked
+
+      ## Al Completar
+      1. Actualiza scratchpad con evidencia de lo implementado
+      2. NO hagas commit (lo hará el Documenter al final)
+      3. Emite implementation.done
+````
+
+---
+
+## tester
+````yaml
+  tester:
+    name: "🧪 Tester"
+    description: "Escribe tests reales contra el código del Builder"
+    triggers: ["implementation.done"]
+    publishes: ["tests.done"]
+    default_publishes: "tests.done"
+    instructions: |
+      Lee el código implementado y escribe sus tests.
+
+      ## Jerarquía de Tests
+      1. Unit → funciones puras, utils, adaptadores
+      2. Integration → llamadas externas con mocks reales
+      3. E2E (Playwright) → solo flujos críticos de negocio
+
+      ## Reglas No Negociables
+      - Sin it.skip, xit, pending, o cuerpos vacíos
+      - Los mocks reflejan el contrato real de la API
+      - Cada integración cubre: happy path + timeout + error 4xx/5xx
+      - Los tests de Forge UI usan ADS component testing utilities
+
+      ## Verificación Antes de Emitir tests.done
+      - [ ] Happy path cubierto
+      - [ ] Mínimo 2 casos de error cubiertos
+      - [ ] Suite pasa en verde (npm test / cargo test -p <crate>)
+      - [ ] Sin tests stub o placeholder
+
+      Emite tests.done
+````
+
+---
+
+## enforcer
+````yaml
+  enforcer:
+    name: "⚖️ Enforcer"
+    description: "Verifica que el entregable cumple el RULEBOOK"
+    triggers: ["tests.done"]
+    publishes: ["enforcement.passed", "enforcement.failed"]
+    default_publishes: "enforcement.passed"
+    instructions: |
+      Verifica cumplimiento del RULEBOOK sobre el trabajo recién terminado.
+
+      ## Proceso
+      1. Lee .claude/skills/RULEBOOK.md
+      2. Identifica dominios relevantes para el entregable
+      3. Por cada regla CRÍTICA relevante → verifica cumplimiento en el código
+      4. Por cada regla ALTA → verifica o documenta excepción justificada
+
+      ## Decisión
+      Todas las CRÍTICAS cumplen → emite enforcement.passed
+        Añade al scratchpad: "✅ Enforcement: [N] reglas CRÍTICAS verificadas"
+
+      Alguna CRÍTICA falla → emite enforcement.failed con:
+        - ID de regla violada
+        - Archivo y línea exacta
+        - Corrección requerida
+
+      Las reglas MEDIA son recomendaciones — regístralas pero no bloquees.
+````
+
+---
+
+## debugger
+````yaml
+  debugger:
+    name: "🐛 Debugger"
+    description: "Diagnostica y repara fallos de gates o enforcement"
+    triggers: ["enforcement.failed", "work.blocked"]
+    publishes: ["subtask.ready", "debug.escalate"]
+    default_publishes: "subtask.ready"
+    instructions: |
+      Un gate o enforcement falló. Diagnostica y repara.
+
+      ## Proceso
+      1. Lee el error exacto del evento que te disparó
+      2. Localiza el archivo y línea del problema
+      3. Consulta el RULEBOOK — identifica qué regla se violó
+      4. Clasifica el fix:
+         - TRIVIAL (< 10 líneas) → repara y emite subtask.ready
+         - COMPLEJO (requiere rediseño) → emite debug.escalate
+         - FALSO POSITIVO (el gate está mal) → documenta y emite debug.escalate
+
+      ## Límite Anti-Loop
+      Si es la 3ª vez seguida que falla el mismo gate → siempre emite
+      debug.escalate sin importar la complejidad.
+
+      ## Registro Obligatorio
+```markdown
+      ## Debug [timestamp]
+      - Gate/evento fallido: [nombre]
+      - Causa raíz: [descripción]
+      - Fix: [descripción o "ESCALADO"]
+      - Regla RULEBOOK: [ID]
+      - Intento N de 3
+```
+````
+
+---
+
+## documenter
+````yaml
+  documenter:
+    name: "📄 Documenter"
+    description: "Crea y mantiene los archivos sidecar .reqs.md y hace commit"
+    triggers: ["enforcement.passed"]
+    publishes: ["subtask.done"]
+    default_publishes: "subtask.done"
+    instructions: |
+      Documenta el módulo implementado y cierra la sub-tarea con commit.
+
+      ## Sidecar .reqs.md
+      Por cada módulo nuevo o modificado, crea/actualiza su .reqs.md:
+```markdown
+      # [NombreDelMódulo] — Requirements Sidecar
+      **Path**: [ruta del archivo]
+      **Actualizado**: [fecha]
+
+      ## Responsabilidad
+      [Una línea]
+
+      ## Contratos de Entrada/Salida
+      | Función | Input | Output | Errores |
+      |---|---|---|---|
+
+      ## Reglas del RULEBOOK Aplicadas
+      | ID | Regla | Implementación aquí |
+      |---|---|---|
+
+      ## Decisiones de Diseño
+      - [Por qué X sobre Y]
+
+      ## Deuda Técnica
+      - [ ] [items pendientes]
+```
+
+      ## Commit
+      Formato: `<type>(<scope>): <descripción>`
+      Incluye en el body: `rulebook: [IDs aplicados]`
+      Ejemplo: `feat(adapters): add Rovo circuit breaker`
+                `rulebook: RESILIENCE-002, RESILIENCE-003`
+
+      Emite subtask.done
+````
+
+---
+
+## reviewer
+````yaml
+  reviewer:
+    name: "👀 Reviewer"
+    description: "Revisa calidad global antes de cerrar el loop"
+    triggers: ["all_steps.done", "enforcement.passed", "debug.escalate"]
+    publishes: ["review.approved", "review.changes_requested"]
+    default_publishes: "review.approved"
+    instructions: |
+      Revisa la calidad del trabajo completado en esta tarea.
+
+      ## Checks
+      - ¿Todos los entregables de PROMPT.md están presentes?
+      - ¿Los .reqs.md están actualizados?
+      - ¿Los commits siguen Conventional Commits con rulebook: en el body?
+      - ¿Las reglas CRÍTICAS del RULEBOOK se citan en el código?
+      - ¿Los tests son reales (sin stubs ni placeholders)?
+      - ¿El Definition of Done de PROMPT.md está completo?
+
+      Si todo correcto → emite review.approved
+      Si hay problemas → emite review.changes_requested con
+        referencias exactas a archivo y línea
+````
+
+---
+
+## finalizer
+````yaml
+  finalizer:
+    name: "📝 Finalizer"
+    description: "Documenta y cierra el loop"
+    triggers: ["review.approved"]
+    publishes: ["LOOP_COMPLETE"]
+    instructions: |
+      Cierra la tarea con documentación final.
+
+      ## Changelog
+      Crea o actualiza specs/[tarea]/CHANGELOG.md:
+```markdown
+      # [Fecha]
+      ## Added
+      - [nuevas features]
+      ## Changed
+      - [modificaciones]
+      ## RULEBOOK Rules Applied
+      - [IDs] — [descripción breve]
+```
+
+      ## Commit Final
+      `docs(changelog): complete [nombre-tarea]`
+
+      Emite LOOP_COMPLETE
+````
+
+CLAUDE.md (en la raíz del repo):
+markdown# Forge Project — Instrucciones Globales para Claude
+
+## PROTOCOLO DE ARRANQUE — SIEMPRE PRIMERO
+
+Antes de hacer cualquier cosa en cualquier tarea, ejecuta el protocolo
+completo de `.claude/skills/HATS-BOOTSTRAP.md`.
+
+No hay excepciones. No emitas ningún evento hasta que el bootstrap
+reporte `Estado: LISTO PARA EJECUTAR`.
+
+## RULEBOOK ACTIVO
+
+`.claude/skills/RULEBOOK.md` contiene las reglas maestras del proyecto.
+- Léelo en cada iteración antes de actuar
+- Cita el ID de regla en cada decisión de diseño
+- Las reglas CRÍTICA son no negociables
+
+Si RULEBOOK.md no existe → el bootstrap lo registrará como pendiente
+y debes ejecutar la Tarea 1 antes de cualquier otra.
+
+## SKILLS ACTIVOS
+
+| Skill | Propósito |
+|---|---|
+| HATS-BOOTSTRAP.md | Verificar y crear hats ausentes al inicio |
+| HATS-CANONICAL.md | Definiciones de referencia de cada hat |
+| RULEBOOK.md | Reglas maestras del proyecto (generado en Tarea 1) |
+| RULEBOOK-INDEX.md | Guía de cuándo aplicar cada dominio |
+
+Cómo lanzar cualquier tarea con bootstrap automático:
+bash# Ralph carga .claude/skills/ automáticamente — no necesitas hacer nada extra
+ralph run -c ralph.tarea-2.yml -p "Ejecuta Tarea 2 según PROMPT.md"
+
+# Si no existe el YML todavía, Ralph lo creará desde los canónicos
+ralph run -p "Ejecuta Tarea 2 según PROMPT.md"
+El mecanismo clave es que .claude/skills/ se carga en cada sesión, así que HATS-BOOTSTRAP.md siempre está en contexto y el agente lo ejecuta antes de emitir work.start.

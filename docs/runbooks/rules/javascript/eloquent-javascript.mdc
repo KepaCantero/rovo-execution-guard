@@ -1,0 +1,28 @@
+---
+description: Rules based on Eloquent JavaScript (Marijn Haverbeke)
+globs: **/*.js,**/*.jsx
+alwaysApply: false
+---
+
+# Eloquent JavaScript (Marijn Haverbeke)
+
+- **Master Abstraction**: Don't write code for the computer, write it for other humans to understand.
+- **Use Higher-Order Functions**: Leverage map, filter, and reduce to avoid manual for loops.
+- **Side Effect Handling**: Separate pure functions from those that modify state or call APIs.
+- **Closures**: Use them to encapsulate private variables in your cloud/ services.
+- **Recursion with Care**: Use it for tree structures (like workflows), but watch the stack.
+- **Understand the Prototype**: Even if you use classes, remember JS is prototype delegation.
+- **Error Handling as Flow**: Don't ignore exceptions; document them.
+- **Modern Asynchrony**: Master async/await over raw promises.
+- **Event Loop**: Understand how JS handles tasks to avoid blocking execution.
+- **Modules**: Use import/export to keep scope clean.
+- **Data Structures**: Choose the right object or map based on lookup needs.
+- **Regular Expressions**: Use them for complex Jira input validations, but keep them readable.
+- **Virtual vs Real DOM**: Relevant for your Custom UI; minimize DOM access.
+- **Polymorphism**: Use functions that operate on different data types.
+- **Object Composition**: Prefer composing small objects to creating giant hierarchies.
+- **Lazy Evaluation**: Don't calculate anything until strictly necessary.
+- **Strict Mode**: Always on (default in ES modules).
+- **Binaries and Buffers**: Useful if you process files or attachments in Confluence.
+- **Unit Testing**: The foundation of code confidence.
+- **Iterators and Generators**: Useful for paginating large Atlassian API results.

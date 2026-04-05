@@ -1,0 +1,28 @@
+---
+description: Rules based on Patterns of Enterprise Application Architecture (Martin Fowler)
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Patterns of Enterprise Application Architecture (Martin Fowler)
+
+- **Domain Model**: Put logic in objects, not in database scripts.
+- **Data Mapper**: Separate domain object from its persistence in Forge Storage.
+- **Service Layer**: Define a clear boundary for your application.
+- **DTO (Data Transfer Object)**: To move data between cloud/ and frontend/.
+- **Repository Pattern**: Abstract how data is stored.
+- **Unit of Work**: Group changes to avoid inconsistencies.
+- **Lazy Load**: Don't load Confluence data until necessary.
+- **Identity Map**: Avoid loading the same object twice.
+- **Transaction Script**: Only use for extremely simple logic.
+- **Table Module**: An alternative to Domain Model for tabular structures.
+- **Optimistic Offline Lock**: Handle edit collisions in Jira.
+- **Remote Facade**: Optimize network calls between layers.
+- **Plugin Pattern**: To extend Workflows functionality.
+- **Gateway**: Encapsulate access to external systems.
+- **Value Object**: For data without identity (e.g. a date or a color).
+- **Base Mapping**: For inheritance hierarchies in the database.
+- **Separated Interface**: Define interface in one package, implementation in another.
+- **Registry**: To find global objects.
+- **Application Controller**: Handle UI flow in Custom UI.
+- **Layer Supertype**: Common base class for all your services.

@@ -1,0 +1,18 @@
+---
+description: Rules for robust TypeScript (Patrick Viafore)
+globs: **/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Robust TypeScript (Patrick Viafore)
+
+- **Make illegal states unrepresentable**: Design types so invalid states cannot be expressed (e.g. discriminated union instead of loose flags).
+- **Branded types**: To differentiate types that share structure (e.g. `ContentId` vs `SpaceId`) and avoid mixing them.
+- **Validate at the boundary**: Don't trust network data or body; validate with Zod/Joi in controllers and in batch process when reading from S3.
+- **Immutability by default**: Use `readonly` and avoid mutating arguments; return new objects when necessary.
+- **Schema validation at runtime**: For external data (APIs, Confluence, body), use validators (Zod, Joi) in addition to types.
+- **Value objects**: For logic that depends on value (e.g. normalized identifiers, content type as union `'page' | 'blogpost'`).
+- **Idempotency**: In Forge/API migration calls, design so repeating the operation is safe when appropriate.
+- **Design for failure**: Consider timeouts, retries, and what to do if a dependency (DB, API) fails.
+- **Cognitive load**: Simple and direct code; avoid premature abstractions.
+- **Concurrency**: Review shared access to state and resources when designing migration or batch flows.

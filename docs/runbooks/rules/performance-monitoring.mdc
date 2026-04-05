@@ -1,0 +1,15 @@
+---
+alwaysApply: true
+---
+# PERFORMANCE STANDARDS
+
+## API Optimization
+- Implement pagination for large data sets
+- Use batch operations when possible
+- Cache frequently accessed data
+- Monitor API rate limits
+
+## Error Monitoring
+- Log all API errors with context using the logger package
+- Track workflow execution times using the logger package
+- Monitor memory usage in long-running processes using the logger package if necessary

@@ -1,0 +1,527 @@
+# FORGE BACKEND PRODUCT APIS SDK RULES
+
+This document contains comprehensive rules for using Appfire Forge SDK Product APIs (`@appfire-platform/confluence-v1`, `@appfire-platform/confluence-v2`, `@appfire-platform/jira-v2`, `@appfire-platform/jira-v3`, `@appfire-platform/jsm`, `@appfire-platform/jira-software`) in Forge Native backend environments.
+
+## Installation
+
+- **Supported SDKs**:
+  - `@appfire-platform/confluence-v1` - Confluence REST API v1
+  - `@appfire-platform/confluence-v2` - Confluence REST API v2
+  - `@appfire-platform/jira-v2` - Jira REST API v2
+  - `@appfire-platform/jira-v3` - Jira REST API v3
+  - `@appfire-platform/jsm` - Jira Service Management API
+  - `@appfire-platform/jira-software` - Jira Software API
+
+- **Installation**: `npm install @appfire-platform/confluence-v2` (or respective package)
+- **Import Paths**: `@appfire-platform/{product}-{version}/sdk/forge-backend`
+
+## Core Principles
+
+### Principle 1: Environment and Use-Case
+
+- **Environment**: Confluence/Jira Forge Native (API)
+- **Use-Case**: Forge Native app backend (resolver functions)
+- **Internal Dependency**: Uses `@forge/api` internally
+- **MUST** use in resolver functions or Forge backend functions only
+
+### Principle 2: Authentication Context
+
+- **asApp()**: App-level authentication (app acts on its own behalf)
+- **asUser()**: User-level authentication (app acts on behalf of the current user)
+- **asUser(userId)**: User impersonation (app acts on behalf of specific user)
+- **MUST** choose appropriate authentication context based on operation requirements
+
+### Principle 3: Error Handling
+
+- **MUST** use typed error handling with type guards
+- **MUST** check error types before handling
+- **SHOULD** use `isResponseError()` type guard
+- **SHOULD** check `ApiErrorCode` for specific error types
+
+## Confluence API Rules
+
+### Rule 1: Confluence V2 API Initialization
+
+```typescript
+import { Api as ConfluenceV2Api } from '@appfire-platform/confluence-v2/sdk/forge-backend';
+
+// Initialize API client
+const apiV2 = new ConfluenceV2Api();
+
+// App-level authentication
+const pagesAsApp = await apiV2.asApp().PageApi.getPages();
+
+// User-level authentication (current user)
+const pagesAsUser = await apiV2.asUser().PageApi.getPages();
+
+// User impersonation (specific user)
+const userId = 'atlassian-account-id';
+const pagesAsSpecificUser = await apiV2.asUser(userId).PageApi.getPages();
+```
+
+**Requirements:**
+- **MUST** import from `@appfire-platform/confluence-v2/sdk/forge-backend`
+- **MUST** instantiate `Api` class before use
+- **MUST** call `.asApp()` or `.asUser()` to get authenticated client
+- **SHOULD** use `.asUser(userId)` for user impersonation when needed
+
+### Rule 2: Confluence V1 API Initialization
+
+```typescript
+import { Api as ConfluenceV1Api } from '@appfire-platform/confluence-v1/sdk/forge-backend';
+
+const apiV1 = new ConfluenceV1Api();
+
+// App-level authentication
+const currentUserAsApp = await apiV1.asApp().UsersApi.getCurrentUser();
+
+// User-level authentication
+const currentUserAsUser = await apiV1.asUser().UsersApi.getCurrentUser();
+```
+
+**Requirements:**
+- **MUST** import from `@appfire-platform/confluence-v1/sdk/forge-backend`
+- Same authentication patterns as V2 API
+- Use V1 API for legacy endpoints or when V2 doesn't support required operations
+
+### Rule 3: Alternative Client Initialization Pattern
+
+```typescript
+import { Api as ConfluenceV2Api } from '@appfire-platform/confluence-v2/sdk/forge-backend';
+
+const api = new ConfluenceV2Api();
+
+// Get app-level client
+const appClient = api.getClient('asApp');
+const pages = await appClient.PageApi.getPages();
+
+// Get user-level client
+const userClient = api.getClient('asUser');
+const userPages = await userClient.PageApi.getPages();
+
+// Get user-level client with impersonation (Coming soon)
+const impersonatedUserClient = api.getClient('asUser', 'user-account-id');
+const impersonatedPages = await impersonatedUserClient.PageApi.getPages();
+```
+
+**Requirements:**
+- **CAN** use `.getClient()` method for more flexible initialization
+- **MUST** pass `'asApp'` or `'asUser'` as first parameter
+- **CAN** pass `userId` as second parameter for impersonation (when available)
+- **SHOULD** use this pattern when you need to reuse client instances
+
+### Rule 4: Confluence API Error Handling
+
+```typescript
+import { 
+  Api as ConfluenceV2Api,
+  isResponseError,
+  ApiErrorCode 
+} from '@appfire-platform/confluence-v2/sdk';
+
+const apiV2 = new ConfluenceV2Api();
+
+try {
+  const page = await apiV2.asApp().PageApi.getPageById({ id: 'invalid-id' });
+} catch (error: unknown) {
+  if (isResponseError(error)) {
+    console.error(`HTTP ${error.status}: ${error.message}`);
+    
+    // Check specific error codes
+    if (error.code === ApiErrorCode.NOT_FOUND) {
+      console.error('Page not found');
+      // Handle 404 error
+    } else if (error.code === ApiErrorCode.FORBIDDEN) {
+      console.error('Access forbidden');
+      // Handle 403 error
+    } else if (error.code === ApiErrorCode.RATE_LIMIT_EXCEEDED) {
+      console.error('Rate limit exceeded');
+      // Handle 429 error
+    }
+  } else {
+    // Handle non-API errors
+    console.error('Unexpected error:', error);
+  }
+}
+```
+
+**Requirements:**
+- **MUST** wrap API calls in try-catch blocks
+- **MUST** use `isResponseError()` type guard to check error type
+- **SHOULD** check `error.code` against `ApiErrorCode` enum for specific handling
+- **SHOULD** handle common error codes: `NOT_FOUND`, `FORBIDDEN`, `RATE_LIMIT_EXCEEDED`, `BAD_REQUEST`
+- **MUST** handle non-API errors separately
+
+### Rule 5: Confluence API Common Operations
+
+```typescript
+import { Api as ConfluenceV2Api } from '@appfire-platform/confluence-v2/sdk/forge-backend';
+
+const apiV2 = new ConfluenceV2Api();
+
+// Get pages
+const pages = await apiV2.asApp().PageApi.getPages({
+  limit: 25,
+  cursor: 'next-cursor'
+});
+
+// Get page by ID
+const page = await apiV2.asApp().PageApi.getPageById({ 
+  id: 'page-id',
+  bodyFormat: 'atlas_doc_format'
+});
+
+// Create page
+const newPage = await apiV2.asUser().PageApi.createPage({
+  spaceId: 'space-id',
+  status: 'current',
+  title: 'New Page',
+  body: {
+    representation: 'atlas_doc_format',
+    value: { type: 'doc', content: [] }
+  }
+});
+
+// Update page
+const updatedPage = await apiV2.asUser().PageApi.updatePage({
+  id: 'page-id',
+  version: { number: 2 },
+  title: 'Updated Title',
+  body: {
+    representation: 'atlas_doc_format',
+    value: { type: 'doc', content: [] }
+  }
+});
+```
+
+**Requirements:**
+- **MUST** use appropriate authentication context (`.asApp()` vs `.asUser()`)
+- **SHOULD** use `.asUser()` for write operations (create, update, delete)
+- **CAN** use `.asApp()` for read operations when app permissions are sufficient
+- **MUST** provide required parameters as objects
+- **SHOULD** handle pagination with `limit` and `cursor` parameters
+
+## Jira API Rules
+
+### Rule 6: Jira V2 API Initialization
+
+```typescript
+import { Api as JiraV2Api } from '@appfire-platform/jira-v2/sdk/forge-backend';
+
+const apiV2 = new JiraV2Api();
+
+// App-level authentication
+const issuesAsApp = await apiV2.asApp().IssueApi.getIssues();
+
+// User-level authentication
+const issuesAsUser = await apiV2.asUser().IssueApi.getIssues();
+
+// User impersonation
+const issuesAsSpecificUser = await apiV2.asUser('user-account-id').IssueApi.getIssues();
+```
+
+**Requirements:**
+- **MUST** import from `@appfire-platform/jira-v2/sdk/forge-backend`
+- Same authentication patterns as Confluence API
+- Use V2 API for standard Jira operations
+
+### Rule 7: Jira V3 API Initialization
+
+```typescript
+import { Api as JiraV3Api } from '@appfire-platform/jira-v3/sdk/forge-backend';
+
+const apiV3 = new JiraV3Api();
+
+// App-level authentication
+const issuesAsApp = await apiV3.asApp().IssueApi.getIssues();
+
+// User-level authentication
+const issuesAsUser = await apiV3.asUser().IssueApi.getIssues();
+```
+
+**Requirements:**
+- **MUST** import from `@appfire-platform/jira-v3/sdk/forge-backend`
+- Use V3 API for newer Jira operations and features
+- Check API version compatibility before choosing V2 vs V3
+
+### Rule 8: Jira Service Management (JSM) API
+
+```typescript
+import { Api as JsmApi } from '@appfire-platform/jsm/sdk/forge-backend';
+
+const jsmApi = new JsmApi();
+
+// App-level authentication
+const requestsAsApp = await jsmApi.asApp().RequestApi.getRequests();
+
+// User-level authentication
+const requestsAsUser = await jsmApi.asUser().RequestApi.getRequests();
+```
+
+**Requirements:**
+- **MUST** import from `@appfire-platform/jsm/sdk/forge-backend`
+- Use JSM API for Jira Service Management specific operations
+- Same authentication patterns as other APIs
+
+### Rule 9: Jira Software API
+
+```typescript
+import { Api as JiraSoftwareApi } from '@appfire-platform/jira-software/sdk/forge-backend';
+
+const jiraSoftwareApi = new JiraSoftwareApi();
+
+// App-level authentication
+const sprintsAsApp = await jiraSoftwareApi.asApp().SprintApi.getSprints();
+
+// User-level authentication
+const sprintsAsUser = await jiraSoftwareApi.asUser().SprintApi.getSprints();
+```
+
+**Requirements:**
+- **MUST** import from `@appfire-platform/jira-software/sdk/forge-backend`
+- Use Jira Software API for Agile/Scrum specific operations (sprints, boards, etc.)
+- Same authentication patterns as other APIs
+
+## Best Practices
+
+### Rule 10: Authentication Context Selection
+
+```typescript
+// Good: Use asUser() for user-specific operations
+const userPages = await apiV2.asUser().PageApi.getPages();
+
+// Good: Use asApp() for app-level operations
+const allSpaces = await apiV2.asApp().SpaceApi.getSpaces();
+
+// Good: Use asUser(userId) for impersonation when needed
+const userSpecificData = await apiV2.asUser(userId).PageApi.getPages();
+
+// Bad: Using asApp() for user-specific operations
+const userPages = await apiV2.asApp().PageApi.getPages(); // May fail due to permissions
+```
+
+**Requirements:**
+- **MUST** use `.asUser()` for operations that require user context
+- **MUST** use `.asApp()` for operations that require app-level permissions
+- **SHOULD** use `.asUser(userId)` for user impersonation scenarios
+- **MUST NOT** use `.asApp()` when user context is required
+
+### Rule 11: Error Handling Best Practices
+
+```typescript
+import { isResponseError, ApiErrorCode } from '@appfire-platform/confluence-v2/sdk';
+
+async function getPageSafely(pageId: string) {
+  try {
+    const page = await apiV2.asApp().PageApi.getPageById({ id: pageId });
+    return { success: true, data: page };
+  } catch (error: unknown) {
+    if (isResponseError(error)) {
+      switch (error.code) {
+        case ApiErrorCode.NOT_FOUND:
+          return { success: false, error: 'Page not found', code: 404 };
+        case ApiErrorCode.FORBIDDEN:
+          return { success: false, error: 'Access forbidden', code: 403 };
+        case ApiErrorCode.RATE_LIMIT_EXCEEDED:
+          return { success: false, error: 'Rate limit exceeded', code: 429 };
+        default:
+          return { success: false, error: error.message, code: error.status };
+      }
+    }
+    return { success: false, error: 'Unexpected error', code: 500 };
+  }
+}
+```
+
+**Requirements:**
+- **SHOULD** create wrapper functions for common error handling patterns
+- **SHOULD** return consistent error response format
+- **SHOULD** handle all common error codes
+- **MUST** handle non-API errors separately
+
+### Rule 12: Client Reuse Pattern
+
+```typescript
+// Good: Reuse client instance
+const apiV2 = new ConfluenceV2Api();
+const appClient = apiV2.asApp();
+
+// Reuse appClient for multiple operations
+const spaces = await appClient.SpaceApi.getSpaces();
+const pages = await appClient.PageApi.getPages();
+
+// Bad: Creating new client for each operation
+const spaces = await new ConfluenceV2Api().asApp().SpaceApi.getSpaces();
+const pages = await new ConfluenceV2Api().asApp().PageApi.getPages();
+```
+
+**Requirements:**
+- **SHOULD** reuse client instances when making multiple API calls
+- **SHOULD** store client instances in function scope or class properties
+- **MUST NOT** create new API instances unnecessarily
+- **CAN** use `.getClient()` method for explicit client management
+
+### Rule 13: Pagination Handling
+
+```typescript
+import { Api as ConfluenceV2Api } from '@appfire-platform/confluence-v2/sdk/forge-backend';
+
+async function getAllPages(spaceId: string) {
+  const apiV2 = new ConfluenceV2Api();
+  const client = apiV2.asApp();
+  const allPages = [];
+  let cursor: string | undefined;
+
+  do {
+    const response = await client.PageApi.getPages({
+      spaceId,
+      limit: 25,
+      cursor
+    });
+
+    allPages.push(...response.results);
+    cursor = response._links?.next ? response.nextCursor : undefined;
+  } while (cursor);
+
+  return allPages;
+}
+```
+
+**Requirements:**
+- **MUST** handle pagination for list operations
+- **SHOULD** use `limit` parameter to control page size (recommended: 25-100)
+- **MUST** check for `nextCursor` or `_links.next` to determine if more pages exist
+- **SHOULD** process pages in batches to avoid memory issues
+
+### Rule 14: Type Safety
+
+```typescript
+import { Api as ConfluenceV2Api } from '@appfire-platform/confluence-v2/sdk/forge-backend';
+
+// Good: Typed API calls
+const apiV2 = new ConfluenceV2Api();
+const page = await apiV2.asApp().PageApi.getPageById({ 
+  id: 'page-id' 
+});
+// page is typed correctly
+
+// Good: Type guards for error handling
+if (isResponseError(error)) {
+  // error is typed as ResponseError
+  console.log(error.status, error.code);
+}
+```
+
+**Requirements:**
+- **MUST** use TypeScript types provided by SDK
+- **MUST** use type guards (`isResponseError`) for error handling
+- **SHOULD** leverage TypeScript autocomplete for API methods
+- **MUST NOT** use `any` type for API responses
+
+## Common Patterns
+
+### Rule 15: Batch Operations Pattern
+
+```typescript
+import { Api as ConfluenceV2Api } from '@appfire-platform/confluence-v2/sdk/forge-backend';
+
+async function updateMultiplePages(pageIds: string[], updates: any[]) {
+  const apiV2 = new ConfluenceV2Api();
+  const client = apiV2.asUser();
+
+  // Process in batches to respect rate limits
+  const batchSize = 10;
+  for (let i = 0; i < pageIds.length; i += batchSize) {
+    const batch = pageIds.slice(i, i + batchSize);
+    const updatePromises = batch.map((pageId, index) =>
+      client.PageApi.updatePage({
+        id: pageId,
+        ...updates[i + index]
+      })
+    );
+
+    await Promise.all(updatePromises);
+    
+    // Add delay between batches to respect rate limits
+    if (i + batchSize < pageIds.length) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+}
+```
+
+**Requirements:**
+- **SHOULD** process operations in batches
+- **MUST** add delays between batches to respect rate limits
+- **SHOULD** use `Promise.all()` for parallel operations within batch
+- **MUST** handle errors for individual operations in batch
+
+### Rule 16: Retry Pattern with Error Handling
+
+```typescript
+import { Api as ConfluenceV2Api, isResponseError, ApiErrorCode } from '@appfire-platform/confluence-v2/sdk';
+
+async function getPageWithRetry(pageId: string, maxRetries = 3) {
+  const apiV2 = new ConfluenceV2Api();
+  const client = apiV2.asApp();
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await client.PageApi.getPageById({ id: pageId });
+    } catch (error: unknown) {
+      if (isResponseError(error)) {
+        // Don't retry on client errors
+        if (error.status >= 400 && error.status < 500) {
+          throw error;
+        }
+        
+        // Retry on server errors
+        if (error.status >= 500 && attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          continue;
+        }
+      }
+      throw error;
+    }
+  }
+}
+```
+
+**Requirements:**
+- **SHOULD** implement retry logic for transient errors (5xx)
+- **MUST NOT** retry on client errors (4xx)
+- **SHOULD** use exponential backoff for retries
+- **MUST** limit maximum retry attempts
+
+## Limitations and Constraints
+
+### Rule 17: Rate Limiting
+
+- **Rate Limits**: Confluence/Jira APIs have rate limits
+- **Handling**: SDK may throw `RATE_LIMIT_EXCEEDED` error
+- **Retry Strategy**: Respect `Retry-After` header when available
+- **Best Practice**: Implement exponential backoff and batch processing
+
+### Rule 18: Authentication Scopes
+
+- **Required Scopes**: App MUST have required scopes in manifest.yml
+- **asApp()**: Requires app-level scopes (e.g., `read:confluence-content.all`)
+- **asUser()**: Requires user-level scopes (e.g., `read:confluence-content`)
+- **User Impersonation**: May require additional permissions
+
+### Rule 19: API Version Compatibility
+
+- **Confluence V1 vs V2**: V2 is preferred, but V1 may be needed for legacy endpoints
+- **Jira V2 vs V3**: V3 is newer, check feature availability before choosing
+- **Breaking Changes**: API versions may have breaking changes
+- **Migration**: Plan migration path when upgrading API versions
+
+## References
+
+- **Confluence V2 SDK**: https://www.npmjs.com/package/@appfire-platform/confluence-v2
+- **Confluence V1 SDK**: https://www.npmjs.com/package/@appfire-platform/confluence-v1
+- **Jira V2 SDK**: https://www.npmjs.com/package/@appfire-platform/jira-v2
+- **Jira V3 SDK**: https://www.npmjs.com/package/@appfire-platform/jira-v3
+- **JSM SDK**: https://www.npmjs.com/package/@appfire-platform/jsm
+- **Jira Software SDK**: https://www.npmjs.com/package/@appfire-platform/jira-software
+- **Forge API Documentation**: https://developer.atlassian.com/platform/forge/apis-reference/product-rest-api-reference/

@@ -1,0 +1,144 @@
+# The Pyramid Principle (Barbara Minto)
+
+**Source:** "The Pyramid Principle" by Barbara Minto  
+**Focus:** Estructura lógica del contenido (IDEAL para Tech Specs).
+
+## 1. MAIN IDEAS FIRST
+
+- **La Idea Principal va Primero:** No hagas esperar al lector hasta el final
+  - ✅ Executive summary at top
+  - ✅ Key points upfront
+  - ❌ Building to conclusion
+
+- **Usa el Formato de Pirámide:** Resumen ejecutivo → Puntos clave → Detalles técnicos
+  - ✅ Top-down structure
+  - ✅ Summary first
+  - ❌ Bottom-up structure
+
+- **Toda sección debe apoyar a la sección superior:**
+  - ✅ Logical hierarchy
+  - ✅ Each level supports above
+  - ❌ Unrelated sections
+
+- **Usa Títulos de Sección que Resuman el Contenido:**
+  - ✅ Descriptive titles
+  - ✅ Self-explanatory headers
+  - ❌ Vague titles
+
+## 2. GROUPING AND ORGANIZATION
+
+- **Agrupa Ideas Relacionadas:** El cerebro recuerda grupos de 3 a 5 elementos
+  - ✅ 3-5 items per group
+  - ✅ Logical grouping
+  - ❌ Lists of 10+ items
+
+- **Sigue un Orden Lógico:** (Cronológico, Estructural o de Importancia)
+  - ✅ Clear ordering principle
+  - ✅ Consistent throughout
+  - ❌ Random order
+
+- **Evita listas desordenadas:** Siempre deben tener una razón de ser
+  - ✅ Ordered by logic
+  - ✅ Clear rationale
+  - ❌ Random lists
+
+- **La estructura debe ser Mutuamente Excluyente y Colectivamente Exhaustiva (MECE):**
+  - ✅ No overlap between sections
+  - ✅ Complete coverage
+  - ❌ Overlapping or incomplete
+
+- **Elimina la redundancia entre párrafos:**
+  - ✅ Each paragraph unique
+  - ✅ No repetition
+  - ❌ Repeated information
+
+## 3. CONTENT PRESENTATION
+
+- **Usa Tablas de Comparación para decisiones:**
+  - ✅ Tables for alternatives
+  - ✅ Clear comparison
+  - ❌ Paragraphs for comparisons
+
+- **Usa Gráficos para mostrar relaciones complejas, no texto:**
+  - ✅ Diagrams for relationships
+  - ✅ Visual representation
+  - ❌ Text descriptions only
+
+- **Crea transiciones suaves entre bloques de contenido:**
+  - ✅ Connecting sentences
+  - ✅ Flow between sections
+  - ❌ Abrupt transitions
+
+- **Usa Negritas para resaltar la tesis de cada párrafo:**
+  - ✅ Key sentence bolded
+  - ✅ Main point highlighted
+  - ❌ Everything bolded
+
+- **El índice debe contar la historia por sí solo:**
+  - ✅ Descriptive TOC
+  - ✅ Logical progression visible
+  - ❌ Generic section numbers
+
+- **Cada nivel de la pirámide debe ser del mismo tipo de pensamiento:**
+  - ✅ Consistent abstraction
+  - ✅ Same level of detail
+  - ❌ Mixing abstraction levels
+
+- **Usa Sangrías para mostrar subordinación de ideas:**
+  - ✅ Visual hierarchy
+  - ✅ Nested structure clear
+  - ❌ Flat structure
+
+- **No mezcles peras con manzanas en una lista técnica:**
+  - ✅ Consistent item types
+  - ✅ Same category
+  - ❌ Mixed categories
+
+## 4. CLARITY AND BREVITY
+
+- **Sé Breve:** Si puedes decirlo en una frase, no uses tres
+  - ✅ Concise statements
+  - ✅ No redundancy
+  - ❌ Verbose explanations
+
+- **Usa la "Lógica de la Deducción" para argumentos:**
+  - ✅ Premise → Conclusion
+  - ✅ Logical reasoning
+  - ❌ Unsupported claims
+
+- **Usa la "Lógica de la Inducción" para agrupaciones:**
+  - ✅ Examples → Generalization
+  - ✅ Pattern recognition
+  - ❌ Random grouping
+
+- **Cierra cada sección con una conclusión lógica:**
+  - ✅ Section summary
+  - ✅ Key takeaway
+  - ❌ Abrupt endings
+
+## 5. DOCUMENT STRUCTURE
+
+- **Revisa la simetría del documento:**
+  - ✅ Balanced structure
+  - ✅ Consistent depth
+  - ❌ Uneven sections
+
+- **Asegúrate de que los gráficos estén cerca del texto que los explica:**
+  - ✅ Diagrams near text
+  - ✅ Integrated layout
+  - ❌ All diagrams at end
+
+- **Termina con un "Próximos Pasos" claro:**
+  - ✅ Action items clear
+  - ✅ Next phase defined
+  - ❌ Vague ending
+
+- **Usa Introducciones con Contexto, Conflicto y Pregunta:**
+  - ✅ Context: Current situation
+  - ✅ Conflict: Problem or challenge
+  - ✅ Question: What needs to be solved
+  - ❌ No introduction structure
+
+---
+
+**Key Principle:** Main idea first, group related ideas (3-5 items), follow logical order, and ensure MECE structure. Use pyramid format: summary → key points → details.

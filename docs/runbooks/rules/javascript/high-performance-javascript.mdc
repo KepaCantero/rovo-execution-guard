@@ -1,0 +1,28 @@
+---
+description: Rules based on High Performance JavaScript (Nicholas C. Zakas)
+globs: **/*.js,**/*.jsx
+alwaysApply: false
+---
+
+# High Performance JavaScript (Nicholas C. Zakas)
+
+- **Progressive Loading**: Minimize the initial bundle of your Custom UI.
+- **Data Access**: Accessing local variables is faster than globals.
+- **DOM Scripting**: Batch updates to avoid "reflows".
+- **Algorithms and Control**: Use efficient algorithms (O(n) vs O(n^2)).
+- **Strings and Regex**: Optimize concatenation in long loops.
+- **Responsiveness**: Don't block the main UI thread.
+- **AJAX/Fetch**: Minimize HTTP requests; batch data.
+- **Cache**: Use Forge storage to avoid repeated calls to Jira.
+- **Event Delegation**: Handle events on the parent, not on each child.
+- **Avoid with and eval**: They slow down the JS engine.
+- **Scope Chain**: Keep scope chains short.
+- **Loop Unrolling**: Only for extreme performance cases.
+- **Web Workers**: Use them if Forge runtime allows for heavy tasks.
+- **Minification**: Ensure your build process optimizes code.
+- **Pre-fetching**: Load data before the user asks for it.
+- **Memory Leaks**: Clean up timers and listeners in React components.
+- **Bitwise Operators**: For super-fast math operations if necessary.
+- **Inline Functions**: Watch out creating them inside loops.
+- **Object Properties**: Access is faster if object shape doesn't change (Hidden Classes).
+- **Profiling**: Measure before optimizing.

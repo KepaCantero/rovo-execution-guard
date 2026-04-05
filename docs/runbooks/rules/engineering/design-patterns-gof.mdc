@@ -1,0 +1,28 @@
+---
+description: Rules based on Design Patterns: Elements of Reusable Object-Oriented Software (GoF)
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Design Patterns: Elements of Reusable Object-Oriented Software (GoF)
+
+- **Program to an interface, not an implementation**: The foundation of your engine-adapter.
+- **Favor composition over inheritance**: Avoid rigid hierarchies.
+- **Abstract Factory Pattern**: To create families of UI components in Forge.
+- **Builder Pattern**: To build complex Workflows step by step.
+- **Prototype Pattern**: Cloning of document states.
+- **Singleton Pattern**: Only for infrastructure services (Logger, DB Client).
+- **Adapter Pattern**: Vital to wrap Atlassian APIs.
+- **Bridge Pattern**: Separate abstraction from implementation (Backend vs Frontend).
+- **Composite Pattern**: Handle groups of documents as if they were one.
+- **Decorator Pattern**: Add validations to functions without changing their code.
+- **Facade Pattern**: A single entry point for complex cloud/ processes.
+- **Proxy Pattern**: For access control and caching of Jira calls.
+- **Chain of Responsibility Pattern**: For sequential permission validations.
+- **Command Pattern**: Convert user actions into objects that can be undone.
+- **Iterator Pattern**: Traverse ticket collections without exposing internal structure.
+- **Mediator Pattern**: Reduce dependencies between services in your monorepo.
+- **Memento Pattern**: To save document change history.
+- **Observer Pattern**: Notify other modules when a Workflow changes state.
+- **State Pattern**: Change object behavior according to its approval state.
+- **Strategy Pattern**: Exchange SLA algorithms dynamically.

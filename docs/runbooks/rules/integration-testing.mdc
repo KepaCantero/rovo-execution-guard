@@ -1,0 +1,151 @@
+---
+alwaysApply: true
+---
+
+# INTEGRATION TESTING STRATEGY
+
+This project follows a **test pyramid approach** with integration tests as the primary testing strategy, complemented by unit tests for convenience and rapid development feedback.
+
+## TESTING HIERARCHY
+
+### 🏆 PRIMARY: Integration Tests (`src/integration-tests/`)
+- **Most Important**: These are the **primary and most critical tests** for the project
+- **Real Confluence Environment**: Tests run against actual Atlassian Confluence instances
+- **End-to-End Workflows**: Complete workflow execution from trigger to completion
+- **Cucumber BDD**: Behavior-driven development with Gherkin feature files
+- **Minimal Mocking**: Uses real Confluence API calls and actual user interactions
+- **Parallel Execution**: Runs 4 scenarios in parallel for efficiency
+- **Comprehensive Reporting**: Allure reports with detailed step-by-step execution
+
+### 🔧 SECONDARY: Workflow Engine Integration Tests (`packages/workflow-engine/src/api/integration-test/`)
+- **Engine-Focused**: Tests the workflow engine as a complete unit
+- **In-Memory Repositories**: Uses test repositories for isolation while testing real engine logic
+- **Approval Process Testing**: Comprehensive approval workflow scenarios
+- **Decision Logic Validation**: Tests all decision types (majority, minimum, unanimity)
+- **Participation Requirements**: Validates all-or-default and minimum participation scenarios
+- **Minimal Mocking**: Only mocks external Forge API calls, tests real engine behavior
+
+### ⚡ CONVENIENCE: Unit Tests (Vitest)
+- **Development Speed**: Quick feedback during development
+- **Component Testing**: Individual function and class testing
+- **Mock-Heavy**: Uses mocks for external dependencies
+- **Fast Execution**: Rapid iteration and debugging
+- **Coverage**: Ensures individual components work correctly
+
+## TESTING PHILOSOPHY
+
+### 🎯 Integration-First Approach
+- **Real Environment Testing**: Integration tests run against actual Confluence instances
+- **User-Centric**: Tests simulate real user workflows and interactions
+- **API Integration**: Validates actual Confluence API behavior and responses
+- **End-to-End Validation**: Ensures complete workflow execution from start to finish
+
+### 🚫 Minimal Mocking Strategy
+- **Real API Calls**: Integration tests use actual Confluence REST API
+- **Authentic Data**: Tests with real user accounts, spaces, and content
+- **Environment Validation**: Ensures compatibility with actual Atlassian environments
+- **Edge Case Discovery**: Real environment reveals issues mocks cannot simulate
+
+### 📊 Comprehensive Test Coverage
+- **Workflow Scenarios**: All workflow types and configurations
+- **User Roles**: Admin, editor, viewer permissions and interactions
+- **Decision Types**: Majority, minimum, unanimity decision processes
+- **Participation Models**: All-or-default and minimum participation requirements
+- **Error Handling**: Real failure scenarios and recovery processes
+
+## TEST EXECUTION COMMANDS
+
+### Main Integration Tests
+```bash
+# Run all integration tests
+pnpm test:integration
+
+# Run only @only tagged tests
+pnpm test:integration:only
+
+# Generate Allure report
+pnpm test:integration:report
+```
+
+### Workflow Engine Tests
+```bash
+# Run engine integration tests
+pnpm test:integration:engine
+
+# Run with HTML report
+pnpm test:integration:engine:report
+
+# Run only @only tagged tests
+pnpm test:integration:engine:only
+```
+
+### Unit Tests (Convenience)
+```bash
+# Run unit tests
+pnpm test
+
+# Run specific test file
+pnpm test:unit src/path/to/test.ts
+```
+
+## TEST TAGS AND ORGANIZATION
+
+### Cucumber Tags
+- `@only` - Run specific tests during development
+- `@approvals` - Approval workflow tests
+- `@all-or-default` - All-or-default participation tests
+- `@minimum-participation` - Minimum participation tests
+- `@majority` - Majority decision tests
+- `@unanimity` - Unanimity decision tests
+- `@flaky` - Temporarily broken tests (skip in CI)
+
+### Test Structure
+- **Features**: Gherkin `.feature` files describing test scenarios
+- **Step Definitions**: TypeScript implementations of test steps
+- **Shared Actions**: Reusable test actions and utilities
+- **Mocks**: Minimal mocking for external dependencies only
+
+## DEVELOPMENT WORKFLOW
+
+### 1. Write Integration Tests First
+- Define behavior in Gherkin feature files
+- Implement step definitions with real API calls
+- Test against actual Confluence environment
+
+### 2. Add Unit Tests for Convenience
+- Quick feedback during development
+- Component-level validation
+- Mock external dependencies
+
+### 3. Validate with Engine Tests
+- Test workflow engine as complete unit
+- Validate decision logic and state transitions
+- Ensure engine behavior matches integration expectations
+
+## QUALITY ASSURANCE
+
+### Integration Test Requirements
+- **Environment Setup**: Proper Atlassian domain and user configuration
+- **User Permissions**: Admin, editor, viewer accounts with correct permissions
+- **API Tokens**: Valid authentication for all test users
+- **Space Configuration**: Test spaces with appropriate permissions
+
+### Test Data Management
+- **Isolation**: Each test creates and cleans up its own data
+- **Realistic Scenarios**: Tests use realistic content and user interactions
+- **State Validation**: Verifies actual Confluence state changes
+- **Error Scenarios**: Tests real failure conditions and recovery
+
+## REPORTING AND MONITORING
+
+### Allure Reports
+- **HTML Reports**: Detailed test execution with screenshots
+- **Step-by-Step**: Complete workflow execution details
+- **Environment Info**: Test environment configuration
+- **History Tracking**: Test results over time
+
+### CI/CD Integration
+- **Automated Execution**: Tests run in CI/CD pipelines
+- **JUnit Reports**: XML output for CI systems
+- **Parallel Execution**: Efficient test execution
+- **Environment Validation**: Ensures compatibility across environments

@@ -1,0 +1,28 @@
+---
+description: Rules based on The Principles of Object-Oriented JavaScript (Nicholas C. Zakas)
+globs: **/*.js,**/*.jsx
+alwaysApply: false
+---
+
+# The Principles of Object-Oriented JavaScript (Nicholas C. Zakas)
+
+- **Primitive vs Reference Types**: Understand how data is copied.
+- **Object Properties**: Master enumerable, configurable, and writable.
+- **Attribute Encapsulation**: Use symbols or private fields.
+- **Prototype Inheritance**: Understand the prototype chain.
+- **Constructors**: Use them to define initial structure.
+- **Mixins**: To reuse code between unrelated classes.
+- **Property Definition**: Use Object.defineProperty.
+- **Object Sealing**: Use Object.seal() or Object.freeze() for configurations.
+- **Type Detection**: Use instanceof for custom objects.
+- **Object Methods**: Define methods on the prototype to save memory.
+- **Superclass Access**: Call parent methods correctly.
+- **Interfaces**: Simulate them through property checks.
+- **Abstraction**: Don't expose internal complexity.
+- **Composition over Inheritance**: The modern OO mantra.
+- **Object Identity**: Distinguish between equal objects and identical objects.
+- **Serialization**: Control how your objects convert to JSON.
+- **Factory Pattern**: Centralize creation of complex objects.
+- **Method Binding**: Use .bind(this) when passing methods as callbacks.
+- **Getters/Setters**: Validate data before assigning.
+- **Extensibility**: Control whether an object can receive new properties.

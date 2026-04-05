@@ -1,0 +1,28 @@
+---
+description: Rules based on Test-Driven Development: By Example (Kent Beck)
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Test-Driven Development: By Example (Kent Beck)
+
+- **Red-Green-Refactor**: The sacred cycle.
+- **Write the smallest possible test.**
+- **Make it pass fast (even if with cheats).**
+- **Refactor immediately.**
+- **Don't write code without a failing test.**
+- **Triangulation**: Use several tests to reach a generic solution.
+- **Obvious Implementation**: If you know how to do it, do it, but verify it.
+- **One Step at a Time**: Don't try to solve the complete problem at once.
+- **Test List**: Keep a list of what you still need to test.
+- **Regression Tests**: Every bug found should start with a failing test.
+- **Fake It Until You Make It.**
+- **Isolation**: Tests should not depend on each other.
+- **Data Driven Tests**: Use the same test for multiple inputs.
+- **Mock Objects**: To simulate the outside world.
+- **Test Data**: Use realistic but simple data.
+- **Break the Problem**: Divide complex tasks into micro-tests.
+- **Confidence**: Write tests until you feel safe.
+- **Design tool**: TDD is a design tool, not just validation.
+- **Self-testing code.**
+- **Refactor tests**: Keep your tests clean and readable.

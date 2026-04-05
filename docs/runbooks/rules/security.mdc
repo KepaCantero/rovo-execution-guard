@@ -1,0 +1,14 @@
+---
+alwaysApply: true
+---
+
+# SECURITY STANDARDS
+
+## API Security
+- Never log sensitive data (API tokens, user passwords)
+- Validate all user inputs
+
+## Data Handling
+- Sanitize user-generated content
+- Implement proper access controls
+- Follow GDPR/privacy requirements

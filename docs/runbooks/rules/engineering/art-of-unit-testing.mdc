@@ -1,0 +1,28 @@
+---
+description: Rules based on The Art of Unit Testing (Roy Osherove)
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# The Art of Unit Testing (Roy Osherove)
+
+- **Define what is a Unit Test**: It shouldn't touch database or network.
+- **Single concept per test**: If it fails, you should know exactly what broke.
+- **Test Naming**: UnitOfWork_StateUnderTest_ExpectedBehavior.
+- **Total Isolation**: Use stubs and mocks for Atlassian APIs.
+- **Avoid over-mocking**: If you mock everything, you're not testing anything.
+- **Fast Tests**: If check takes more than 2 minutes, you won't use it.
+- **Deterministic Tests**: Should always give the same result.
+- **Use Factories in Tests**: To create consistent test objects.
+- **Avoid logic in tests**: Don't put if or for inside a test.
+- **Test Edge Cases**: Nulls, negatives, empty strings.
+- **Test Driven Development (TDD)**: Write test before code.
+- **Legacy Code**: You can only refactor if you have tests to protect you.
+- **Integration Tests**: Do them, but separate from unit tests.
+- **Exception Handling**: Test that code throws errors when it should.
+- **Refactor your tests**: Test code is as important as production code.
+- **Use Coverage as guide, not goal**: 100% doesn't mean 0 errors.
+- **Distinguish Mock from Stub**: Mock verifies interaction, stub provides data.
+- **Test behavior, not implementation.**
+- **Keep tests in same repo**: Close to source code.
+- **Full Automation**: Tests should run on every pnpm install.

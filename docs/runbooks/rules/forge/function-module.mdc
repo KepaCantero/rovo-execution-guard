@@ -1,0 +1,63 @@
+# Function Module - 25 Rules
+
+Rules derived from: https://developer.atlassian.com/platform/forge/manifest-reference/modules/function/
+
+## Function Definition
+
+1. **Behavior Definition**: Function module defines app's behavior. Other modules (triggers, UI components) reference functions to specify actions to take.
+
+2. **Key Requirement**: Function `key` must be unique within manifest and maximum 23 characters. Follow regex pattern `^[a-zA-Z0-9_-]+$`.
+
+3. **Handler Format**: Handler must follow format `file.function` (e.g., `jira.issueCreationTrigger`). Points to function in app's `src` directory.
+
+4. **Handler Regex**: Handler follows regex pattern `^[a-zA-Z0-9_-]+$`. Use alphanumeric characters, underscores, and hyphens only.
+
+5. **Function Reference**: Other modules reference functions by their `key`. Ensure keys are descriptive and follow naming conventions.
+
+## Timeout Configuration
+
+6. **Timeout Scope**: `timeoutSeconds` applies only to scheduled triggers and async event consumers. Doesn't affect other function invocations.
+
+7. **Timeout Range**: Valid timeout range is 1 to 900 seconds. Set appropriate timeout based on expected execution time.
+
+8. **Lowest Timeout Wins**: If function used by multiple modules with different timeouts, function uses lowest timeout value. Plan accordingly.
+
+9. **Timeout Example**: If function used by scheduled trigger (300s) and async consumer (120s), function times out after 120 seconds (lowest value).
+
+10. **Timeout Planning**: Set timeouts based on worst-case execution time. Include buffer for network calls and processing time.
+
+## Runtime Override
+
+11. **Memory Override**: Override runtime memory configuration per function using `runtime.memoryMB`. Only `memoryMB` property allowed in function-level runtime.
+
+12. **Function-Specific Memory**: Set function memory higher than default for memory-intensive operations. Range: 128 MB to 1,024 MB.
+
+13. **CPU Allocation**: Increasing function memory also increases CPU allocation. Balance memory needs with cost considerations.
+
+## Provider Configuration
+
+14. **Authentication Providers**: Use `providers.auth` to specify authentication providers required by function. Supports external OAuth 2.0 providers.
+
+15. **Provider Reference Format**: Provider reference can be string (provider key) or object with `provider` and `requiredScopes` properties.
+
+16. **Required Scopes**: Specify `requiredScopes` in provider reference to trigger OAuth consent flow if scopes not granted. Better performance than `requestCredentials`.
+
+17. **Scope Validation**: If specified scopes not granted, OAuth 2.0 consent flow triggered before function invocation. Function code not invoked until scopes granted.
+
+18. **Multiple Providers**: Function can require multiple authentication providers. List all providers in `providers.auth` array.
+
+## Function Implementation
+
+19. **Handler Location**: Place handler functions in `src` directory. Organize by feature or module for maintainability.
+
+20. **Function Export**: Export handler functions from module files. Use named exports matching handler format specified in manifest.
+
+21. **Error Handling**: Implement proper error handling in functions. Unhandled errors may cause function failures and retries.
+
+22. **Async Functions**: Functions are typically async. Use `async/await` or Promises for asynchronous operations.
+
+23. **Context Access**: Functions receive context object with installation, principal, and environment information. Use for app-specific logic.
+
+24. **Event Payload**: Trigger functions receive event payloads. Structure depends on event type. Validate payloads before processing.
+
+25. **Function Reusability**: Design functions to be reusable across multiple modules. Single function can be referenced by multiple triggers or UI components.

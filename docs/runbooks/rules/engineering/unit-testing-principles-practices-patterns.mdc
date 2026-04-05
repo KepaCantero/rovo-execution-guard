@@ -1,0 +1,28 @@
+---
+description: Rules based on Unit Testing Principles, Practices, and Patterns (Vladimir Khorikov)
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Unit Testing Principles, Practices, and Patterns (Vladimir Khorikov)
+
+- **The goal of unit testing is sustainable project growth.**
+- **A good test has 4 pillars**: Protection against regressions, resistance to refactoring, fast feedback, and maintainability.
+- **Refactoring resistance**: The most important pillar. The test should not break if you change internal code.
+- **Mocks vs Stubs**: Use mocks only for external communications.
+- **Don't test implementation details.**
+- **Black-box testing**: Treat your unit as a black box.
+- **Integration tests**: Use them to verify communication with Forge DB.
+- **Unit vs Integration**: Unit test tests logic, integration test tests connectivity.
+- **Test observable behavior.**
+- **Avoid "Fragile Tests".**
+- **The value of a test is its benefit minus its cost.**
+- **Handle shared state with care.**
+- **Use "Collaborator Mocks" only for dependencies outside your control.**
+- **Test failure cases as thoroughly as success cases.**
+- **Keep test code at the same quality level as production code.**
+- **Refactor tests to make them readable.**
+- **Avoid "Mocking Frameworks" if you can use simple manual mocks.**
+- **Use "Property-based Testing" for complex algorithms.**
+- **Test business logic, not controllers.**
+- **Ensure each test is independent.**

@@ -1,0 +1,63 @@
+# Prepare Cloud App for Forge Migration - 25 Rules
+
+Rules derived from: https://developer.atlassian.com/platform/app-migration/prepare-cloud-app-forge/
+
+## Manifest Configuration
+
+1. **Function and Trigger Definition**: Define a Forge function and trigger in your manifest to process migration events. The function handles migration logic, trigger listens for events.
+
+2. **Event Subscription**: Subscribe to all required migration events in your trigger configuration: `avi:ecosystem.migration:triggered:listener`, `avi:ecosystem.migration:uploaded:app_data`, `avi:ecosystem.migration:completed:export_phase`, etc.
+
+3. **Function Handler Implementation**: Implement the function handler specified in your manifest. The handler receives migration event payloads and processes them accordingly.
+
+4. **Trigger-Function Binding**: Ensure trigger events are correctly bound to your function using the `function` key in trigger configuration.
+
+## Event Processing
+
+5. **Event Acknowledgement Timing**: Call `messageProcessed(transferId, messageId)` for `avi:ecosystem.migration:uploaded:app_data` events within 15 minutes of either receiving the event or uploading new data from server app.
+
+6. **Event Order Independence**: Design event handlers to process events in any order. Events may arrive out of sequence (e.g., `uploaded:app_data` before `triggered:listener`).
+
+7. **Progressive Acknowledgement**: Acknowledge events as data processing completes, not when events are received. This prevents timeouts and provides accurate status information.
+
+8. **Event Payload Validation**: Always validate event payloads. Throw exceptions if validation fails to enable monitoring and automatic retry mechanisms.
+
+9. **Unhandled Exception Handling**: Handle all exceptions properly. Unhandled exceptions result in events being retried with exponential backoff up to four times (five total attempts).
+
+10. **Function Timeout Awareness**: Design handlers to complete within function timeout limits. Long-running operations should be broken into smaller chunks with progress reporting.
+
+## Migration API Usage
+
+11. **Migration API Import**: Import `migration` object from `@forge/migrations` package. Use this object to access migration helper functions.
+
+12. **getMappings Method**: Use `migration.getMappings(transferId, namespace)` to retrieve mappings. Use query builder methods (`limit`, `cursor`, `getOne`, `getMany`) for pagination.
+
+13. **getAppDataList Method**: Use `migration.getAppDataList(transferId)` to retrieve list of app data uploaded by server app. Returns set of AppData objects with s3Key, key, and label.
+
+14. **getAppDataPayload Method**: Use `migration.getAppDataPayload(key)` to retrieve app data payload from cloud storage. Returns APIResponse with json, text, arrayBuffer methods.
+
+15. **messageProcessed Method**: Call `migration.messageProcessed(transferId, messageId)` to acknowledge successful processing of app data upload events. Required for `uploaded:app_data` events.
+
+16. **messageFailed Method**: Call `migration.messageFailed(transferId, messageId)` to indicate failed processing. Use this when data cannot be processed and migration should fail.
+
+17. **addLog Method**: Use `migration.addLog(transferId, logMessage)` to send status messages to customers visible in progress logs. Messages must not exceed 65536 characters.
+
+18. **getContainers Method**: Use `migration.getContainers(transferId, containerType)` to retrieve container mappings. Valid container types: `ConfluenceSpace`, `JiraProject`, `Site`.
+
+## Error Handling
+
+19. **MigrationAPIError Handling**: Handle `MigrationAPIError` exceptions properly. Check `error.status` to determine error type and handle accordingly.
+
+20. **Non-200 Status Handling**: Any non-200 response status throws `MigrationAPIError`. Implement proper error handling with status code checking and appropriate retry logic.
+
+21. **Retry Strategy**: Implement exponential backoff retry strategy for transient errors (5xx responses). Don't fail migration on single errors.
+
+22. **Error Logging**: Log all migration API errors with context (transferId, messageId, error details) for debugging and monitoring purposes.
+
+## Event Payload Structure
+
+23. **Payload Field Access**: Access event payload fields correctly: `eventType`, `transferId`, `migrationDetails.migrationId`, `migrationDetails.cloudUrl`, `key`, `label`, `messageId`.
+
+24. **Conditional Field Handling**: Handle conditional fields properly. `key` and `label` are only present on `uploaded:app_data` events. `transferError` fields only on `errored:listener` events.
+
+25. **Migration Details Usage**: Use `migrationDetails` object to access migration context: `migrationId`, `migrationScopeId`, `createdAt`, `cloudUrl`, `name`. Store these for reference throughout migration.

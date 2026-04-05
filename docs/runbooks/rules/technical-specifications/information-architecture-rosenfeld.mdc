@@ -1,0 +1,143 @@
+# Information Architecture: For the Web and Beyond (Rosenfeld et al.)
+
+**Source:** "Information Architecture: For the Web and Beyond" by Rosenfeld et al.  
+**Focus:** Flujos de navegación y estructuras de información.
+
+## 1. USER-CENTRIC DESIGN
+
+- **Diseña para el "Escaneo":** El usuario no lee, salta de punto en punto
+  - ✅ Clear visual hierarchy
+  - ✅ Scannable layout
+  - ❌ Dense text blocks
+
+- **Usa Mapas de Sitio (Sitemaps) Jerárquicos:**
+  - ✅ Tree structure
+  - ✅ Clear hierarchy
+  - ❌ Flat structure
+
+- **Define Flujos de Usuario (User Flows):** Paso a paso de lo que hace el usuario para completar una tarea
+  - ✅ Clear step sequence
+  - ✅ Decision points marked
+  - ❌ Unclear flow
+
+- **Usa "Wireframes" de Baja Fidelidad:** No pierdas tiempo en diseño visual si la estructura falla
+  - ✅ Focus on structure first
+  - ✅ Simple boxes and lines
+  - ❌ High-fidelity before structure
+
+## 2. NAVIGATION AND LABELING
+
+- **Etiqueta con Claridad:** Los nombres de los menús deben ser obvios
+  - ✅ Clear, descriptive labels
+  - ✅ User-friendly terminology
+  - ❌ Technical jargon
+
+- **Diferencia Navegación de Contenido:**
+  - ✅ Visual distinction
+  - ✅ Separate areas
+  - ❌ Blended together
+
+- **Crea un Sistema de Taxonomía:** Cómo se categorizan los datos
+  - ✅ Clear categorization
+  - ✅ Consistent taxonomy
+  - ❌ Inconsistent categories
+
+- **Usa Breadcrumbs (Migas de pan) en la arquitectura visual:**
+  - ✅ Show navigation path
+  - ✅ Hierarchical context
+  - ❌ No context
+
+## 3. FLOW DIAGRAM DESIGN
+
+- **Visualiza la "Búsqueda":** Cómo se filtran los resultados
+  - ✅ Search flow diagram
+  - ✅ Filter options shown
+  - ❌ No search flow
+
+- **Muestra Estados Vacíos:** ¿Qué pasa en el gráfico si no hay datos?
+  - ✅ Empty state flows
+  - ✅ Error handling
+  - ❌ Only happy path
+
+- **Muestra Estados de Error:** ¿A dónde va el flujo si falla el login?
+  - ✅ Error paths shown
+  - ✅ Recovery flows
+  - ❌ Only success paths
+
+- **Usa Flechas de Dirección Única para procesos lineales:**
+  - ✅ Clear direction
+  - ✅ Sequential flow
+  - ❌ Bidirectional when linear
+
+- **Usa Rombos para Decisiones:** (Si/No)
+  - ✅ Decision diamonds
+  - ✅ Clear yes/no paths
+  - ❌ Rectangles for decisions
+
+- **Alinea los Flujos de Izquierda a Derecha:**
+  - ✅ Natural reading flow
+  - ✅ Top to bottom for processes
+  - ❌ Random directions
+
+- **Usa "Swimlanes" (Carriles):** Para separar quién hace qué (Usuario vs. Sistema)
+  - ✅ Swimlane diagrams
+  - ✅ Role separation
+  - ❌ Mixed roles
+
+- **Documenta los Puntos de Salida:**
+  - ✅ Exit points marked
+  - ✅ End states clear
+  - ❌ No clear endings
+
+- **Muestra la Latencia Esperada en los flujos:**
+  - ✅ Timing annotations
+  - ✅ Performance expectations
+  - ❌ No timing information
+
+## 4. OPTIMIZATION
+
+- **Usa Proximidad para agrupar funciones similares:**
+  - ✅ Related functions grouped
+  - ✅ Visual clustering
+  - ❌ Scattered functions
+
+- **Minimiza los Clics:** El flujo debe ser lo más corto posible
+  - ✅ Optimized paths
+  - ✅ Minimum steps
+  - ❌ Unnecessary steps
+
+- **Usa Iconografía Consistente:**
+  - ✅ Standard icons
+  - ✅ Consistent meaning
+  - ❌ Inconsistent symbols
+
+- **Evita los "Callejones sin Salida" en los diagramas de flujo:**
+  - ✅ All paths lead somewhere
+  - ✅ No orphaned steps
+  - ❌ Dead-end paths
+
+## 5. VISUAL DESIGN
+
+- **Usa Colores Neutros para el fondo:**
+  - ✅ White/light gray background
+  - ✅ Content stands out
+  - ❌ Dark or colorful backgrounds
+
+- **Destaca el Botón de Acción Principal (CTA):**
+  - ✅ CTA emphasized
+  - ✅ Visual prominence
+  - ❌ All buttons equal
+
+- **Muestra la Adaptabilidad:** Cómo cambia el flujo en móvil vs desktop
+  - ✅ Responsive flows
+  - ✅ Platform differences
+  - ❌ Single flow for all
+
+- **Haz el flujo "Accesible":** Asegúrate de que los colores tengan contraste
+  - ✅ WCAG contrast ratios
+  - ✅ Color-blind friendly
+  - ❌ Low contrast
+
+---
+
+**Key Principle:** Design for scanning and user flows. Minimize clicks, show all states (empty, error, success), and use consistent iconography. Make flows accessible and adaptable.

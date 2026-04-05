@@ -1,0 +1,28 @@
+---
+description: Rules based on Implementing Domain-Driven Design (Vaughn Vernon)
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Implementing Domain-Driven Design (Vaughn Vernon)
+
+- **Bounded Context**: Define clear boundaries where terms have a unique meaning.
+- **Ubiquitous Language**: Speak the same language as Comalatech business experts.
+- **Context Mapping**: Define how your contexts interact (Jira, Confluence, Workflows).
+- **Entities vs Value Objects**: Identify what has identity and what is just a value.
+- **Aggregates**: Group objects that must change together.
+- **Aggregate Root**: The only entry point to modify an aggregate.
+- **Domain Events**: Publish what happened in the domain.
+- **Repositories**: Abstract aggregate storage.
+- **Domain Services**: For logic involving multiple aggregates.
+- **Application Services**: The bridge between the outside world and your domain.
+- **Infrastructure Layer**: Where technical details live.
+- **Anemic Domain Model**: The anti-pattern to avoid (objects with only getters/setters).
+- **Context Integration**: Use REST, Events, or Shared Kernel.
+- **Event Sourcing**: Consider saving events instead of final state.
+- **CQRS**: Separate reads from writes if the app is complex.
+- **Sagas**: For long transactions involving multiple systems.
+- **Modules**: Organize your code according to ubiquitous language.
+- **Factories**: To create consistent aggregates.
+- **Policy Pattern**: For complex business rules.
+- **Model evolution**: Design is never finished.

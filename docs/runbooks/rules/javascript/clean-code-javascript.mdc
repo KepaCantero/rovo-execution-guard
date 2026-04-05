@@ -1,0 +1,28 @@
+---
+description: Rules based on Clean Code JavaScript (Dirk Johansen / Robert C. Martin)
+globs: **/*.js,**/*.jsx
+alwaysApply: false
+---
+
+# Clean Code JavaScript (Dirk Johansen / Robert C. Martin)
+
+- **Meaningful Variables**: daysSinceUpdate, not d.
+- **Seek Pronounceability**: Names you can say out loud.
+- **Use the Same Vocabulary**: Don't mix fetchUser with getAccount.
+- **Class Names**: Should be nouns.
+- **Method Names**: Should be verbs.
+- **Avoid Boolean Arguments**: If you pass a boolean to a function, it probably does two things.
+- **Single-Thing Functions (SRP)**: If it does two things, split it.
+- **Single Level of Abstraction**: Don't mix business logic with string manipulation.
+- **Eliminate Duplicate Code (DRY)**: The main goal of your monorepo.
+- **Use Default Arguments**: Clean up initial validation logic.
+- **Don't Use Flags**: Refactor functions with flags into multiple small functions.
+- **Avoid Side Effects**: Don't modify objects passed by reference.
+- **Encapsulate Conditionals**: if (shouldUpdate(doc)) is better than an if with 5 conditions.
+- **Avoid Negative Conditionals**: if (isPublished) instead of if (!isUnpublished).
+- **Use Getters and Setters**: Control access to properties.
+- **Don't Pollute Globals**: Especially important in the Forge sandbox.
+- **Use Functional Inheritance**: Composition over inheritance.
+- **Eliminate "Noise" Comments**: Code should explain what it does.
+- **Automatic Formatting**: Let tools do it for you.
+- **Write Tests**: If it doesn't have tests, it's broken by design.

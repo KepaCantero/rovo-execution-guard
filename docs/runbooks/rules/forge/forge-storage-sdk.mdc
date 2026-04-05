@@ -1,0 +1,739 @@
+# FORGE STORAGE SDK RULES
+
+This document contains comprehensive rules for using `@appfire-platform/forge-storage` SDK for Atlassian Forge's Key-Value Store (KVS) and Custom Entity Store functionality in both forge-native and forge-remote environments.
+
+## Installation
+
+- **Package**: `@appfire-platform/forge-storage`
+- **Installation**: `npm install @appfire-platform/forge-storage` or `yarn add @appfire-platform/forge-storage`
+- **Import Paths**:
+  - Native KVS: `@appfire-platform/forge-storage/sdk/native/kvs`
+  - Remote KVS: `@appfire-platform/forge-storage/sdk/remote/kvs`
+
+## Core Principles
+
+### Principle 1: Environment-Specific Imports
+
+- **Forge-Native**: Always import from `@appfire-platform/forge-storage/sdk/native/kvs`
+- **Forge-Remote**: Always import from `@appfire-platform/forge-storage/sdk/remote/kvs`
+- **DO NOT** mix native and remote imports in the same file
+- **DO NOT** use default imports - use named imports for type safety
+
+### Principle 2: Token Management (Remote Only)
+
+- **System Token Required**: Remote clients MUST provide a token function
+- **Token Source**: Typically from `headers['x-forge-oauth-system']`
+- **Token Caching**: SDK automatically caches tokens and refreshes when about to expire (5 minutes before expiry) or expired
+- **Token Function Types**: Supports both synchronous `() => string` and asynchronous `() => Promise<string>`
+- **User Responsibility**: Token callback MUST always return the latest refreshed token
+
+### Principle 3: Log Level Configuration
+
+- **Default Log Level**: `'error'` for both native and remote clients
+- **Available Levels**: `'fatal'`, `'error'`, `'warn'`, `'info'`, `'debug'`, `'trace'`, `'silent'`
+- **Environment-Based**: Use environment variables (`FORGE_STORAGE_LOG_LEVEL`) to control log levels dynamically
+- **Production**: Use `'error'` or `'warn'` in production
+- **Development**: Use `'debug'` or `'info'` in development for troubleshooting
+
+## Forge-Native Rules
+
+### Rule 1: Native KVS Initialization
+
+```typescript
+import { ForgeStorage } from '@appfire-platform/forge-storage/sdk/native/kvs';
+
+// Basic initialization (default log level: 'error')
+const kvs = new ForgeStorage().getClient();
+
+// With custom log level
+const kvs = new ForgeStorage({ logLevel: 'debug' }).getClient();
+
+// With environment-based log level
+const logLevel = process.env.FORGE_STORAGE_LOG_LEVEL || 'error';
+const kvs = new ForgeStorage({ logLevel }).getClient();
+```
+
+**Requirements:**
+- MUST import from full path: `@appfire-platform/forge-storage/sdk/native/kvs`
+- MUST call `.getClient()` to get the KVS client instance
+- CAN override log level via constructor parameter
+- SHOULD use environment variables for log level in different environments
+
+### Rule 2: Native KVS Operations
+
+```typescript
+// Basic operations
+await kvs.set('myKey', { data: 'value' });
+const value = await kvs.get('myKey');
+await kvs.delete('myKey');
+
+// Query operations
+const results = await kvs
+  .query()
+  .where('key', WhereConditions.beginsWith('prefix'))
+  .limit(10)
+  .getMany();
+
+const oneResult = await kvs
+  .query()
+  .where('key', WhereConditions.equalTo('exactKey'))
+  .getOne();
+```
+
+**Requirements:**
+- All operations MUST be awaited (they return Promises)
+- Query builder MUST chain methods: `.query().where().limit().getMany()` or `.getOne()`
+- Use `getMany()` for multiple results, `getOne()` for single result
+- Use `WhereConditions` utility for query conditions
+
+### Rule 3: Custom Entity Store (Native)
+
+**Prerequisites:**
+- Custom entities MUST be defined in `manifest.yml` before use
+- Reference Forge documentation on custom entities for manifest configuration
+
+**Manifest Configuration:**
+
+```yaml
+app:
+  id: "ari:cloud:ecosystem::app/your-app-id"
+  storage:
+    entities:
+      - name: user
+        attributes:
+          email:
+            type: string
+          firstName:
+            type: string
+          lastName:
+            type: string
+          gender:
+            type: string
+          age:
+            type: integer
+          createdAt:
+            type: string
+        indexes:
+          - email  # Simple index
+          - name: by-gender-age  # Named index
+            partition:
+              - gender
+            range:
+              - age
+```
+
+**Entity Definition Requirements:**
+- Entity names: Must match regex `[_a-z0-9:-.]`, cannot start with `-` or `_`, cannot begin/end with `.`, cannot contain `..`
+- Entity name length: 3-60 characters
+- Maximum entities per app: 20
+- Maximum attributes per entity: 50
+- Maximum custom indexes per entity: 7
+- Maximum object size: 240KiB (RAW) per object
+- Maximum object depth: 31 levels
+
+**Attribute Requirements:**
+- Attribute names: Must match regex `[_A-Za-z][_0-9A-Za-z]*`
+- Attribute name length: Maximum 64 characters
+- Supported types: `string`, `integer`, `float`, `boolean`, `any`
+- Type enforcement: Strict - storing wrong type results in error
+
+**Index Requirements:**
+- Index names: Must match regex `[a-zA-Z0-9:-_.]`, cannot begin/end with `.`, cannot contain `..`
+- Index name length: 3-50 characters
+- Maximum partition attributes combined size: 1700 bytes
+- Maximum range attributes combined size: 900 bytes
+- Key index (`by-key`) is automatically created and does NOT count toward limit
+
+**Usage:**
+
+```typescript
+import { ForgeStorage } from '@appfire-platform/forge-storage/sdk/native/kvs';
+
+const kvs = new ForgeStorage().getClient();
+
+// Access custom entity
+const userEntity = kvs.entity<User>('user');
+
+// CRUD operations
+await userEntity.set('john@example.com', { 
+  email: 'john@example.com', 
+  firstName: 'John',
+  lastName: 'Doe',
+  gender: 'male',
+  age: 30,
+  createdAt: new Date().toISOString()
+});
+const user = await userEntity.get('john@example.com');
+await userEntity.delete('john@example.com');
+```
+
+**Requirements:**
+- MUST define custom entities in manifest.yml first
+- Use `.entity<T>(entityName)` to access custom entity store
+- Type parameter `<T>` SHOULD match the entity type for type safety
+- MUST follow entity naming conventions
+- MUST respect attribute type constraints
+- MUST respect index size limitations
+
+## Forge-Remote Rules
+
+### Rule 4: Remote KVS Initialization
+
+```typescript
+import { ForgeStorage } from '@appfire-platform/forge-storage/sdk/remote/kvs';
+
+// With synchronous token function
+const kvs = new ForgeStorage({
+  token: () => headers['x-forge-oauth-system'],
+  logLevel: 'error'
+}).getClient();
+
+// With asynchronous token function
+const kvs = new ForgeStorage({
+  token: async () => {
+    const response = await fetch('https://your-secret-store/token');
+    return response.text();
+  },
+  logLevel: process.env.FORGE_STORAGE_LOG_LEVEL || 'error'
+}).getClient();
+```
+
+**Requirements:**
+- **MUST** provide `token` function (synchronous or asynchronous)
+- Token function MUST return a valid system token string
+- Token is automatically cached and refreshed by SDK
+- **MUST** have `read:app-system-token` scope in manifest.yml
+- **MUST** have `appSystemToken: enabled: true` in remote auth configuration
+- Token function SHOULD return the latest refreshed token (user responsibility)
+
+### Rule 5: Remote Manifest Configuration
+
+```yaml
+permissions:
+  scopes:
+    - read:app-system-token  # Required for remote KVS
+
+remotes:
+  - key: remote-app-node
+    ...
+    auth:
+      appSystemToken:
+        enabled: true  # Required for remote KVS
+```
+
+**Requirements:**
+- **MUST** include `read:app-system-token` in `permissions.scopes`
+- **MUST** enable `appSystemToken` in remote auth configuration
+- Without these, `x-forge-oauth-system` header will NOT be present
+
+### Rule 6: Remote KVS Operations
+
+```typescript
+import { ForgeStorage, WhereConditions } from '@appfire-platform/forge-storage/sdk/remote/kvs';
+
+const kvs = new ForgeStorage({
+  token: () => headers['x-forge-oauth-system']
+}).getClient();
+
+// Basic operations
+await kvs.set('myKey', { data: 'value' });
+const value = await kvs.get('myKey');
+await kvs.delete('myKey');
+
+// Secret operations
+await kvs.setSecret('secretKey', 'secretValue');
+const secret = await kvs.getSecret('secretKey');
+await kvs.deleteSecret('secretKey');
+
+// Query operations
+const results = await kvs
+  .query()
+  .where('key', WhereConditions.beginsWith('prefix'))
+  .limit(10)
+  .cursor('nextCursor')
+  .getMany();
+
+const oneResult = await kvs
+  .query()
+  .where('key', WhereConditions.equalTo('exactKey'))
+  .getOne();
+```
+
+**Requirements:**
+- Use `WhereConditions` utility for query conditions
+- Query builder supports `.cursor()` for pagination
+- Secret operations (`setSecret`, `getSecret`, `deleteSecret`) are available
+- **LIMITATION**: Query method does NOT return secret values (Forge Storage REST API limitation)
+- Use `.cursor()` for pagination through large result sets
+
+### Rule 7: Remote Custom Entity Store
+
+```typescript
+import {
+  ForgeStorage,
+  FilterConditions,
+  FilterBuilder,
+  WhereConditions
+} from '@appfire-platform/forge-storage/sdk/remote/kvs';
+
+const kvs = new ForgeStorage({
+  token: () => headers['x-forge-oauth-system']
+}).getClient();
+
+// Access custom entity
+const userEntity = kvs.entity<User>('user');
+
+// CRUD operations
+await userEntity.set('john@example.com', {
+  email: 'john@example.com',
+  firstName: 'John',
+  lastName: 'Doe',
+  gender: 'male',
+  createdAt: new Date().toISOString()
+});
+
+const user = await userEntity.get('john@example.com');
+await userEntity.delete('john@example.com');
+```
+
+**Requirements:**
+- **MUST** define custom entities in manifest.yml first
+- Use `.entity<T>(entityName)` to access custom entity store
+- Type parameter `<T>` SHOULD match entity type for type safety
+
+### Rule 8: Custom Entity Querying with Indexes
+
+**Index Types:**
+
+1. **Key Index (Automatic)**:
+   - Name: `by-key` (automatically created)
+   - Does NOT count toward 7-index limit
+   - Allows filtering by key directly
+
+2. **Simple Index**:
+   ```yaml
+   indexes:
+     - email  # Simple index on email attribute
+   ```
+
+3. **Named Index**:
+   ```yaml
+   indexes:
+     - name: by-gender-age
+       partition:
+         - gender
+       range:
+         - age
+   ```
+
+**Usage:**
+
+```typescript
+// Query using secondary index
+const results = await userEntity
+  .query()
+  .index('by-gender-age', { partition: ['female'] })
+  .where(WhereConditions.beginsWith('john'))
+  .limit(10)
+  .getMany();
+
+// Query using simple index
+const emailResults = await userEntity
+  .query()
+  .index('email')
+  .where(WhereConditions.equalTo('john@example.com'))
+  .getOne();
+```
+
+**Requirements:**
+- Use `.index(indexName, { partition })` for named indexes with partition
+- Use `.index(indexName)` for simple indexes
+- Partition key MUST match index definition in manifest.yml
+- Can chain `.where()` for range key conditions
+- Use `.limit()` to restrict result count
+- Index name MUST match exactly as defined in manifest.yml
+
+### Rule 9: Advanced Filtering with FilterBuilder
+
+```typescript
+// Using FilterBuilder for complex queries
+const filter = new FilterBuilder()
+  .and('firstName', FilterConditions.beginsWith('J'))
+  .and('gender', FilterConditions.equalTo('female'));
+
+const filteredResults = await userEntity
+  .query()
+  .filters(filter)
+  .limit(5)
+  .getMany();
+```
+
+**Requirements:**
+- Use `FilterBuilder` for complex AND/OR filter logic
+- Chain `.and()` or `.or()` methods for multiple conditions
+- Use `FilterConditions` utility for condition types
+- Pass filter builder to `.filters()` method
+- Available conditions: `beginsWith`, `equalTo`, `between`, etc.
+
+### Rule 10: FilterBuilder Debug Logging (Hidden Feature)
+
+```typescript
+// Enable debug logging for FilterBuilder (development only)
+const filter = new FilterBuilder({ logLevel: 'debug' })
+  .and('firstName', FilterConditions.beginsWith('J'))
+  .and('gender', FilterConditions.equalTo('female'));
+```
+
+**Requirements:**
+- **DEVELOPMENT ONLY**: Do NOT enable in production
+- Pass `{ logLevel: 'debug' }` as first argument to FilterBuilder constructor
+- Available levels: `'debug'`, `'info'`, `'warn'`, `'error'`, `'silent'`
+- Default is `'silent'` (no logs)
+- Use for diagnosing filter logic issues
+
+## Best Practices
+
+### Rule 11: Error Handling
+
+```typescript
+try {
+  const value = await kvs.get('myKey');
+  if (!value) {
+    // Handle missing key
+    return defaultValue;
+  }
+  return value;
+} catch (error) {
+  // Handle KVS errors (network, authentication, etc.)
+  Logger.error({
+    message: 'Failed to get KVS value',
+    error: error instanceof Error ? error : new Error(String(error)),
+    data: { key: 'myKey' }
+  });
+  throw error;
+}
+```
+
+**Requirements:**
+- **MUST** wrap KVS operations in try-catch blocks
+- **MUST** handle missing keys (get returns null/undefined)
+- **MUST** log errors with context (key, operation type)
+- **SHOULD** rethrow errors after logging for upstream handling
+
+### Rule 12: Key Naming Conventions
+
+```typescript
+// Good: Namespaced keys
+await kvs.set('migration:transfer-123:progress', progressData);
+await kvs.set('migration:transfer-123:chunk:0', chunkData);
+
+// Good: Consistent prefixes
+await kvs.set('user:john@example.com', userData);
+await kvs.set('user:jane@example.com', userData);
+
+// Bad: Unstructured keys
+await kvs.set('data123', data); // No namespace
+await kvs.set('user_john', userData); // Inconsistent separator
+```
+
+**Requirements:**
+- **MUST** use namespaced keys with colons (`:`) as separators
+- **SHOULD** use consistent prefixes for related data
+- **SHOULD** include context in key names (e.g., `transferId`, `entityType`)
+- **MUST NOT** use underscores or other separators inconsistently
+
+### Rule 13: Query Performance
+
+```typescript
+// Good: Limit results and use cursors
+const results = await kvs
+  .query()
+  .where('key', WhereConditions.beginsWith('prefix'))
+  .limit(100)  // Limit result size
+  .cursor(cursor)  // Use cursor for pagination
+  .getMany();
+
+// Bad: No limit, fetching all results
+const allResults = await kvs
+  .query()
+  .where('key', WhereConditions.beginsWith('prefix'))
+  .getMany();  // May fetch thousands of results
+```
+
+**Requirements:**
+- **MUST** use `.limit()` to restrict result size (max 100-200 per query)
+- **SHOULD** use `.cursor()` for pagination through large datasets
+- **MUST NOT** fetch all results without pagination
+- **SHOULD** use specific query conditions to reduce result set
+
+### Rule 14: Type Safety
+
+```typescript
+// Good: Typed entity access
+interface User {
+  email: string;
+  firstName: string;
+  lastName: string;
+  gender: 'male' | 'female';
+  createdAt: string;
+}
+
+const userEntity = kvs.entity<User>('user');
+const user = await userEntity.get('john@example.com');
+// user is typed as User | null
+
+// Bad: Untyped access
+const userEntity = kvs.entity('user');
+const user = await userEntity.get('john@example.com');
+// user is typed as any
+```
+
+**Requirements:**
+- **MUST** define TypeScript interfaces for custom entities
+- **MUST** use type parameter `<T>` when accessing entities
+- **SHOULD** use strict typing for all KVS operations
+- **MUST NOT** use `any` type for entity data
+
+### Rule 15: Log Level Management
+
+```typescript
+// Environment-based log level configuration
+const getLogLevel = (): string => {
+  const env = process.env.NODE_ENV || 'production';
+  const override = process.env.FORGE_STORAGE_LOG_LEVEL;
+  
+  if (override) return override;
+  
+  switch (env) {
+    case 'development':
+      return 'debug';
+    case 'test':
+      return 'info';
+    case 'production':
+    default:
+      return 'error';
+  }
+};
+
+const kvs = new ForgeStorage({
+  token: () => headers['x-forge-oauth-system'],
+  logLevel: getLogLevel()
+}).getClient();
+```
+
+**Requirements:**
+- **SHOULD** use environment variables for log level control
+- **SHOULD** use different log levels per environment (debug in dev, error in prod)
+- **MUST NOT** hardcode log levels in production code
+- **SHOULD** provide override mechanism via environment variables
+
+## Common Patterns
+
+### Rule 16: Migration Progress Tracking Pattern
+
+```typescript
+const kvs = new ForgeStorage().getClient();
+
+// Store progress
+await kvs.set(`migration:${transferId}:progress`, {
+  transferId,
+  status: 'IN_PROGRESS',
+  percent: 45,
+  completedChunks: 45,
+  totalChunks: 100,
+  startedAt: new Date().toISOString()
+});
+
+// Retrieve progress
+const progress = await kvs.get(`migration:${transferId}:progress`);
+
+// Query all migrations
+const migrations = await kvs
+  .query()
+  .where('key', WhereConditions.beginsWith('migration:'))
+  .limit(50)
+  .getMany();
+```
+
+**Requirements:**
+- Use namespaced keys: `migration:${transferId}:progress`
+- Store structured data (objects) not primitives
+- Include timestamps for tracking
+- Use query with prefix for listing related data
+
+### Rule 17: Batch Operations Pattern
+
+```typescript
+// Process in batches with cursor pagination
+let cursor: string | undefined;
+let allResults: any[] = [];
+
+do {
+  const batch = await kvs
+    .query()
+    .where('key', WhereConditions.beginsWith('prefix:'))
+    .limit(100)
+    .cursor(cursor)
+    .getMany();
+  
+  allResults = allResults.concat(batch.results);
+  cursor = batch.cursor;
+} while (cursor);
+```
+
+**Requirements:**
+- **MUST** use cursor-based pagination for large datasets
+- **MUST** limit batch size (100-200 items)
+- **SHOULD** process batches sequentially to avoid rate limits
+- **MUST** check for cursor existence before next iteration
+
+## Limitations and Constraints
+
+### Rule 18: Query Limitations
+
+- **Secret Values**: Query operations do NOT return secret values (Forge Storage REST API limitation)
+- **Result Size**: Use `.limit()` to restrict result size (recommended: 100-200 per query)
+- **Pagination**: Use `.cursor()` for pagination through large result sets
+- **Index Requirements**: Custom entity queries with indexes require proper manifest.yml configuration
+
+### Rule 19: Token Management Constraints
+
+- **Token Expiry**: Tokens expire and MUST be refreshed
+- **Token Caching**: SDK caches tokens but relies on callback for refresh
+- **User Responsibility**: Token callback MUST return valid, refreshed tokens
+- **Header Availability**: `x-forge-oauth-system` header only available with proper manifest configuration
+
+### Rule 20: Custom Entity Limitations
+
+**Entity Limits:**
+- Maximum 20 entities per app
+- Maximum 7 custom indexes per entity (plus automatic `by-key` index)
+- Maximum 50 attributes per entity
+- Maximum object size: 240KiB (RAW) per object
+- Maximum object depth: 31 levels
+- Entity names: 3-60 characters, regex `[_a-z0-9:-.]`, cannot start with `-` or `_`
+
+**Attribute Limits:**
+- Maximum attribute name length: 64 characters
+- Attribute name regex: `[_A-Za-z][_0-9A-Za-z]*`
+- Type enforcement: Strict - wrong type results in error
+- Integer range: -2,147,483,648 to 2,147,483,647 (32-bit signed)
+- Float range: ±1E-130 to ±9.9999999999999999999999999999999999999E+125 (38 digits precision)
+- String: UTF-8, must contain at least one non-whitespace character
+- Boolean: Only `true` or `false`
+- Any type: Supports string, integer, float, boolean, object, array
+
+**Index Limits:**
+- Maximum index name length: 3-50 characters
+- Index name regex: `[a-zA-Z0-9:-_.]`, cannot begin/end with `.`, cannot contain `..`
+- Maximum partition attributes combined size: 1700 bytes
+- Maximum range attributes combined size: 900 bytes
+- Index names must be unique within entity
+
+**Key Limits:**
+- Key regex: `/^(?!\s+$)[a-zA-Z0-9:._\s-#]+$/`
+- Key length: Maximum 500 characters
+- Must contain at least 1 character, cannot be empty or only whitespace
+
+**Deletion Constraints:**
+- **Entity Deletion**: Once deployed, entities and attributes CANNOT be deleted (will return error)
+- **Index Deletion**: Can delete in dev/custom environments, but NOT in staging/production once deployed
+- **Adding Attributes**: Can add new attributes to existing entities (does not count as deletion)
+
+**Deployment Considerations:**
+- Indexing process runs during `forge deploy` (minimum 5 minutes for small datasets)
+- Deployment completes before indexing finishes
+- App cannot be installed until all indexes have ACTIVE status
+- Check index status: `forge storage entities indexes list -e <environment>`
+- Remove references to deleted indexes before production deployment
+
+## Entity Definition Examples
+
+### Rule 21: Complete Entity Definition Example
+
+```yaml
+app:
+  id: "ari:cloud:ecosystem::app/your-app-id"
+  storage:
+    entities:
+      - name: employee
+        attributes:
+          surname:
+            type: string
+          age:
+            type: integer
+          employmentyear:
+            type: integer
+          gender:
+            type: string
+          nationality:
+            type: string
+          salary:
+            type: float
+          isActive:
+            type: boolean
+          metadata:
+            type: any  # Supports object/array
+        indexes:
+          # Simple indexes
+          - surname
+          - employmentyear
+          # Named index with range only
+          - name: by-age
+            range:
+              - age
+          # Named index with partition and range
+          - name: by-age-per-gender
+            partition:
+              - gender
+            range:
+              - age
+```
+
+**Requirements:**
+- Define all attributes with correct types
+- Create indexes based on query patterns
+- Use simple indexes for single-attribute queries
+- Use named indexes for complex queries (partition + range)
+- Ensure partition + range attribute sizes stay within limits (1700 bytes partition, 900 bytes range)
+
+### Rule 22: Index Deployment Process
+
+**Before Deployment:**
+1. Define entities and indexes in manifest.yml
+2. Ensure index names follow naming conventions
+3. Verify attribute types match usage
+4. Check partition/range size limits
+
+**During Deployment:**
+```bash
+forge deploy
+```
+
+**After Deployment:**
+```bash
+# Check index status
+forge storage entities indexes list -e development
+# or
+forge storage entities indexes list -e staging
+```
+
+**Index Status Values:**
+- `ACTIVE`: Index is ready for use
+- `CREATING`: Index is being created (app cannot be installed)
+- `UPDATING`: Index is being updated
+- `DELETING`: Index is being deleted
+
+**Requirements:**
+- **MUST** wait for all indexes to be ACTIVE before installing app
+- **MUST** check index status after deployment
+- **MUST NOT** delete indexes that have been deployed to staging/production
+- **MUST** remove code references to deleted indexes before production deployment
+
+## References
+
+- **Package**: https://www.npmjs.com/package/@appfire-platform/forge-storage
+- **Forge KVS Documentation**: https://developer.atlassian.com/platform/forge/key-value-store/
+- **Forge Custom Entity Store**: https://developer.atlassian.com/platform/forge/custom-entities/
+- **Forge Custom Entity Definition**: https://developer.atlassian.com/platform/forge/custom-entities/defining-entities/
+- **Forge Storage Remote Prerequisites**: https://developer.atlassian.com/platform/forge/storage-remote-prerequisites/

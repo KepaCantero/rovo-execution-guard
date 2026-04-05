@@ -1,0 +1,65 @@
+# Data Transformers - 25 Rules
+
+Rules derived from: https://developer.atlassian.com/platform/app-migration/data-transformers/
+
+## Transformer Overview
+
+1. **Transformation Effort Reduction**: Use data transformers to offload common transformation tasks from your app to migration platform. Reduces transformation effort and improves reliability.
+
+2. **Forge Storage Integration**: Transformers work with specific Forge Storage data planes: SQL, Custom Entity Store, and Key-Value Store. Choose appropriate data plane for your use case.
+
+3. **Pipeline Execution**: Transformers execute as part of migration pipeline, ensuring reliable and scalable data processing. Trust platform execution order.
+
+4. **Transformer Specification**: Include transformers in `transformers` parameter when calling `sendKeyValuePair()`. Platform applies transformations in specified order (subject to platform modification).
+
+## MriIdMapping Transformer
+
+5. **ID Mapping Solution**: Use MriIdMapping transformer to solve ID mapping problem through simple string replacement. Automatically replaces MRI markers with cloud IDs.
+
+6. **MRI Format Usage**: Mark exported data requiring transformation with Migration Resource Identifiers (MRI) in format `{mri:v1:mig:namespace:entity:id}`. Use helper functions when available.
+
+7. **Helper Function Preference**: Use provided MRI helper functions instead of manual formatting. Helpers ensure correct format and versioning (CCMA v3.11.15+, JCMA coming soon).
+
+8. **MRI Marking Requirement**: All exported data requiring transformation must be marked with MRIs. Transformer only processes data with MRI markers.
+
+9. **Supported Entities**: Use MriIdMapping only for entities listed in mappings namespaces documentation. Verify entity support before using transformer.
+
+10. **String Replacement**: Transformer performs simple string replacement of MRI format strings with corresponding cloud IDs. Ensure MRI format is correct.
+
+## Transformer Use Cases
+
+11. **Configuration Data**: Use MriIdMapping for configuration data that includes references to cloud migrated entities. Automatically updates references during migration.
+
+12. **Unstructured Data**: Use transformer for unstructured data containing entity references. Handles string-based references automatically.
+
+13. **Custom Entity References**: Use transformer for custom entities referencing Jira issues, Confluence pages, or other migrated entities. Simplifies reference updates.
+
+14. **Complex Reference Handling**: Transformer handles complex reference scenarios where entities reference other migrated entities. Reduces manual mapping effort.
+
+## Data Plane Compatibility
+
+15. **SQL Data Plane**: Transformers work with SQL data plane for complex relational data. Ensure your SQL schema supports transformer requirements.
+
+16. **Custom Entity Store**: Transformers work with Custom Entity Store for structured entity data. Verify entity schema compatibility.
+
+17. **Key-Value Store**: Transformers work with Key-Value Store for simple key-value data. Ensure values contain MRI markers for transformation.
+
+## Transformer Configuration
+
+18. **Transformer List**: Provide list of transformer names in `transformers` parameter. Use "MriIdMapping" for ID mapping transformer.
+
+19. **Multiple Transformers**: Specify multiple transformers in list if needed. Platform applies transformations in order (subject to platform modification rights).
+
+20. **Transformer Ordering**: Don't depend on specific transformer execution order. Platform reserves right to modify order if required for optimization.
+
+## Implementation Best Practices
+
+21. **MRI Marking Strategy**: Mark all data requiring ID mapping with MRIs during export. Consistent marking ensures complete transformation coverage.
+
+22. **Helper Function Usage**: Use MRI helper functions from gateway when available. Ensures correct format and reduces formatting errors.
+
+23. **Transformation Validation**: Validate transformed data after migration to ensure correct ID replacement. Verify references point to correct cloud entities.
+
+24. **Error Handling**: Handle cases where MRI references cannot be resolved. Transformer may fail if MRI format is incorrect or entity not migrated.
+
+25. **Documentation**: Document which transformers are used and how they affect your data. Helps customers understand migration process and troubleshoot issues.

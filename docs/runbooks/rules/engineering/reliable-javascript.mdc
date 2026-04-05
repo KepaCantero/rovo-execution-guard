@@ -1,0 +1,30 @@
+---
+description: Rules based on Reliable JavaScript (Scott Allen & Pandu Rahman)
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Reliable JavaScript (Scott Allen & Pandu Rahman)
+
+Focus on writing JS code that is production-safe in enterprise systems.
+
+- **Software Craftsmanship**: JavaScript code requires engineer discipline, not amateur work.
+- **Test-First Development**: Write the test to define complex system behavior.
+- **Dependency Injection**: Vital to decouple modules in the monorepo.
+- **Use of Design Patterns**: Apply Singleton, Factory, and Observer rigorously.
+- **Exception Handling**: Don't catch errors if you're not going to do something useful with them.
+- **Contract Validation**: Ensure functions receive what they expect (Type Guards).
+- **Scope Security**: Avoid polluting the Forge global context.
+- **Strict Modularization**: Each file should have a single clear responsibility.
+- **Use Linter as Design Guide**: Not just for errors, but to enforce patterns.
+- **Side Effect Documentation**: If a function touches storage, it should be obvious.
+- **Test Suite Maintainability**: If tests are hard to read, code is too.
+- **Logic Isolation**: Separate Atlassian logic from your business logic.
+- **Defensive Programming**: Validate inputs even if they come from your own functions.
+- **Avoid Temporal Coupling**: Functions that don't depend on global execution order.
+- **Use Domain Names**: Don't use technical terms in business logic.
+- **Safe Refactoring**: Change structure without changing observable behavior.
+- **Complexity Analysis**: Watch cyclomatic complexity of your resolvers.
+- **Asynchrony Handling**: Avoid race conditions in data saving.
+- **Self-Documenting Code**: Code should tell a clear story.
+- **Continuous Quality**: System is only reliable if verified on every commit.

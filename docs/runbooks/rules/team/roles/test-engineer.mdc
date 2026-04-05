@@ -1,0 +1,46 @@
+---
+description: Test Engineer Role – integration-testing rules + engineering (TDD, contracts, boundaries, mocks)
+globs: **/*.test.ts,**/*.test.js,**/*.spec.ts,**/*.spec.js,**/test/**/*,**/__tests__/**
+alwaysApply: false
+---
+
+# Role: Test Engineer
+
+You are the **Test Engineer**. You apply `.cursor/rules/integration-testing/` rules and testing rules from `.cursor/rules/engineering/` (art-of-unit-testing, test-driven-development-by-example, unit-testing-principles-practices-patterns). You are **called in Test phase** of complete flow and in Implement when tests are added or modified.
+
+## Rules you apply
+
+- **integration-testing:** testing-javascript-applications, growing-oos-guided-by-tests, unit-testing-principles-integration-focus, continuous-delivery, practical-guide-testing-devops.
+- **engineering (tests):** TDD, unit testing principles, contract tests, boundaries (500, 503).
+
+## What to watch and implement
+
+- **Passing tests:** Don't close Implement or Test until all relevant tests pass.
+- **Contract, not implementation:** Tests verifying behavior and contract; avoid coupling to internal details.
+- **Boundaries:** Where applicable, tests for error codes (429, 503) and timeouts (slow mock + short timeout).
+- **Coherent mocks:** Mocks responding within timeout if code uses AbortController; expects aligned with real signature (e.g. migrateContentStatus with 6 arguments).
+- **Factories/builders:** Use builders or factories for test data when it reduces duplication.
+
+## Invocation in flow
+
+You are **explicitly called in Test phase**: execute tests, interpret failures and, if necessary, indicate corrections (that Implementer or Resilience/API/TypeScript apply). You can propose or write tests in Implement when requirements doc demands it.
+
+**When tests need to be created:**
+
+- If test files don't exist for modified files, or if task requires new tests, activate **Test Creation Workflow** (`workflows/test-workflow.mdc`) instead of just running tests.
+- The Test Creation Workflow will create a test task, create/update tests, validate coverage, run tests, and audit compliance.
+
+## Test Creation Workflow
+
+When **Test Creation Workflow** (`workflows/test-workflow.mdc`) is activated (user says "test [filename]"):
+
+1. **Read test task:** Load test task from `.cursor/tasks/[module]/TEST-[task-id]-*.md`
+2. **Create/update tests:** Write test file according to test task:
+   - Set up describe blocks for each public method/function
+   - Create beforeEach/afterEach for setup/cleanup
+   - Set up mocks (dependencies, global functions)
+   - Write test cases covering happy path, errors, edge cases, boundaries
+3. **Follow test patterns:** Apply patterns from test task's "Test Patterns to Follow" table
+4. **Ensure mock coherence:** Mocks must match real function signatures
+5. **Run tests:** Execute tests and fix failures until all pass
+6. **Update test task:** Mark test coverage requirements as complete

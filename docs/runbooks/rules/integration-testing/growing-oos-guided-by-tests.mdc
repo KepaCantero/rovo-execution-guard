@@ -1,0 +1,30 @@
+---
+description: Rules from Growing Object-Oriented Software, Guided by Tests (Freeman & Pryce) - Walking Skeleton
+globs: **/*.test.js,**/*.test.ts,**/*.spec.js,**/*.spec.ts
+alwaysApply: false
+---
+
+# Growing Object-Oriented Software, Guided by Tests (Freeman & Pryce)
+
+The book that introduced "Walking Skeleton" concept. Applicable to flows from UI/API to Storage in this project.
+
+- **Build a "Walking Skeleton"**: Your first integration test should cover from UI to empty Storage.
+- **Listen to your tests**: If integration test is hard to write, your Bridge design is bad.
+- **Test outside-in**: Start with user action and go down to persistence.
+- **Use "Probes"**: Small tests to understand how an Atlassian API behaves before implementing.
+- **Define "Protocols"**: Integration tests should validate communication protocol between layers.
+- **Avoid "Logging in Tests"**: Test should be clear without reading console.
+- **Isolate Domain**: Domain shouldn't know about integration tests.
+- **Use Domain Objects in Tests**: Don't pass raw strings; pass entities.
+- **Handle Concurrency**: Test what happens if two Forge triggers activate at once.
+- **Refactor Tests Continuously**: Integration code tends to degrade quickly.
+- **Use Business Names**: shouldApproveWorkflow better than testIntegrationStep1.
+- **Detect Bottlenecks**: If integration test takes long, it's bad architecture sign.
+- **Encapsulate Mocks**: Create your own Forge mock library.
+- **Test "Happy Path" first**: But don't forget "Rainy Day".
+- **Use "Clock Mocks"**: Control time to test approval expiration.
+- **Avoid global state in tests.**
+- **Use dependency injection for Atlassian services.**
+- **Verify critical interactions**: "If approved, MUST send comment to Jira".
+- **Keep tests near code.**
+- **Test is living documentation.**

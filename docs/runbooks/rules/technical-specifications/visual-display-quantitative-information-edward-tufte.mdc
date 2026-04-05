@@ -1,0 +1,124 @@
+# The Visual Display of Quantitative Information (Edward Tufte)
+
+**Source:** "The Visual Display of Quantitative Information" by Edward Tufte  
+**Focus:** Minimalismo gráfico y máxima precisión.
+
+## 1. DATA-INK RATIO
+
+- **Maximiza la proporción "Tinta-Datos":** Elimina cualquier línea que no represente información
+  - ✅ Remove unnecessary grid lines
+  - ✅ Remove decorative borders
+  - ❌ 3D effects, shadows, textures
+
+- **Elimina el "Chartjunk" (Basura gráfica):** Borra sombras, texturas 3D y decoraciones innecesarias
+  - ✅ Clean, minimal diagrams
+  - ❌ 3D pie charts, gradient backgrounds, decorative icons
+
+- **Muestra variaciones de datos, no de diseño:**
+  - Use consistent styling across similar charts
+  - Differences should reflect data differences
+
+## 2. CHART DESIGN
+
+- **Usa "Small Multiples":** En lugar de un gráfico complejo, usa varios pequeños que comparen variables
+  - ✅ Multiple small diagrams showing different scenarios
+  - ❌ One overwhelming diagram with everything
+
+- **La integridad visual es primero:** No distorsiones las escalas para que algo parezca "más grande"
+  - ✅ Consistent scales across related charts
+  - ❌ Manipulated axes to exaggerate differences
+
+- **Usa etiquetas directas:** No uses leyendas alejadas; pon el nombre sobre la línea o barra
+  - ✅ Labels directly on chart elements
+  - ❌ Legend requiring lookup
+
+- **Proporciona contexto:** No muestres un pico de latencia sin mostrar el promedio histórico
+  - ✅ Include baseline or comparison data
+  - ❌ Isolated data points without context
+
+- **Evita el exceso de rejillas:** Si usas líneas de fondo, que sean muy tenues
+  - ✅ Subtle grid lines
+  - ❌ Heavy grid lines competing with data
+
+- **Usa micro/macro lectura:** El gráfico debe verse claro de lejos y detallado de cerca
+  - ✅ Clear overall shape + readable details
+  - ❌ Too dense or too sparse
+
+- **Simplifica las coordenadas:**
+  - ✅ Clear, simple axis labels
+  - ❌ Complex coordinate systems
+
+- **Cuenta una historia con el gráfico, pero deja que los datos hablen:**
+  - ✅ Clear narrative flow
+  - ✅ Data-driven conclusions
+  - ❌ Over-interpretation
+
+- **Mantén una escala constante en todo el documento:**
+  - ✅ Consistent scales for similar metrics
+  - ❌ Changing scales between related charts
+
+- **Revisa la "Relación de Aspecto":** Los gráficos demasiado altos o anchos deforman la percepción
+  - ✅ Balanced aspect ratios
+  - ❌ Extremely tall or wide charts
+
+- **Si un dato es irrelevante, no lo grafiques:**
+  - ✅ Only include relevant data
+  - ❌ Including everything "just in case"
+
+## 3. TYPOGRAPHY AND COLOR
+
+- **La tipografía debe ser legible, no decorativa:**
+  - ✅ Sans-serif for body text (modern, screen-readable)
+  - ✅ Monospaced for code or file paths
+  - ❌ Decorative fonts, Comic Sans
+
+- **Usa colores vinculados a la realidad:** (ej. Rojo para errores, verde para éxito)
+  - ✅ Red for errors, green for success
+  - ✅ Blue for information, yellow for warnings
+  - ❌ Arbitrary color choices
+
+- **Usa capas de información:** Color para lo importante, gris para lo secundario
+  - ✅ Primary information in color
+  - ✅ Secondary information in gray
+  - ❌ Everything equally emphasized
+
+- **Evita el "efecto Moire":** No uses patrones de líneas que vibren al ojo
+  - ✅ Solid colors or subtle patterns
+  - ❌ Conflicting patterns
+
+## 4. TABLES AND LAYOUT
+
+- **No uses áreas para comparar números lineales:** El ojo humano es malo comparando volúmenes
+  - ✅ Bar charts for linear comparisons
+  - ❌ Area charts for numeric comparisons
+
+- **Elimina bordes innecesarios en las tablas:**
+  - ✅ Minimal borders, clear alignment
+  - ❌ Heavy borders everywhere
+
+- **Alinea los números a la derecha en las tablas técnicas:** Para facilitar la comparación
+  - ✅ Right-aligned numbers
+  - ✅ Left-aligned text labels
+
+- **Usa "Sparklines":** Gráficos diminutos del tamaño de una palabra para mostrar tendencias en tablas
+  - ✅ Inline trend visualization
+  - ❌ Separate charts for each metric
+
+- **Usa el blanco del papel como herramienta de diseño:**
+  - ✅ Generous margins (text shouldn't feel "drowned")
+  - ✅ Space between sections
+  - ❌ Cramped layout
+
+## 5. INTEGRATION
+
+- **El texto y el gráfico deben estar integrados:** Que el lector no tenga que saltar de página
+  - ✅ Diagrams near relevant text
+  - ❌ All diagrams at the end
+
+- **Usa flechas solo para indicar flujo real, no por estilo:**
+  - ✅ Arrows show actual data/control flow
+  - ❌ Decorative arrows
+
+---
+
+**Key Principle:** Maximize data-ink ratio, eliminate chartjunk, provide context, and maintain visual integrity. Let the data speak clearly.

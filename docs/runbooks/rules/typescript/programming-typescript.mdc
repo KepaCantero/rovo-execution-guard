@@ -1,0 +1,24 @@
+---
+description: TypeScript rules based on Programming TypeScript (Boris Cherny)
+globs: **/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Programming TypeScript (Boris Cherny)
+
+- **Types as sets**: Types represent sets of possible values; think in inclusion and exclusion.
+- **`never` for impossibilities**: Mark branches that should never be reached (e.g. default in exhaustive switch).
+- **Typed async errors**: Type promises with `Promise<T>` and consider `Promise<Result<T, E>>` for expected errors.
+- **Discriminated unions**: For complex states (e.g. workflow states), use a common discriminant field (`type`, `status`).
+- **Result/Either for expected errors**: Avoid throwing exceptions for expected error flows; return `{ ok: true, data } | { ok: false, error }`.
+- **Typed `this`**: In classes, define the type of `this` if you pass methods as callbacks.
+- **Decorators with caution**: Only if the platform (Forge/Confluence) requires it.
+- **External APIs**: Create translation layers (decoders/validators, e.g. Zod/Joi) at boundaries; don't trust third-party types without validating.
+- **Type inference**: Don't type the obvious; let TypeScript infer when the type is evident.
+- **`as const`**: For objects/arrays that should be treated as literals and not mutated.
+- **Boundaries between modules**: Don't export internal types from a module if they don't form part of its public API.
+- **Safe casting**: If you use `as`, wrap it in validation or an assertion function.
+- **Utility types**: Use `Exclude`, `Extract`, `NonNullable` when they simplify types.
+- **Avoid numeric enums**: Prefer string unions or const objects for opacity and tree-shaking.
+- **Encapsulation**: Prefer `#` (private in JS) or `private` in classes for internal members.
+- **Design types to fail at compilation**: If a state is invalid, the type should not allow representing it.

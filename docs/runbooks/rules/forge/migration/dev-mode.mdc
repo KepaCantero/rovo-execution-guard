@@ -1,0 +1,67 @@
+# Dev Mode for Migration Testing - 25 Rules
+
+Rules derived from: https://developer.atlassian.com/platform/app-migration/testing/dev-mode/
+
+## Dev Mode Purpose
+
+1. **Production Prohibition**: Never use dev mode in production. Pre-flight checks are important for product consistency and customer experience.
+
+2. **Development Speed**: Use dev mode to speed up development progress by bypassing checks and requirements. Speeds up iteration during development.
+
+3. **UI Interaction Updates**: Dev mode allows updating user interface interactions to speed up development. Use for rapid prototyping and testing.
+
+4. **Behavior Preservation**: Migration steps and behavior remain unaltered except for pre-flight checks, validations, and app assessment requirements.
+
+## Pre-Flight Checks and Validations
+
+5. **Check Disabling**: Dev mode disables app-related validations and pre-flight checks except App Vendor Checks. Use when checks interfere with testing.
+
+6. **Premigration Errors Screen**: Disabled checks won't appear in Premigration Errors screen. Don't rely on this screen for validation during dev mode testing.
+
+7. **Migration Prevention**: Disabled checks won't prevent migration from running. Test migration flow without meeting all production requirements.
+
+8. **App Vendor Checks**: App Vendor Checks remain active even in dev mode. These checks are important for migration quality.
+
+## App Assessment Requirements
+
+9. **Selection Requirement Removal**: Dev mode removes requirement to select each server app in assessment screen. All apps with listeners are triggered automatically.
+
+10. **Automatic Triggering**: In dev mode, platform triggers every server app that has implemented listener, regardless of assessment selection. Simplifies testing.
+
+11. **Migration Plan Inclusion**: Apps with listeners are automatically included in migration plan. Their migration progress appears in Migration Details page.
+
+12. **Assessment Screen Bypass**: Don't need to manually select apps in assessment screen during dev mode. All listeners are triggered automatically.
+
+## Dev Mode Configuration
+
+13. **Dark Feature Access**: Navigate to Dark Feature page for your product: `/admin/darkfeatures.action` (Confluence) or `/secure/SiteDarkFeatures!default.jspa` (Jira).
+
+14. **Feature Name**: Add `migration-assistant.app-migration.dev-mode` in text box. Click Add or Submit to enable.
+
+15. **Feature Removal**: Remove feature name to disable dev mode. Always disable before production deployment.
+
+## Testing Workflow
+
+16. **Local Testing**: Use dev mode for local testing of server app changes. Test listener implementation without cloud app installation.
+
+17. **Rapid Iteration**: Use dev mode for rapid iteration during development. Bypass checks that slow down development cycle.
+
+18. **Migration Flow Testing**: Test complete migration flow in dev mode. Verify all steps work correctly before production deployment.
+
+19. **Progress Reporting Testing**: Test progress reporting in CMA using dev mode. Verify status updates appear correctly.
+
+## Production Readiness
+
+20. **Pre-Flight Check Validation**: Before production, disable dev mode and verify all pre-flight checks pass. Ensure app meets all requirements.
+
+21. **App Assessment Testing**: Test app assessment screen without dev mode. Verify customers can properly select apps for migration.
+
+22. **Production Behavior Verification**: Verify production behavior matches dev mode behavior (except disabled checks). Ensure no unexpected differences.
+
+23. **Checklist Completion**: Complete migration path readiness checklist before disabling dev mode. Ensure all requirements are met.
+
+## Best Practices
+
+24. **Selective Usage**: Use dev mode selectively during development. Don't rely on it for all testing. Test with checks enabled periodically.
+
+25. **Documentation**: Document any issues found during dev mode testing that wouldn't appear in production. Address these before production deployment.

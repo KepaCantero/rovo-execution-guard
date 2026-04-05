@@ -1,0 +1,28 @@
+---
+description: Rules based on You Don't Know JS Yet (Kyle Simpson)
+globs: **/*.js,**/*.jsx
+alwaysApply: false
+---
+
+# You Don't Know JS Yet (Kyle Simpson)
+
+- **Scope & Closures**: Understand exactly where your variables live.
+- **Shadowing**: Avoid declaring variables with the same name in nested scopes.
+- **Hoisting**: Know how var, let, and const behave at the start of the script.
+- **Primitive Types**: Understand the difference between an object and a primitive value.
+- **Type Coercion**: Avoid ==, always use === to avoid JS surprises.
+- **The this Keyword**: Master the 4 binding mechanisms of this.
+- **Prototypes as Objects**: Think of objects linked to other objects (OLOO).
+- **Asynchrony**: Understand promises from their fundamentals, not just syntax.
+- **Generators**: Use them to pause and resume complex workflow logic.
+- **Functions as First-Class Citizens**: Pass them as arguments with confidence.
+- **Global Scope**: Avoid polluting it; always use modules.
+- **Constants**: const doesn't mean immutable, it means the reference doesn't change.
+- **IIFE**: Only use if you need an immediate private scope without modules.
+- **Lexical Scope**: It's the heart of how JS finds variables.
+- **Arrow Functions**: They don't have their own this; use them for callbacks.
+- **Strict Equality**: The foundation of validation safety.
+- **ES6+ Features**: Use destructuring and spread operators for clean code.
+- **Engine Limits**: Don't try to optimize micro-details that the V8 engine already does for you.
+- **Polyfills**: Ensure the features you use exist in the Forge runtime.
+- **Behavior Delegation**: A simpler alternative to class inheritance.

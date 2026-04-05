@@ -1,0 +1,30 @@
+---
+description: Rules based on Refactoring: Improving the Design of Existing Code (Martin Fowler)
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Refactoring: Improving the Design of Existing Code (Martin Fowler)
+
+The standard catalog of moves to clean code.
+
+- **The Rule of Three**: If you do it the third time, refactor.
+- **Extract Function**: The universal remedy for long functions in cloud/app.js.
+- **Move Function**: Move logic from infrastructure to domain.
+- **Rename Variable**: A clear name is 50% of documentation.
+- **Replace Temp with Query**: Don't keep temporary variables that pollute scope.
+- **Introduce Parameter Object**: Group related data traveling together across the Bridge.
+- **Decompose Conditional**: Convert complex ifs into named boolean functions.
+- **Replace Magic Number with Constant**: Give semantics to fixed values.
+- **Replace Loop with Pipeline**: Change for/while to map/filter/reduce.
+- **Remove Dead Code**: If not called, delete immediately.
+- **Split Phase**: Separate code that processes data from code that visualizes it.
+- **Slide Statements**: Move related code so it's physically close.
+- **Replace Conditional with Polymorphism**: Use subclasses or union types to avoid giant switches.
+- **Introduce Special Case**: Use objects to handle nulls or default cases (Null Object Pattern).
+- **Replace Error Code with Exception**: Or better, use the Result Pattern we defined earlier.
+- **Separate Query from Modifier**: A function shouldn't calculate something and change state at same time.
+- **Encapsulate Collection**: Don't expose internal arrays; offer methods to interact with them.
+- **Pull Up Method**: Move common logic up to libraries/.
+- **Replace Subclass with Delegate**: Favor composition over inheritance.
+- **Refactor during "Happy Hour"**: When you don't have pressure of an imminent deploy.

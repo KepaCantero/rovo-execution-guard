@@ -1,0 +1,123 @@
+# Software Requirements (Karl Wieczorek)
+
+**Source:** "Software Requirements" by Karl Wieczorek  
+**Focus:** The "Bible" of defining exactly what needs to be built.
+
+## 1. REQUIREMENT LANGUAGE
+
+### 1.1 Mandatory Language
+
+- **Use "Shall" for mandatory requirements:** Removes ambiguity
+  - ✅ "The system SHALL process 1000 requests per second"
+  - ❌ "The system should process requests quickly"
+
+- **Avoid "Should" or "Maybe":** If optional, define as "Future Phase"
+  - ✅ "Future Phase: Support for batch processing"
+  - ❌ "The system should support batch processing"
+
+### 1.2 Requirement Types
+
+- **Distinguish between "User Needs" and "System Requirements":**
+  - User Need: "Users need to authenticate securely"
+  - System Requirement: "The system SHALL implement OAuth 2.0 authentication"
+
+- **Use "Business Rules":** Separate logic (tax laws) from function (the button)
+  - Business Rule: "Approvals require 3+ approvers"
+  - System Requirement: "The system SHALL enforce minimum 3 approvers"
+
+- **Define "Negative Requirements":** Explicitly state what the system won't do
+  - "The system SHALL NOT store passwords in plain text"
+  - "The system SHALL NOT support batch operations in Phase 1"
+
+## 2. REQUIREMENT STRUCTURE
+
+- **Write "Atomic" requirements:** Each point should cover only one thing
+  - ✅ "The system SHALL validate email format" + "The system SHALL validate password strength"
+  - ❌ "The system SHALL validate email format and password strength"
+
+- **Ensure "Verifiability":** If you can't test it, it's not a requirement
+  - ✅ "Response time SHALL be under 200ms for 95% of requests"
+  - ❌ "The system SHALL be fast"
+
+- **Prioritize:** Use MoSCoW (Must have, Should have, Could have, Won't have)
+  - **Must have:** Critical for MVP
+  - **Should have:** Important but not critical
+  - **Could have:** Nice to have
+  - **Won't have:** Explicitly excluded (Future Phase)
+
+- **Link to "Parent Requirements":** Show why this feature exists
+  - "This requirement supports Business Requirement BR-123: User Authentication"
+
+## 3. DOCUMENTATION ELEMENTS
+
+- **Create a "Glossary":** Define terms like "User" vs. "Admin" immediately
+  - "User: End-user of the application"
+  - "Admin: User with administrative privileges"
+  - "Transfer ID: Unique identifier for migration process"
+
+- **Identify "External Interfaces":** Specify how your system talks to others
+  - API endpoints
+  - Request/Response formats
+  - Authentication methods
+
+- **Specify "Data Constraints":** Length, type, and format of inputs
+  - ✅ "Email SHALL be valid RFC 5322 format, max 254 characters"
+  - ❌ "Email must be valid"
+
+- **Use "State Transition Diagrams":** Show how a "Draft" becomes "Published"
+  - Document state changes
+  - Trigger conditions
+  - Final states
+
+## 4. REQUIREMENT QUALITY
+
+- **Document "Assumptions":** What must be true for this spec to work?
+  - "Assumption: Confluence API rate limits are 25,000 points/hour"
+  - "Assumption: Database supports JSON columns"
+
+- **Check for "Feasibility":** Can this actually be built with current tech?
+  - Validate against platform constraints
+  - Document technical limitations
+
+- **Specify "Error Handling":** What happens when things go wrong?
+  - ✅ "On validation failure, the system SHALL return HTTP 400 with error details"
+  - ❌ "The system handles errors gracefully"
+
+- **Define "Latency":** Don't say "fast"; say "Response under 200ms"
+  - ✅ "P95 latency: 200ms"
+  - ❌ "Low latency"
+
+- **Specify "Security Requirements":** Who can see what?
+  - "Only admins SHALL access user data"
+  - "API keys SHALL be encrypted at rest"
+
+## 5. REQUIREMENT MANAGEMENT
+
+- **Identify "Stakeholders":** Who is the source of this requirement?
+  - Document requirement source
+  - Track stakeholder approval
+
+- **Use "Standard Templates":** Consistency makes specs easier to read
+  - Consistent section structure
+  - Standard requirement format
+
+- **Track "Version History":** Specs are living documents
+  - Document changes, dates, authors
+  - Link to related tickets/PRs
+
+- **Include "Success Metrics":** How do we know the feature worked?
+  - Measurable outcomes
+  - Acceptance criteria
+
+- **Look for "Missing Requirements":** What did the user forget to say?
+  - Edge cases
+  - Error scenarios
+  - Performance requirements
+
+- **Review with Developers:** A spec is useless if the builder can't read it
+  - Get developer feedback
+  - Ensure clarity and feasibility
+
+---
+
+**Key Principle:** Requirements must be atomic, verifiable, prioritized, and clearly linked to business needs. Use "Shall" for mandatory requirements and avoid ambiguity.

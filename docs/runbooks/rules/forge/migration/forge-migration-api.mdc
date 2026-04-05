@@ -1,0 +1,67 @@
+# Forge Migration API - 25 Rules
+
+Rules derived from: https://developer.atlassian.com/platform/app-migration/apis/forge/
+
+## API Import and Setup
+
+1. **Package Import**: Import `migration` object from `@forge/migrations` package. This provides access to all migration helper functions.
+
+2. **MigrationAPIError Import**: Import `MigrationAPIError` class for proper error handling. Use `instanceof` checks to identify migration-specific errors.
+
+3. **Type Safety**: Use TypeScript types provided by the API for type safety: `Migration`, `MappingResponse`, `AppDataListResponse`, `AppData`, `APIResponse`, etc.
+
+## Mapping Retrieval
+
+4. **getMappings Method**: Use `migration.getMappings(transferId, namespace)` to retrieve mappings. Returns `DefaultQueryBuilder` for flexible querying.
+
+5. **Query Builder Pattern**: Use query builder methods (`limit`, `cursor`, `getOne`, `getMany`) to control pagination and result size. Prefer `getMany()` for multiple results.
+
+6. **Namespace Selection**: Use correct mapping namespace (e.g., "jira/classic:appCustomField", "confluence:page"). Refer to mappings documentation for available namespaces.
+
+7. **Pagination Handling**: Handle pagination using `cursor` method and `nextCursor` in `ListResults`. Process results in batches to avoid memory issues.
+
+8. **getMappingById Method**: Use `migration.getMappingById(transferId, namespace, keys)` to retrieve specific mappings by keys. Up to 100 keys can be queried at once.
+
+9. **Mapping Response Structure**: Understand `MappingResponse` contains `result: Map<string, string>` where keys are server IDs and values are cloud IDs.
+
+## App Data Retrieval
+
+10. **getAppDataList Method**: Use `migration.getAppDataList(transferId)` to retrieve list of all app data uploaded by server app. Returns `Set<AppData>`.
+
+11. **AppData Structure**: Understand `AppData` contains `s3Key`, `key`, and `label` fields. Use these to identify and retrieve specific data payloads.
+
+12. **getAppDataPayload Method**: Use `migration.getAppDataPayload(key)` to retrieve actual data payload. Returns `APIResponse` with `json()`, `text()`, `arrayBuffer()` methods.
+
+13. **Payload Format Handling**: Choose appropriate response method (`json`, `text`, `arrayBuffer`) based on your data format. Handle parsing errors appropriately.
+
+## Event Acknowledgement
+
+14. **messageProcessed Method**: Call `migration.messageProcessed(transferId, messageId)` to acknowledge successful processing of `uploaded:app_data` events. Required within 15 minutes.
+
+15. **messageFailed Method**: Call `migration.messageFailed(transferId, messageId)` to indicate failed processing. Use when data cannot be processed and migration should fail.
+
+16. **Acknowledgement Timing**: Acknowledge events as data processing completes, not when events are received. This prevents timeouts and provides accurate status.
+
+17. **Message ID Tracking**: Track `messageId` from event payloads to acknowledge correct events. Store messageId with associated data for proper acknowledgement.
+
+## Container Retrieval
+
+18. **getContainers Method**: Use `migration.getContainers(transferId, containerType)` to retrieve container mappings. Valid types: `ConfluenceSpace`, `JiraProject`, `Site`.
+
+19. **Container Query Builder**: Use query builder methods with `getContainers()` for pagination. Handle large container lists appropriately.
+
+## Progress Logging
+
+20. **addLog Method**: Use `migration.addLog(transferId, logMessage)` to send status messages visible in progress logs. Messages help customers understand migration progress.
+
+21. **Log Message Length**: Ensure log messages don't exceed 65536 characters. Split long messages into multiple log entries if needed.
+
+22. **Log Timing**: Send log messages at regular intervals (every 10-15 minutes) during long-running migrations. Inform customers of progress milestones.
+
+## Error Handling
+
+23. **MigrationAPIError Detection**: Check for `MigrationAPIError` using `instanceof` operator. Access `error.status` to determine error type and handle accordingly.
+
+24. **Status Code Handling**: Handle different status codes appropriately: 4xx for client errors, 5xx for server errors. Implement retry logic for 5xx errors.
+
+25. **Error Context Preservation**: Log error context (transferId, messageId, status, message) for debugging. Don't expose sensitive information in error messages.

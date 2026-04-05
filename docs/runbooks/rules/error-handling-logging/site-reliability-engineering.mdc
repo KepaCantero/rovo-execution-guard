@@ -1,0 +1,30 @@
+---
+description: Rules from Site Reliability Engineering (Google SRE) - operating complex systems at scale
+globs: **/*.js,**/*.ts,**/cloud/**/*.js,**/aws/**/*.ts
+alwaysApply: false
+---
+
+# Site Reliability Engineering (Google SRE)
+
+The manual on how to operate complex systems at scale. Applicable to cloud, batch-processes and Forge when you don't have physical server access.
+
+- **Error Handling as Part of Flow**: Expected errors (e.g. permission denied) shouldn't be treated as disasters, but as business logic.
+- **Log Levels (Log Levels)**: DEBUG for development, INFO for milestones, WARN for weird stuff, ERROR for failures requiring intervention.
+- **SLIs and SLOs**: Define what error percentage is acceptable before considered service outage.
+- **Toil Elimination**: Automate response to common errors.
+- **Blameless Post-mortems**: For production failure, analyze system, not person.
+- **Structured Logging**: Don't log free text; log JSON objects for searchability.
+- **Meaningful Alerts**: Only send alert if human must do something immediately.
+- **Noise Reduction**: Too many logs are as bad as none; log only actionable stuff.
+- **Latency Handling**: Log time each external call takes.
+- **Error Budgets**: If too many errors this month, stop new features and prioritize stability refactor.
+- **Standardized Errors**: All your resolvers should return identical error format.
+- **Runtime Visibility**: Use Forge dashboards to monitor invocation errors.
+- **Canary Releases**: Deploy changes to small group to capture errors before full rollout.
+- **Reproducibility Capacity**: Log should give enough info to recreate error locally.
+- **Alert Documentation**: Each alert should have link to "Runbook" (what to do to fix).
+- **Audit Logging**: Record who changed what app configuration.
+- **Log Security**: Golden Rule: Never log tokens, emails, or PII (Personal Identifiable Information).
+- **External Dependency Handling**: Assume any external API will fail at some point.
+- **Operational Simplicity**: Simpler error handling, more reliable.
+- **Reliability Culture**: Reliability is most important feature of any product.

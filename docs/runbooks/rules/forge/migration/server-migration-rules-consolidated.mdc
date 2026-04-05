@@ -1,0 +1,97 @@
+# Server Migration Rules - Consolidated
+
+**Synthesis Date:** 2026-02-04T06:54:51.169003Z
+**Total Rules:** 310
+**Overall Confidence:** 0.86
+
+## Summary
+
+- **Tier 1 (Critical):** 3 rules
+- **Tier 2 (Important):** 0 rules
+- **Tier 3 (Standard):** 307 rules
+
+## Rules by Tier
+
+### Tier 1: Critical Rules
+
+
+#### SR-44: Required Packages:
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** general
+- **Priority:** critical
+
+
+#### SR-45: Required:
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** general
+- **Priority:** critical
+
+
+#### SR-294: Validate entities (check required fields, data types, relationships)
+
+- **Source:** roa-data-migration-forge-native
+- **Category:** validation
+- **Priority:** critical
+
+
+### Tier 2: Important Rules
+
+
+### Tier 3: Standard Rules
+
+*Total Tier 3 rules: 307*
+
+- **SR-1:** App Data Export Methods (Source: prepare-server-app-forge, Category: data-management)
+- **SR-2:** Complete Export Invocation (Source: prepare-server-app-forge, Category: data-management)
+- **SR-3:** Data Export Completion (Source: automated-migration-for-forge, Category: data-management)
+- **SR-4:** getAppDataList Method (Source: prepare-cloud-app-forge, Category: data-management)
+- **SR-5:** getAppDataPayload Method (Source: prepare-cloud-app-forge, Category: data-management)
+- **SR-6:** Migration Platform Storage (Source: roa-migration-without-bps, Category: data-management)
+- **SR-7:** Get list of all app data: `migration.getAppDataList(transferId)` - Returns `Set<AppData>` where `AppData = { key, label }` (Source: roa-data-migration-forge-native, Category: data-management)
+- **SR-8:** Retrieve payloads incrementally: `migration.getAppDataPayload(key)` - Returns `APIResponse` with `json()`, `text()`, `arrayBuffer()` methods (Source: roa-data-migration-forge-native, Category: data-management)
+- **SR-9:** Migration Platform API: `getAppDataList(transferId)` (Source: roa-data-migration-forge-native, Category: data-management)
+- **SR-10:** Filter by labels, retrieve payloads: `getAppDataPayload(key)` (Source: roa-data-migration-forge-native, Category: data-management)
+- **SR-11:** Rate Limiting Handling (Source: export-app-data, Category: error-handling)
+- **SR-12:** Rate Limiting Mitigation: (Source: roa-data-migration-forge-native, Category: error-handling)
+- **SR-13:** Rate Limiting (50 events per push, per-minute limits): (Source: roa-data-migration-forge-native, Category: error-handling)
+- **SR-14:** DiscoverableForgeListener Interface (Source: prepare-server-app-forge, Category: event-handling)
+- **SR-15:** Server App Listener Implementation (Source: automated-migration-for-forge, Category: event-handling)
+- **SR-16:** Migration Event Handling (Source: automated-migration-for-forge, Category: event-handling)
+- **SR-17:** Event Acknowledgement Timing (Source: automated-migration-for-forge, Category: event-handling)
+- **SR-18:** Event Order Independence (Source: automated-migration-for-forge, Category: event-handling)
+- **SR-19:** Event Payload Validation (Source: automated-migration-for-forge, Category: event-handling)
+- **SR-20:** Event Subscription (Source: prepare-cloud-app-forge, Category: event-handling)
+- **SR-21:** Progressive Acknowledgement (Source: prepare-cloud-app-forge, Category: event-handling)
+- **SR-22:** Async Events (Source: roa-migration-without-bps, Category: event-handling)
+- **SR-23:** Async Event Batching (Source: roa-migration-without-bps, Category: event-handling)
+- **SR-24:** Migration Event Processing (Source: roa-migration-without-bps, Category: event-handling)
+- **SR-25:** Async Event Payload (Source: roa-migration-without-bps, Category: event-handling)
+- **SR-26:** Event Handler (Source: roa-migration-without-bps, Category: event-handling)
+- **SR-27:** Create chunks optimized for Async Events API (900s timeout) (Source: roa-data-migration-forge-native, Category: event-handling)
+- **SR-28:** Event Push Pattern: (Source: roa-data-migration-forge-native, Category: event-handling)
+- **SR-29:** Check retention window: `event.retryContext?.retentionWindow?.remainingTimeMs` - warn if < 1 hour (Source: roa-data-migration-forge-native, Category: event-handling)
+- **SR-30:** Acknowledge event progressively (as chunks complete, not when received) (Source: roa-data-migration-forge-native, Category: event-handling)
+- **SR-31:** Store `messageId` when event received: `kvs.set('migration:${transferId}:messageId', messageId)` (Source: roa-data-migration-forge-native, Category: event-handling)
+- **SR-32:** Acknowledge event: `migration.messageProcessed(transferId, messageId)` ✅ (within 15 min) (Source: roa-data-migration-forge-native, Category: event-handling)
+- **SR-33:** Continue processing remaining chunks (no timeout risk - already acknowledged) (Source: roa-data-migration-forge-native, Category: event-handling)
+- **SR-34:** Check if already acknowledged before attempting acknowledgment (Source: roa-data-migration-forge-native, Category: event-handling)
+- **SR-35:** Migration Event Handler: (Source: roa-data-migration-forge-native, Category: event-handling)
+- **SR-36:** Async Events Consumers: (Source: roa-data-migration-forge-native, Category: event-handling)
+- **SR-37:** Phase 1: Deploy event handler and data processor (no consumers) (Source: roa-data-migration-forge-native, Category: event-handling)
+- **SR-38:** Phase 2: Deploy Async Events consumers with monitoring (Source: roa-data-migration-forge-native, Category: event-handling)
+- **SR-39:** Event Acknowledgment Failure: (Source: roa-data-migration-forge-native, Category: event-handling)
+- **SR-40:** Migration Event Received (`avi:ecosystem.migration:uploaded:app_data`) (Source: roa-data-migration-forge-native, Category: event-handling)
+- **SR-41:** Enqueue chunks via Async Events API (max 50 per push) (Source: roa-data-migration-forge-native, Category: event-handling)
+- **SR-42:** Async Events Consumer processes chunks (900s timeout) (Source: roa-data-migration-forge-native, Category: event-handling)
+- **SR-43:** Event Acknowledgment (15 minutes): (Source: roa-data-migration-forge-native, Category: event-handling)
+- **SR-46:** Dependency Management (Source: prepare-server-app-forge, Category: general)
+- **SR-47:** Version Catalog Reference (Source: prepare-server-app-forge, Category: general)
+- **SR-48:** OSGi Bundle Name Convention (Source: prepare-server-app-forge, Category: general)
+- **SR-49:** Multiple Forge App IDs Support (Source: prepare-server-app-forge, Category: general)
+- **SR-50:** getForgeAppId Method (Source: prepare-server-app-forge, Category: general)
+- **SR-51:** getForgeEnvironmentName Method (Source: prepare-server-app-forge, Category: general)
+- **SR-52:** getCloudAppKey Method (Source: prepare-server-app-forge, Category: general)
+
+*... and 257 more Tier 3 rules*

@@ -1,0 +1,546 @@
+# DATABASE SCHEMA STANDARDS
+
+**Reference Document:** `docs/database-schema.md` - Complete database schema documentation with ERD, table descriptions, column references, indexes, and relationships.
+
+This document describes the database schema for the Comala Workflows Forge Native application. All database operations must follow this schema structure and relationships.
+
+**When to Use This Rule:**
+- When designing database operations (INSERT, UPDATE, SELECT, DELETE)
+- When creating SQL migrations
+- When mapping data structures to database tables
+- When designing data transformations
+- When implementing repository patterns
+- When writing queries or data access code
+
+**MUST Reference:** Always consult `docs/database-schema.md` for:
+- Complete table structures and column definitions
+- Primary key and foreign key relationships
+- Index definitions and usage patterns
+- Data type specifications
+- Constraint definitions
+- Relationship mappings
+
+## Entity Relationship Diagram
+
+```mermaid
+erDiagram
+    Workflow {
+        string id PK
+        string name
+        int version
+        string scope
+        string containerId
+        int visible
+        int excludedLabels
+        json markup
+    }
+
+    WorkflowLink {
+        string id PK
+        string workflowId
+        string scope
+        string containerId
+        int enabled
+    }
+
+    WorkflowLabel {
+        string id PK
+        string workflowId
+        string label
+    }
+
+    WorkflowVersion {
+        string id PK
+        string workflowId
+        int version
+        json markup
+        datetime changedAt
+        string accountId
+        string action
+    }
+
+    WorkflowParameter {
+        string workflowId PK
+        string spaceId PK
+        string name PK
+        string value
+        int version
+        datetime createdAt
+        string accountId
+    }
+
+    ContentState {
+        string contentId PK
+        string name
+        int enabled
+        string colour
+        datetime expires
+        datetime expiredOn
+        int final
+        string latestWorkflowId
+        int latestWorkflowVersion
+        string approvedAccountId
+        int approvedVersion
+        datetime approvedDate
+        string transitionAccountId
+        datetime transitionDate
+        int transitionVersion
+        string iterationAccountId
+        datetime iterationDate
+        int iterationVersion
+        string updateAccountId
+        datetime updateDate
+        int updateVersion
+        string contentStatus
+        string contentType
+        string spaceId
+        string approvalStatus
+        int version
+    }
+
+    ContentStateLabel {
+        string contentId PK
+        string label PK
+    }
+
+    ContentApproval {
+        string contentId PK
+        string name PK
+        string status
+    }
+
+    ContentApprovalDecision {
+        string contentId PK
+        string name PK
+        string accountId PK
+        string decision
+        datetime date
+        string comment
+        string assigner
+        int version
+    }
+
+    ContentParameterAndMetadata {
+        bigint id PK
+        string contentId
+        string name
+        int version
+        string value
+        string userId
+        datetime updatedAt
+    }
+
+    ContentParameterHistory {
+        bigint id PK
+        string contentId
+        string name
+        int version
+        string value
+        string userId
+        datetime updatedAt
+    }
+
+    Messages {
+        string id PK
+        string contentId PK
+        string type
+        string title
+        string body
+        string mode
+        string createdBy
+        datetime createdAt
+        int version
+    }
+
+    DocumentActivity {
+        string id PK
+        string operationId
+        string contentId
+        string stateName
+        string stateColor
+        int stateFinal
+        int contentVersion
+        string accountId
+        string activityName
+        datetime date
+        json payload
+        json state
+        bigint orderSequence
+    }
+
+    DocumentActivityUsers {
+        string id PK
+        string activityId FK
+        string userId
+        datetime decisionDate
+    }
+
+    Workflow ||--o{ WorkflowLabel : labels
+    Workflow ||--o{ WorkflowVersion : versions
+    WorkflowLink ||--o{ WorkflowParameter : params
+    Workflow ||--o{ WorkflowLink : links
+    Workflow ||--o{ ContentState : applies
+    ContentState ||--o{ ContentStateLabel : labels
+    ContentState ||--o{ ContentApproval : approvals
+    ContentState ||--o{ ContentParameterAndMetadata : params
+    ContentState ||--o{ ContentParameterHistory : history
+    ContentState ||--o{ Messages : messages
+    ContentState ||--o{ DocumentActivity : activities
+    ContentApproval ||--o{ ContentApprovalDecision : decisions
+    DocumentActivity ||--o{ DocumentActivityUsers : users
+```
+
+## Table Descriptions
+
+### Workflow Domain
+
+| Table                 | Description                                                                  |
+| --------------------- | ---------------------------------------------------------------------------- |
+| **Workflow**          | Main workflow definitions with JSON markup containing workflow configuration |
+| **WorkflowLink**      | Links workflows to spaces or content items, enabling/disabling them          |
+| **WorkflowLabel**     | Labels associated with workflows for filtering/categorization                |
+| **WorkflowVersion**   | Version history tracking changes to workflow markup                          |
+| **WorkflowParameter** | Workflow-scoped parameter values applied at space level                      |
+
+### Content State Domain
+
+| Table                       | Description                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------ |
+| **ContentState**            | Current state of content within a workflow (state name, approval status, etc.) |
+| **ContentStateLabel**       | Labels associated with content for workflow matching                           |
+| **ContentApproval**         | Approval requirements for content at a given state                             |
+| **ContentApprovalDecision** | Individual user decisions (approve/reject) for approvals                       |
+
+### Content Parameters Domain
+
+| Table                           | Description                                     |
+| ------------------------------- | ----------------------------------------------- |
+| **ContentParameterAndMetadata** | Page-scoped parameters and their current values |
+| **ContentParameterHistory**     | Historical versions of content parameters       |
+
+### Messaging Domain
+
+| Table        | Description                                                         |
+| ------------ | ------------------------------------------------------------------- |
+| **Messages** | System messages (info/warning/error) displayed to users for content |
+
+### Document Activity Domain
+
+| Table                     | Description                                                    |
+| ------------------------- | -------------------------------------------------------------- |
+| **DocumentActivity**      | Activity log tracking all workflow-related events for content  |
+| **DocumentActivityUsers** | Users involved in specific activities (for multi-user actions) |
+
+## Detailed Column Reference
+
+### Workflow
+
+| Column         | Type                   | Constraints | Description                               |
+| -------------- | ---------------------- | ----------- | ----------------------------------------- |
+| id             | CHAR(36)               | PK          | UUID primary key                          |
+| name           | TEXT                   | Generated   | Extracted from `markup ->> '$.name'`      |
+| version        | INT                    | NOT NULL    | Workflow version number                   |
+| scope          | SET('global', 'space') | NOT NULL    | Workflow scope                            |
+| containerId    | VARCHAR(45)            | NOT NULL    | Space or global container ID              |
+| visible        | TINYINT                | Default 1   | Whether workflow is visible for selection |
+| excludedLabels | TINYINT                | Generated   | From `markup.excludedLabels`              |
+| markup         | JSON                   | NOT NULL    | Full workflow definition                  |
+
+### WorkflowLink
+
+| Column      | Type                    | Constraints | Description                              |
+| ----------- | ----------------------- | ----------- | ---------------------------------------- |
+| id          | CHAR(36)                | PK          | UUID primary key                         |
+| workflowId  | CHAR(36)                | NOT NULL    | Reference to workflow (no FK constraint) |
+| scope       | SET('space', 'content') | NOT NULL    | Link scope                               |
+| containerId | VARCHAR(45)             | NOT NULL    | Space or content ID                      |
+| enabled     | INT(1)                  | Default 0   | Whether link is enabled                  |
+
+### WorkflowLabel
+
+| Column     | Type         | Constraints | Description                              |
+| ---------- | ------------ | ----------- | ---------------------------------------- |
+| id         | CHAR(36)     | PK          | UUID primary key                         |
+| workflowId | CHAR(36)     | NOT NULL    | Reference to workflow (no FK constraint) |
+| label      | VARCHAR(256) | NOT NULL    | Label text                               |
+
+### WorkflowVersion
+
+| Column     | Type                        | Constraints        | Description                              |
+| ---------- | --------------------------- | ------------------ | ---------------------------------------- |
+| id         | CHAR(36)                    | PK                 | UUID primary key                         |
+| workflowId | CHAR(36)                    | NOT NULL           | Reference to workflow (no FK constraint) |
+| version    | INT                         | NOT NULL           | Version number                           |
+| markup     | JSON                        | NOT NULL           | Workflow markup at this version          |
+| changedAt  | DATETIME                    | NOT NULL           | When the change was made                 |
+| accountId  | VARCHAR(45)                 | NOT NULL           | Who made the change                      |
+| action     | ENUM('modified', 'deleted') | Default 'modified' | Type of change                           |
+
+### WorkflowParameter
+
+| Column     | Type         | Constraints | Description                              |
+| ---------- | ------------ | ----------- | ---------------------------------------- |
+| workflowId | CHAR(36)     | PK          | Reference to workflow (no FK constraint) |
+| spaceId    | VARCHAR(36)  | PK          | Space where parameter applies            |
+| name       | VARCHAR(256) | PK          | Parameter name                           |
+| value      | TEXT         | NULL        | Parameter value                          |
+| version    | INT          | Default 1   | Version for optimistic locking           |
+| createdAt  | DATETIME     | Default NOW | When parameter was created               |
+| accountId  | VARCHAR(45)  | Default ''  | Who created the parameter                |
+
+### ContentState
+
+| Column                | Type         | Constraints       | Description                                |
+| --------------------- | ------------ | ----------------- | ------------------------------------------ |
+| contentId             | VARCHAR(36)  | PK                | Confluence content ID                      |
+| name                  | VARCHAR(255) | NULL              | Current state name                         |
+| enabled               | INT(1)       | Default 1         | Whether workflow is enabled                |
+| colour                | VARCHAR(45)  | NULL              | State colour                               |
+| expires               | DATETIME     | NULL              | Expiration date/time (UTC)                 |
+| expiredOn             | DATETIME     | NULL              | When content expired                       |
+| final                 | INT(1)       | NOT NULL          | Whether state is final                     |
+| latestWorkflowId      | CHAR(36)     | NULL              | Applied workflow (no FK constraint)        |
+| latestWorkflowVersion | INT          | NULL              | Applied workflow version                   |
+| approvedAccountId     | VARCHAR(45)  | NULL              | Who approved                               |
+| approvedVersion       | INT          | NULL              | Content version when approved              |
+| approvedDate          | DATETIME     | NULL              | When approved                              |
+| transitionAccountId   | VARCHAR(45)  | NULL              | Who transitioned                           |
+| transitionDate        | DATETIME     | NULL              | When transitioned                          |
+| transitionVersion     | INT          | NULL              | Content version at transition              |
+| iterationAccountId    | VARCHAR(45)  | NULL              | Who iterated                               |
+| iterationDate         | DATETIME     | NULL              | When iterated                              |
+| iterationVersion      | INT          | NULL              | Content version at iteration               |
+| updateAccountId       | VARCHAR(45)  | NULL              | Who updated                                |
+| updateDate            | DATETIME     | NULL              | When updated                               |
+| updateVersion         | INT          | NULL              | Content version at update                  |
+| contentStatus         | SET          | NOT NULL          | current, draft, archived, trashed, unknown |
+| contentType           | ENUM         | Default 'page'    | page or blogpost                           |
+| spaceId               | VARCHAR(45)  | NOT NULL          | Space ID for reporting                     |
+| approvalStatus        | ENUM         | Default 'pending' | approved, rejected, pending                |
+| version               | INT          | NOT NULL          | Optimistic locking                         |
+
+### ContentApproval
+
+| Column    | Type         | Constraints       | Description                   |
+| --------- | ------------ | ----------------- | ----------------------------- |
+| contentId | VARCHAR(36)  | PK                | Content ID (no FK constraint) |
+| name      | VARCHAR(255) | PK                | Approval name                 |
+| status    | ENUM         | Default 'pending' | approved, rejected, pending   |
+
+### ContentApprovalDecision
+
+| Column    | Type         | Constraints | Description                      |
+| --------- | ------------ | ----------- | -------------------------------- |
+| contentId | VARCHAR(36)  | PK          | Content ID (no FK constraint)    |
+| name      | VARCHAR(255) | PK          | Approval name (no FK constraint) |
+| accountId | VARCHAR(45)  | PK          | User who decided                 |
+| decision  | VARCHAR(45)  | NOT NULL    | Decision made                    |
+| date      | DATETIME     | NOT NULL    | When decision was made           |
+| comment   | TEXT         | NULL        | Optional comment                 |
+| assigner  | VARCHAR(45)  | NULL        | Who assigned the approval        |
+| version   | INT          | NOT NULL    | Content version at decision      |
+
+### ContentParameterAndMetadata
+
+| Column    | Type         | Constraints           | Description                   |
+| --------- | ------------ | --------------------- | ----------------------------- |
+| id        | BIGINT       | PK, AUTO_RANDOM       | Auto-generated ID             |
+| contentId | VARCHAR(36)  | NOT NULL              | Content ID (no FK constraint) |
+| name      | VARCHAR(255) | UNIQUE with contentId | Parameter name                |
+| version   | INT          | Default 1             | Version for locking           |
+| value     | TEXT         | NULL                  | Parameter value               |
+| userId    | VARCHAR(45)  | NULL                  | Who last modified             |
+| updatedAt | DATETIME     | Auto-update           | Last modification time        |
+
+### ContentParameterHistory
+
+| Column    | Type         | Constraints     | Description                   |
+| --------- | ------------ | --------------- | ----------------------------- |
+| id        | BIGINT       | PK, AUTO_RANDOM | Auto-generated ID             |
+| contentId | VARCHAR(36)  | NOT NULL        | Content ID (no FK constraint) |
+| name      | VARCHAR(255) | NOT NULL        | Parameter name                |
+| version   | INT          | NOT NULL        | Version number                |
+| value     | TEXT         | NULL            | Parameter value at version    |
+| userId    | VARCHAR(45)  | NULL            | Who made the change           |
+| updatedAt | DATETIME     | Default NOW     | When changed                  |
+
+### Messages
+
+| Column    | Type         | Constraints | Description                                |
+| --------- | ------------ | ----------- | ------------------------------------------ |
+| id        | CHAR(36)     | PK          | UUID primary key                           |
+| contentId | VARCHAR(36)  | PK          | Content ID (no FK constraint)              |
+| type      | ENUM         | NOT NULL    | info, warning, error                       |
+| title     | VARCHAR(255) | NULL        | Message title                              |
+| body      | TEXT         | NOT NULL    | Message body                               |
+| mode      | ENUM         | NOT NULL    | ack (requires acknowledgment) or autoClose |
+| createdBy | VARCHAR(255) | NOT NULL    | Who created the message                    |
+| createdAt | DATETIME     | NOT NULL    | When created                               |
+| version   | INT          | Default 1   | Version for locking                        |
+
+### DocumentActivity
+
+| Column         | Type         | Constraints | Description                         |
+| -------------- | ------------ | ----------- | ----------------------------------- |
+| id             | CHAR(36)     | PK          | UUID primary key                    |
+| operationId    | CHAR(36)     | NOT NULL    | Operation identifier                |
+| contentId      | VARCHAR(36)  | NOT NULL    | Content ID (no FK constraint)       |
+| stateName      | VARCHAR(255) | Generated   | From `state ->> '$.name'`           |
+| stateColor     | VARCHAR(45)  | Generated   | From `state ->> '$.colour'`         |
+| stateFinal     | INT(1)       | Generated   | From `state ->> '$.final'`          |
+| contentVersion | INT          | Generated   | From `state ->> '$.contentVersion'` |
+| accountId      | VARCHAR(45)  | NOT NULL    | Who performed the activity          |
+| activityName   | VARCHAR(45)  | NOT NULL    | Type of activity                    |
+| date           | DATETIME     | NOT NULL    | When activity occurred              |
+| payload        | JSON         | NOT NULL    | Activity-specific data              |
+| state          | JSON         | NOT NULL    | State snapshot                      |
+| orderSequence  | BIGINT       | NOT NULL    | For ordering activities             |
+
+### DocumentActivityUsers
+
+| Column       | Type        | Constraints                            | Description                                         |
+| ------------ | ----------- | -------------------------------------- | --------------------------------------------------- |
+| id           | CHAR(36)    | PK                                     | UUID primary key                                    |
+| activityId   | CHAR(36)    | FK → DocumentActivity (CASCADE DELETE) | Activity reference - **only explicit FK in schema** |
+| userId       | VARCHAR(45) | NOT NULL                               | User ID                                             |
+| decisionDate | DATETIME    | NOT NULL                               | When user participated                              |
+
+## Foreign Key Constraints
+
+The schema has **only one explicit foreign key constraint**:
+
+| Table                 | Column     | References           | On Delete |
+| --------------------- | ---------- | -------------------- | --------- |
+| DocumentActivityUsers | activityId | DocumentActivity(id) | CASCADE   |
+
+All other relationships are **logical/implicit** based on column naming conventions (e.g., `contentId`, `workflowId`) but are **not enforced by FK constraints** at the database level.
+
+## Logical Relationships (Not Enforced)
+
+These relationships exist conceptually based on column naming conventions:
+
+| From Table                  | Column           | Logical Reference                   |
+| --------------------------- | ---------------- | ----------------------------------- |
+| WorkflowLink                | workflowId       | → Workflow.id                       |
+| WorkflowLabel               | workflowId       | → Workflow.id                       |
+| WorkflowVersion             | workflowId       | → Workflow.id                       |
+| WorkflowParameter           | workflowId       | → Workflow.id                       |
+| ContentState                | latestWorkflowId | → Workflow.id                       |
+| ContentStateLabel           | contentId        | → ContentState.contentId            |
+| ContentApproval             | contentId        | → ContentState.contentId            |
+| ContentApprovalDecision     | contentId, name  | → ContentApproval.(contentId, name) |
+| ContentParameterAndMetadata | contentId        | → ContentState.contentId            |
+| ContentParameterHistory     | contentId        | → ContentState.contentId            |
+| Messages                    | contentId        | → ContentState.contentId            |
+| DocumentActivity            | contentId        | → ContentState.contentId            |
+
+## Indexes
+
+| Table                       | Index                                      | Columns                                    |
+| --------------------------- | ------------------------------------------ | ------------------------------------------ |
+| Workflow                    | scope                                      | (scope, containerId)                       |
+| WorkflowLink                | scope                                      | (scope, containerId)                       |
+| WorkflowLink                | id                                         | (workflowId, scope, containerId) UNIQUE    |
+| WorkflowLink                | idx_workflowlink_scope_container_enabled   | (scope, containerId, enabled, workflowId)  |
+| WorkflowLabel               | workflow                                   | (workflowId, label) UNIQUE                 |
+| WorkflowVersion             | workflow_version                           | (workflowId, version)                      |
+| WorkflowVersion             | action                                     | (action)                                   |
+| ContentApproval             | idx_contentapproval_contentid              | (contentId)                                |
+| ContentApprovalDecision     | idx_contentapprovaldecision_contentid_name | (contentId, name)                          |
+| ContentParameterAndMetadata | idx_content_name_unique                    | (contentId, name) UNIQUE                   |
+| ContentParameterHistory     | idx_cph_content_name_version               | (contentId, name, version) UNIQUE          |
+| ContentStateLabel           | idx_csl_contentId                          | (contentId)                                |
+| Messages                    | idx_contentId                              | (contentId)                                |
+| Messages                    | idx_createdAt                              | (createdAt)                                |
+| DocumentActivity            | idx_content_date_order                     | (contentId, date DESC, orderSequence DESC) |
+| DocumentActivityUsers       | uq_activity_user                           | (activityId, userId) UNIQUE                |
+
+## Database Schema Rules
+
+### Schema Compliance
+
+- All database operations must respect the schema structure defined above
+- Column types and constraints must match exactly as specified
+- Use proper data types: CHAR(36) for UUIDs, VARCHAR for variable strings, INT for integers, JSON for structured data
+- Respect NOT NULL constraints and default values
+
+### Primary Keys
+
+- All tables have primary keys (PK) as specified
+- Use UUID (CHAR(36)) for most primary keys except ContentParameterAndMetadata and ContentParameterHistory (BIGINT AUTO_RANDOM)
+- Composite primary keys use multiple columns (e.g., WorkflowParameter: workflowId, spaceId, name)
+
+### Foreign Key Relationships
+
+- Only DocumentActivityUsers.activityId has an explicit FK constraint with CASCADE DELETE
+- All other relationships are logical - enforce referential integrity in application code
+- When deleting records, manually handle cascading deletes for logical relationships
+
+### Index Usage
+
+- Use indexes for common query patterns (contentId lookups, workflowId lookups, date ordering)
+- Respect unique constraints on indexes (workflowId+label, contentId+name, activityId+userId)
+- Use composite indexes for multi-column queries (scope+containerId, contentId+date+orderSequence)
+
+### JSON Columns
+
+- Workflow.markup: Full workflow definition JSON
+- WorkflowVersion.markup: Workflow markup at specific version
+- DocumentActivity.payload: Activity-specific data JSON
+- DocumentActivity.state: State snapshot JSON
+- Use JSON extraction operators (`->>`) for generated columns (name, excludedLabels, stateName, etc.)
+
+### Generated Columns
+
+- Workflow.name: Extracted from `markup ->> '$.name'`
+- Workflow.excludedLabels: From `markup.excludedLabels`
+- DocumentActivity.stateName: From `state ->> '$.name'`
+- DocumentActivity.stateColor: From `state ->> '$.colour'`
+- DocumentActivity.stateFinal: From `state ->> '$.final'`
+- DocumentActivity.contentVersion: From `state ->> '$.contentVersion'`
+
+### Optimistic Locking
+
+- ContentState.version: Increment on updates to prevent concurrent modification conflicts
+- ContentParameterAndMetadata.version: Version for locking
+- ContentApprovalDecision.version: Content version at decision
+- WorkflowParameter.version: Version for locking
+- Always check version before updates and increment on successful updates
+
+### Data Types and Constraints
+
+- Use SET type for multi-value enums (scope: 'global', 'space')
+- Use ENUM type for single-value enums (contentType: 'page', 'blogpost')
+- Use DATETIME for timestamps (UTC timezone)
+- Use TINYINT(1) for boolean flags (enabled, visible, final)
+- Use INT for version numbers and counts
+- Use VARCHAR with appropriate length limits for strings
+- Use TEXT for variable-length strings without length limit
+
+### Migration Considerations
+
+- When migrating data, respect all column types and constraints
+- Handle NULL values appropriately (some columns allow NULL, others don't)
+- Preserve relationships even though most are not enforced by FK constraints
+- Maintain referential integrity in application code during migrations
+
+### Query Patterns
+
+- Always use indexes for WHERE clauses on indexed columns
+- Use composite indexes for multi-column WHERE clauses
+- Order by indexed columns (date DESC, orderSequence DESC) for DocumentActivity queries
+- Use UNIQUE constraints to prevent duplicate entries (workflowId+label, contentId+name)
+
+### Content State Relationships
+
+- ContentState is the central table for content workflow state
+- All content-related tables reference ContentState.contentId logically
+- When querying content state, join with related tables using contentId
+- Maintain consistency between ContentState and related tables (ContentApproval, Messages, DocumentActivity, etc.)
+
+### Workflow Relationships
+
+- Workflow is the central table for workflow definitions
+- WorkflowLink, WorkflowLabel, WorkflowVersion, WorkflowParameter reference Workflow.id logically
+- When querying workflows, join with related tables using workflowId
+- Maintain consistency between Workflow and related tables

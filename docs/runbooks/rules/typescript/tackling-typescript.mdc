@@ -1,0 +1,23 @@
+---
+description: Rules based on Tackling TypeScript (Axel Rauschmayer)
+globs: **/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Tackling TypeScript (Axel Rauschmayer)
+
+- **ESM**: Use standard ES modules; configure `module` and `moduleResolution` in tsconfig according to target (CommonJS in legacy parts if applicable).
+- **Optional chaining (`?.`)**: Use to access nested properties and avoid `undefined` errors.
+- **Nullish coalescing (`??`)**: For default values when `null` or `undefined`; don't use `||` if 0 or '' are valid.
+- **JSDoc for public APIs**: Document parameters, return, and examples in exported functions and types.
+- **Build and Forge**: Know the bundler and environment limits (Forge/Confluence) when configuring `outDir` and `module`.
+- **Ambient declarations**: Use `declare module` or `.d.ts` files for libraries without types.
+- **Source maps**: Enable for debugging in development and error traceability.
+- **Class property initializers**: Initialize properties at declaration when it simplifies the constructor.
+- **Avoid global variables**: Encapsulate in modules.
+- **`strictPropertyInitialization`**: Ensure class properties are initialized or are optional.
+- **Typed async functions**: Return `Promise<T>` or `Promise<Result<T>>` explicitly when helpful.
+- **`satisfies`**: To validate that an object fulfills a type without losing literal inference (TS 4.9+).
+- **Imports**: Use `import type { T }` for types that don't exist at runtime and optimize the bundle.
+- **`override`**: In subclasses, use `override` for methods that redefine the base and avoid errors when refactoring.
+- **ESLint**: Configure rules that TypeScript doesn't cover (naming, file conventions).

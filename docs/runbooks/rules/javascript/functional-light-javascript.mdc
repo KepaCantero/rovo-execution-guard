@@ -1,0 +1,28 @@
+---
+description: Rules based on Functional-Light JavaScript (Kyle Simpson)
+globs: **/*.js,**/*.jsx
+alwaysApply: false
+---
+
+# Functional-Light JavaScript (Kyle Simpson)
+
+- **Function Purity**: Minimize side effects.
+- **Immutability**: Don't change data, create new.
+- **Arguments**: Prefer single-argument functions (unary).
+- **Currying**: Transform multi-argument functions into sequences.
+- **Function Composition**: pipe(f, g, h)(x).
+- **Point-Free Style**: Write functions without mentioning their arguments.
+- **Partial Application**: Fix some function arguments beforehand.
+- **Recursion**: Use it for deep search in JSONs.
+- **List Operations**: Master map, reduce, and filter.
+- **Transduction**: Combine multiple list operations into a single pass.
+- **Avoid For Loops**: Use recursion or array methods.
+- **Identity Function**: Useful as default value in transformations.
+- **Data Abstraction**: Separate how data is stored from how it's used.
+- **Side Effect Wrapper**: Isolate code that touches the Forge API.
+- **Monads (Basic)**: Use structures that wrap values and errors.
+- **Memoization**: Cache results of expensive functions.
+- **Equational Reasoning**: Code should be substitutable by its result.
+- **Declarative vs Imperative**: Say what you want, not how to do it.
+- **Closure for State**: Keep state in closures, not in global variables.
+- **Functional Testing**: Easier to test due to purity.

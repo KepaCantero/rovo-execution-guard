@@ -1,0 +1,65 @@
+# Trigger Module - 25 Rules
+
+Rules derived from: https://developer.atlassian.com/platform/forge/manifest-reference/modules/trigger/
+
+## Trigger Overview
+
+1. **Event-Based Invocation**: Trigger module invokes function or calls remote backend when Atlassian app events, Forge app events, lifecycle events, or data security policy events fire.
+
+2. **Function or Endpoint**: Trigger can reference function module (`function`) or remote endpoint (`endpoint`). Must specify one or the other, not both.
+
+3. **Dynamic Module Support**: Trigger can be declared as dynamic module (EAP feature). Useful for migrating Connect webhooks to Forge triggers.
+
+4. **Event Subscription**: Subscribe to specific events in `events` array. Each event triggers function or endpoint invocation.
+
+5. **Key Uniqueness**: Trigger `key` must be unique within manifest. Follow regex pattern `^[a-zA-Z0-9_-]+$`.
+
+## Event Filtering
+
+6. **Filter Configuration**: Use `filter` property to prevent unwanted invocations. Filter must have `ignoreSelf`, `expression`, or both defined.
+
+7. **Ignore Self Events**: Set `ignoreSelf: true` to ignore self-generated events. Currently works only with Jira events. Prevents infinite loops.
+
+8. **Expression Filtering**: Use `expression` to filter events based on conditions. Filter unwanted events before function invocation.
+
+9. **Expression Examples**: Filter by project, issue type, or other event properties. Reduces unnecessary function invocations and costs.
+
+10. **OnError Handling**: Configure `onError` behavior when expression evaluation fails. Options: `IGNORE_AND_LOG`, `IGNORE`, `RECEIVE_AND_LOG`, `RECEIVE`.
+
+## Function Arguments
+
+11. **Event Payload**: Trigger function receives `event` argument containing event details. Structure depends on specific event type.
+
+12. **Context Object**: Trigger function receives `context` argument with installation, principal, workspace, and license information.
+
+13. **Principal Information**: Access user information via `context.principal`. Contains Atlassian ID of user that triggered event.
+
+14. **Install Context**: Access installation context via `context.installContext`. ARI identifying cloud or Atlassian app context.
+
+15. **License Information**: Access license info via `context.license` for paid apps in production. Undefined for free apps and non-production environments.
+
+## Error Handling
+
+16. **Expression Error Details**: When `onError` set to `RECEIVE_AND_LOG` or `RECEIVE`, event payload includes error details about failed expression evaluation.
+
+17. **Error Correction**: Use error details in event payload to correct expression filters. Helps debug filter issues.
+
+18. **Error Logging**: Configure error logging behavior with `onError`. Choose whether to log errors and whether to invoke function on errors.
+
+## Event Types
+
+19. **Atlassian App Events**: Subscribe to product events (Jira, Confluence, etc.). Events fire when specific actions occur in Atlassian apps.
+
+20. **Forge App Events**: Subscribe to Forge platform events. Events fire when Forge-specific actions occur.
+
+21. **Lifecycle Events**: Subscribe to app lifecycle events. Events fire during app installation, update, or uninstallation.
+
+22. **Data Security Policy Events**: Subscribe to data security policy events. Events fire when security policies change.
+
+## Best Practices
+
+23. **Filter Efficiency**: Use filters to reduce unnecessary invocations. More specific filters reduce costs and improve performance.
+
+24. **Idempotent Functions**: Design trigger functions to be idempotent. Same event may be processed multiple times in error scenarios.
+
+25. **Event Validation**: Validate event payloads in trigger functions. Handle missing or invalid data gracefully to prevent function failures.

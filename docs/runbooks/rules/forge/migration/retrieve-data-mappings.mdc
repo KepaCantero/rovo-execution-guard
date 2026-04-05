@@ -1,0 +1,65 @@
+# Retrieve Data Mappings - 25 Rules
+
+Rules derived from: https://developer.atlassian.com/platform/app-migration/mappings/
+
+## Mapping Overview
+
+1. **Automatic ID Mapping**: Consider using Forge Storage data planes with data transformers (MriIdMapping) for automatic ID mapping. Eliminates need for manual mapping retrieval in many cases.
+
+2. **Mapping Format**: Understand mappings are key/value pairs where key is server ID and value is corresponding cloud ID. Format: `{"server-id": "cloud-id"}`.
+
+3. **Server-Cloud Linkage**: Mappings are linked between server and cloud site regardless of migration count. Use same transferId to access linked mappings.
+
+4. **Mapping Lifespan Awareness**: Be aware of mapping lifespans: `identity:*` (14 days), `confluence:*` (2 years), `jira:*` (2 years). Access mappings within lifespan.
+
+## Server Key Prefixes
+
+5. **Prefix Understanding**: Some entities (like users) have mapping keys prefixed with literals defining which property is mapped (e.g., `email/`, `jira.userkey/`).
+
+6. **User Mapping Prefixes**: User mappings can have prefixes: `email/`, `jira.userkey/`, `jira.username/`, `confluence.userkey/`. Multiple prefixes can map to same cloud user.
+
+7. **Group Mapping Prefix**: Group mappings use `identity:group:name/` prefix. Handle prefix correctly when querying group mappings.
+
+## Mapping Namespaces
+
+8. **Namespace Selection**: Use correct namespace when retrieving mappings. Available namespaces include `confluence:page`, `jira:issue`, `identity:user`, etc.
+
+9. **User Namespaces**: Use `identity:user` namespace for user mappings. Handle multiple prefixes (email, userkey, username) appropriately.
+
+10. **Jira Namespaces**: Use appropriate Jira namespace (`jira:issue`, `jira:comment`, `jira/classic:project`, etc.) based on entity type being mapped.
+
+11. **Confluence Namespaces**: Use appropriate Confluence namespace (`confluence:space`, `confluence:page`, `confluence:attachment`, etc.) based on entity type.
+
+12. **App-Only Namespaces**: Use app-only namespaces (`jira/classic:appCustomField`, `jira/classic:workflowRule`) for app-created entities.
+
+## Retrieving Mappings from Server
+
+13. **PaginatedMapping API**: Use `getPaginatedMapping` method to retrieve product mappings from server app. Returns maximum 5000 IDs per call.
+
+14. **Pagination Pattern**: Use `while (paginatedMapping.next())` pattern to iterate through all mappings. Process mappings in batches to avoid memory issues.
+
+15. **getMappingById API**: Use `getMappingById` method to filter specific IDs. Up to 100 IDs can be filtered. No pagination needed for filtered queries.
+
+16. **Mapping Iteration**: Iterate through paginated mappings properly. Handle `next()` method correctly and process mappings as they're retrieved.
+
+17. **Error Handling**: Handle IOException when retrieving mappings. Implement retry logic for transient failures and log errors appropriately.
+
+## Retrieving Mappings from Cloud
+
+18. **Pagination API Usage**: Use Pagination API to retrieve mappings in customizable page sizes. Use `pageSize` and `lastEntity` parameters for pagination.
+
+19. **Page Size Limits**: Default page size is 5000, maximum is 5000, minimum is 1. Use appropriate page size based on your needs and memory constraints.
+
+20. **lastEntity Parameter**: Use `lastEntity` from response meta to fetch next page. Continue pagination until `hasNext` is false.
+
+21. **Filtered IDs API**: Use POST `/migration/mapping/{transferId}/find?namespace={namespace}` to filter specific IDs (up to 100). IDs not found won't be returned.
+
+22. **Transfer Settlement Handling**: Once transfer is settled, Mappings API returns HTTP 403 error. Complete mapping retrieval before settlement.
+
+## Error Handling and Retries
+
+23. **5xx Error Retry**: Retry on 5xx errors using exponential backoff strategy. Don't fail migration on single error. Make migration path resilient.
+
+24. **Rate Limiting**: Handle HTTP 429 errors appropriately. Wait before retrying if rate limit is reached.
+
+25. **Mapping Evolution**: Understand mappings evolve throughout lifespan. Cloud IDs can change if entities deleted and re-migrated. Mappings reflect additive changes, not comprehensive current view.

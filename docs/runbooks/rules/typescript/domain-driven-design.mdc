@@ -1,0 +1,20 @@
+---
+description: DDD rules applicable in TypeScript for this project
+globs: **/domain/**/*.ts,**/application/**/*.ts,aws/batch-processes/lib/datacenterMigration/**/*.ts
+alwaysApply: false
+---
+
+# Domain-Driven Design in TypeScript
+
+- **Ubiquitous Language**: Names that the business understands (Workflow, Approval, Migration, CurrentState, Metadata).
+- **Bounded contexts**: Separate "Approval/Workflow", "Configuration", "Migration" into clear modules.
+- **Protect the domain**: Don't let infrastructure (HTTP, S3, Confluence) pollute domain entities; use adapters and DTOs.
+- **Entities with identity**: ContentId, SpaceId, etc.; the domain distinguishes by identity, not just by values.
+- **Value objects**: For attributes without identity (ContentType, StatusEntry, Metadata); immutable.
+- **Aggregates**: Define clear aggregate roots (e.g. CurrentStateEntity, MetadataEntity) and maintain consistency within the aggregate.
+- **Repositories**: Abstract data access (MigrationRepository, resource-map-repository); the domain doesn't know S3 nor DynamoDB.
+- **Domain / Application services**: Domain for logic that doesn't fit in an entity; Application for orchestrating use cases (e.g. CurrentStateOperation, MetadataOperation).
+- **DTOs at boundaries**: Convert from domain to DTO (API body, S3 payload) at the edges; use mappers or pure functions.
+- **Avoid Anemic Domain Model**: Put logic where the data is when it's a business rule (validations, transitions).
+- **No circular dependencies**: Domain modules should not depend on application or infra; dependencies point inward (toward the domain).
+- **Evolution with the business**: The domain model (states, metadata, migration) should evolve with requirements; refactor types and entities when the ubiquitous language changes.

@@ -1,0 +1,20 @@
+---
+description: Rules based on Clean Architecture (Robert C. Martin - Class Focus)
+globs: **/*.ts,**/*.tsx,**/*.js,**/*.jsx
+alwaysApply: false
+---
+
+# Clean Architecture (Robert C. Martin - Class Focus)
+
+Class design to protect business logic.
+
+- **Entities**: Classes containing the purest business rules.
+- **Interactors (Use Cases)**: Classes containing application-specific logic.
+- **Boundary Interfaces**: Interfaces defining how the outside world communicates with your classes.
+- **Request/Response Models**: Simple classes (DTOs) to pass data across boundaries.
+- **Persistence Ignorance**: Your domain classes shouldn't know Forge Storage exists.
+- **Framework Independence**: Your classes shouldn't import anything from @forge/api.
+- **Polymorphism for Plugins**: Treat different Workflow types as plugins of your central engine.
+- **Cross-Cutting Concerns**: Extract logging and security from business classes.
+- **Main Component**: A single class responsible for "wiring" the entire system at startup.
+- **Unit Tests as Clients**: Your classes should be so easy to use that a test is their best usage example.

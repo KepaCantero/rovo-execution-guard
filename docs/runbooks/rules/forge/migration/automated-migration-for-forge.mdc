@@ -1,0 +1,61 @@
+# Automated Migration for Forge - 25 Rules
+
+Rules derived from: https://developer.atlassian.com/platform/app-migration/automated-migration-for-forge/
+
+## Pre-Migration Phase
+
+1. **Multiple Server Apps Support**: Design your migration path to support migrating data from multiple server apps to a single cloud Forge app. Ensure your data model can handle data from different sources without conflicts.
+
+2. **Core Data Migration Dependency**: Always wait for core product data migration (Jira/Confluence) to complete before starting app data migration. App data migration begins AFTER core data migration is complete.
+
+3. **Migration Timeout Awareness**: Implement migration logic with awareness that migrations timeout after 14 days. Design your migration to complete well within this window or implement checkpoint/resume mechanisms.
+
+4. **Forge Storage Path Consideration**: If migrating to Key-Value Store or Custom Entity Store, evaluate using the specialized migration path with auto-import and data transformers instead of unopinionated data upload.
+
+5. **Server App Listener Implementation**: Implement `DiscoverableForgeListener` interface in your server app to enable communication with the app migration platform. This is mandatory for automated migration.
+
+6. **Forge App Manifest Configuration**: Add Forge function triggers or Forge remotes to your app's manifest to receive migration event notifications. Configure triggers for all required migration events.
+
+7. **Transfer ID Management**: Use the `transferId` provided in migration events to uniquely identify each migration instance. Store and reference this ID throughout the migration process.
+
+8. **Migration Event Handling**: Implement handlers for all relevant migration events: `avi:ecosystem.migration:triggered:listener`, `avi:ecosystem.migration:uploaded:app_data`, `avi:ecosystem.migration:completed:export_phase`, etc.
+
+## Migration Execution Phase
+
+9. **Event Acknowledgement Timing**: Call `messageProcessed(transferId, messageId)` for `avi:ecosystem.migration:uploaded:app_data` events within 15 minutes of receiving the event or uploading new data. Failure to acknowledge causes migration timeout.
+
+10. **Event Order Independence**: Design your migration logic to handle events in any order. The platform may send events out of sequence (e.g., `uploaded:app_data` before `triggered:listener`).
+
+11. **Progressive Data Processing**: Process and acknowledge events as data is processed, not when received. This prevents timeouts and provides accurate status information to customers.
+
+12. **Event Payload Validation**: Always validate event payloads and throw exceptions if validation fails. This enables monitoring of failed function invocations and triggers automatic retries.
+
+13. **Error Handling and Retries**: Unhandled exceptions or function timeouts result in events being retried with exponential backoff up to four times (five total attempts). Design your handlers to be idempotent.
+
+14. **Data Export Completion**: Call `completeExport()` in your server app to signal that all app data has been uploaded. This enables progress reporting and notifies the platform that export is complete.
+
+15. **Cloud Storage Access**: Access exported app data from secure cloud storage using the App data retrieval API. Retrieve data within 12 days of receiving the first notification.
+
+## Data Management
+
+16. **File Size Limits**: Split files larger than 25GB into multiple uploads. The platform supports a maximum file size of 25GB per individual file.
+
+17. **File Labeling Strategy**: Use file labels to distinguish data types or add metadata to support your import process. Labels help order export files sequentially if sequence matters.
+
+18. **Parallel Upload Support**: Design your export logic to handle multiple files uploaded in parallel. The platform may not organize export files in the same sequence as uploaded.
+
+19. **Mapping Context Access**: Access data mapping context from your server app to prepare for migration. Use mappings to translate server IDs to cloud IDs during data export.
+
+20. **Data Format Flexibility**: Choose between unopinionated data upload (any format) or structured data with transformers based on your needs. Structured approach reduces transformation effort for Key-Value/Custom Entity Store.
+
+## Testing and Validation
+
+21. **Dev Mode Testing**: Use dev mode for testing to bypass pre-flight checks and app assessment requirements. Never use dev mode in production.
+
+22. **Local Environment Testing**: Test your server app implementation locally using JCMA/CCMA that supports Forge migrations. Ensure your plugin includes the Forge listener.
+
+23. **Migration Path Readiness**: Assess your migration path readiness before publishing. Test progress reporting, event handling, and data processing thoroughly.
+
+24. **Sample App Reference**: Study the sample apps provided by Atlassian to understand best practices for implementing migration listeners and handlers.
+
+25. **Publishing Migration Path**: After testing, publish your migration path availability to customers using the Marketplace Migrations API. Provide migration documentation and feature difference documentation.

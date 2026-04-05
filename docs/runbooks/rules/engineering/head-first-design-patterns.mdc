@@ -1,0 +1,28 @@
+---
+description: Rules based on Head First Design Patterns (Eric Freeman)
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Head First Design Patterns (Eric Freeman)
+
+- **Identify what changes and separate it from what stays constant.**
+- **Program to interfaces, not to implementations.**
+- **Favor composition.**
+- **Hollywood Principle**: "Don't call us, we'll call you".
+- **Behavior encapsulation.**
+- **Loose Coupling**: Systems that interact but barely know each other.
+- **Classes closed to modification, open to extension.**
+- **Dependency Inversion**: Don't depend on concrete classes.
+- **Principle of Least Knowledge**: Talk only to your close friends (Law of Demeter).
+- **Single Responsibility**: One class, one reason to change.
+- **Patterns as Language**: Use them to communicate with other devs.
+- **Don't overuse patterns**: Simplicity comes first.
+- **Use patterns only when you need real flexibility.**
+- **The Decorator pattern to avoid class explosion.**
+- **The Factory pattern to hide creation complexity.**
+- **The Iterator pattern to unify how you traverse collections.**
+- **The Observer pattern to decouple state from view.**
+- **The Proxy pattern to control heavy access.**
+- **The Strategy pattern to change business rules at runtime.**
+- **The Template Method pattern to define fixed flows.**

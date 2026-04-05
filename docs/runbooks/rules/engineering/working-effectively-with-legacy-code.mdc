@@ -1,0 +1,30 @@
+---
+description: Rules based on Working Effectively with Legacy Code (Michael Feathers)
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Working Effectively with Legacy Code (Michael Feathers)
+
+The bible of the subject. Its thesis: legacy code is simply code without tests.
+
+- **Identify "Seams"**: Find places where you can alter behavior without editing code (e.g. injecting a mock in a Forge resolver).
+- **Characterization Tests**: Write tests that preserve current behavior, not what it "should" have.
+- **The Refactoring Algorithm**: First put code under test, then change it. Never the other way.
+- **Sensing and Separation**: Break dependencies to "sense" what a function does and separate it from side effects.
+- **Sprout Method**: If you need new logic, write it in a new clean method; don't dirty the old method.
+- **Sprout Class**: If a legacy class is untreatable, create a new one for new functionality.
+- **Wrap Method**: Add functionality by wrapping the old method call with new logic (decorator).
+- **Wrap Class**: Use the Decorator pattern to add responsibilities to legacy classes.
+- **Identify Inflection Points**: Find where logical decisions concentrate to prioritize tests.
+- **Break circular dependencies**: It's the first step to instantiate a class in a Vitest test.
+- **Use Extraction Interfaces**: Create an interface based on methods you use from a giant class.
+- **Introduce Static Setter**: To inject dependencies in global legacy singletons.
+- **Encapsulate Globals**: Move window or global variables to a controlled object.
+- **Avoid "Total Rewrite"**: It's a trap; prefer incremental evolution.
+- **Use "Extract Implementer"**: When a class does too much, extract the real implementation.
+- **Deal with Monster Constructors**: Use Parameterless Constructor only for tests.
+- **Refactor to Understand**: Sometimes you need to move code just to read it better, then undo if necessary.
+- **Detect the "Racemon Effect"**: When a small change requires touching 20 files.
+- **Simplify Parameters**: Reduce argument list before attempting to test.
+- **Trust Automatic Refactoring Tools**: But always verify with linter.

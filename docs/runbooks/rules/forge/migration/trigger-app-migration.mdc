@@ -1,0 +1,65 @@
+# Trigger App Migration - 25 Rules
+
+Rules derived from: https://developer.atlassian.com/platform/app-migration/testing/trigger-app-migration/
+
+## Trigger Method Overview
+
+1. **Version Requirements**: Trigger method available from JCMA 1.9.8 and CCMA 3.4.8 onwards. Ensure you're using compatible version.
+
+2. **Integration Testing**: Use trigger method for integration tests without depending on Marketplace information. Simplifies testing workflow.
+
+3. **Testing Tool Integration**: Trigger app migration using testing tools like Postman or command-line. No need to run fresh migration from CMA UI each time.
+
+4. **Plan Reusability**: Create one migration plan and trigger it multiple times as needed. Reduces setup overhead for repeated testing.
+
+## Trigger URL Usage
+
+5. **URL Format**: Use URL format `/plugins/servlet/appmigration/trigger/{planId}` to trigger app migration. Replace `{planId}` with your unique plan ID.
+
+6. **Plan ID Extraction**: Find plan ID in URL when viewing plan details in Cloud Migration Assistant. Extract and use for trigger requests.
+
+7. **HTTP Method**: Use appropriate HTTP method (typically GET or POST) based on your testing tool. Verify method requirements.
+
+8. **Authentication**: Ensure proper authentication when triggering migration. Use same credentials as CMA access.
+
+## Scope Restriction
+
+9. **App Selection**: Starting from JCMA 1.9.8 and CCMA 3.4.8, select which apps to trigger using request payload. Limit scope to specific apps.
+
+10. **Payload Format**: Send request with payload like `{"appKeys": ["your-app-key"]}` to limit scope to specific apps. Use array for multiple apps.
+
+11. **Single App Testing**: Limit scope to single app for focused testing. Test individual app migration paths independently.
+
+12. **Multiple App Testing**: Include multiple app keys in payload to test multiple apps simultaneously. Verify interactions between apps.
+
+## Trigger Behavior
+
+13. **Transfer Creation**: Endpoint creates new transfers and invokes all local listeners each time it's triggered. Each trigger creates new transfer.
+
+14. **Listener Invocation**: All local listeners found in instance are invoked on each trigger. Ensure listeners are properly configured.
+
+15. **Mapping Lifespan**: Lifespan of original mapping (when plan was first run) won't be affected by additional app migration runs. Mappings persist.
+
+16. **Product Data Exclusion**: Trigger method doesn't re-migrate product-related data (projects, spaces, users, etc.) originally migrated. Only app data is migrated.
+
+## Testing Workflow
+
+17. **Plan Creation**: Create migration plan once in CMA UI. Select cloud instance and entities to migrate. Save plan for repeated use.
+
+18. **Repeated Triggering**: Trigger same plan multiple times for testing. Each trigger creates new transfer with fresh app data migration.
+
+19. **Test Isolation**: Each trigger creates isolated test run. Previous trigger results don't affect new trigger. Test independently.
+
+20. **Result Verification**: Verify migration results after each trigger. Check data migration, progress reporting, and error handling.
+
+## Best Practices
+
+21. **Automated Testing**: Integrate trigger method into automated testing pipeline. Use for CI/CD integration tests.
+
+22. **Test Data Management**: Manage test data appropriately. Ensure test data is consistent across trigger runs for reliable testing.
+
+23. **Error Scenario Testing**: Use trigger method to test error scenarios. Verify error handling and recovery mechanisms.
+
+24. **Performance Testing**: Use trigger method for performance testing. Measure migration time and resource usage.
+
+25. **Documentation**: Document trigger usage in your testing documentation. Include examples and best practices for team members.

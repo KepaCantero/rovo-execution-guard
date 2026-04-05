@@ -1,0 +1,65 @@
+# Forge Storage Key-Value & Custom Entity Store Migration - 25 Rules
+
+Rules derived from: https://developer.atlassian.com/platform/app-migration/forge-storage/key-value-custom-entity-store/
+
+## Feature Availability and Eligibility
+
+1. **EAP Feature Awareness**: Recognize this is an experimental Early Access Program (EAP) feature subject to change. Provide feedback through official channels and stay updated on changes.
+
+2. **Entity Schema Date Requirement**: Only entity schemas created after June 20, 2025 support this feature. Check schema creation date before using auto-import functionality.
+
+3. **Future Backfill Support**: Understand that permissions for existing entity schemas will be backfilled in future updates. Plan migration strategy accordingly.
+
+4. **Alternative Path Consideration**: Evaluate this specialized path vs unopinionated data upload based on your needs. This path offers auto-import and data transformers.
+
+## Auto-Import Feature
+
+5. **Auto-Import Configuration**: Set `importOnForgeStorage=true` in `KeyValueParameters` when calling `sendKeyValuePair()` to enable automatic import into Forge Storage.
+
+6. **Overwrite Behavior**: Understand that if migrated key already exists in Key-Value Store or Custom Entity Store, it will be overwritten during auto-import.
+
+7. **Manual Import Alternative**: If `importOnForgeStorage=false`, your Forge app must perform data ingestion and acknowledge payloads with `messageProcessed(transferId, messageId)`.
+
+8. **Connect App Limitation**: Auto-import feature is not available for Atlassian Connect apps since destination might be outside Atlassian's cloud.
+
+9. **Connect Event Notification**: Connect apps can still receive `avi:ecosystem.migration:uploaded:key_value_pair` event and retrieve data via App data retrieval API.
+
+## Data Transformers
+
+10. **Transformer Selection**: Include transformers in `transformers` parameter when calling `sendKeyValuePair()`. Use transformers like "MriIdMapping" to reduce transformation effort.
+
+11. **MriIdMapping Transformer**: Use MriIdMapping transformer to automatically replace Migration Resource Identifiers (MRI) with corresponding cloud IDs during migration.
+
+12. **MRI Format Usage**: Use MRI format `{mri:v1:mig:namespace:entity:id}` to mark data requiring ID mapping. Use helper functions when available instead of manual formatting.
+
+13. **Helper Function Usage**: Use MRI helper functions available on gateway (CCMA v3.11.15+) to generate MRI strings correctly. Ensures proper format and versioning.
+
+14. **Transformer Execution Order**: Specify transformers in desired order, though Atlassian reserves right to modify execution order if required. Don't depend on specific order.
+
+15. **Supported Entities**: Use MriIdMapping transformer only for entities listed in mappings namespaces documentation. Verify entity support before using.
+
+## Key-Value Store Migration
+
+16. **Global Schema Usage**: Set first parameter (entityName) to `null` in `KeyValueParameters` to store values on global schema for Key-Value Store.
+
+17. **Key-Value Pair Structure**: Create Map<String, String> for key-value pairs. Keys and values must be strings. Serialize complex objects to strings if needed.
+
+18. **Batch Processing**: Call `sendKeyValuePair()` multiple times as needed. Platform groups items into workable sizes (approximately 240KB each) automatically.
+
+19. **Mixed Parameters Support**: Use different `KeyValueParameters` in combination with different `sendKeyValuePair()` calls. Mix auto-import and manual import as needed.
+
+## Custom Entity Store Migration
+
+20. **Entity Name Specification**: Specify entity name in `KeyValueParameters` constructor for Custom Entity Store migrations. Entity must exist in your Forge app schema.
+
+21. **Entity Data Structure**: Create Map<String, String> for entity data. Keys represent entity keys, values represent entity data (serialized as strings).
+
+22. **Schema Compatibility**: Ensure entity schema exists in your Forge app before migration. Schema is created during app deployment.
+
+## Export Completion
+
+23. **Complete Export Invocation**: Always call `completeExport()` after all data is exported, including binary data uploaded via `createAppData()`. Enables progress reporting.
+
+24. **Export Completion Timing**: Call `completeExport()` only after all data exports are complete. Premature calls may cause incomplete migrations.
+
+25. **Progress Reporting Enablement**: `completeExport()` enables progress reporting and notifies platform that export is complete. Required for proper migration status tracking.

@@ -1,0 +1,30 @@
+---
+description: Rules based on Software Engineering at Google (Titus Winters, et al.)
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Software Engineering at Google (Titus Winters, et al.)
+
+Although not TS-exclusive, it's the book that dictates how to manage complexity over time (scale and longevity).
+
+- **Rule of Three**: Software has a lifespan; design thinking about who will maintain it in 5 years.
+- **Monorepo Scale**: Use build tools that understand dependencies (like pnpm or Nx).
+- **Beyonce Rule**: "If you liked it, you should have put a test on it". If no test, infrastructure doesn't guarantee it.
+- **Zero Variability**: Dependency versions should be exact (frozen-lockfile).
+- **LSO Migrations**: Large-Scale Changes (code migrations) should be automated.
+- **Technical Debt vs Interest**: Debt isn't bad, what's bad is not knowing how much interest you pay in dev time.
+- **Collective Ownership**: Nobody "owns" a file; the team owns the system.
+- **Aggressive Deprecation**: If a feature isn't used, delete it; dead code generates entropy.
+- **Safe Abstraction**: Only abstract when you have at least 3 real use cases.
+- **Hermeticity**: Tests shouldn't depend on anything external (network, system time).
+- **API Stability**: Change APIs via deprecation decorators, not breaking contracts.
+- **Documentation as Code**: MD near code, always.
+- **Code Review for Knowledge**: Goal is to share context, not just find bugs.
+- **Automate Style**: Don't discuss semicolons; use Biome/Prettier.
+- **Predictability**: System should behave the same locally as in Forge runner.
+- **Dependency Management**: Audit each external library; each is a potential vulnerability.
+- **Continuous Refactoring**: It's not a phase, it's part of every ticket.
+- **Simplicity**: Complex code is a design failure, not an intelligence medal.
+- **Direct Observability**: If you can't measure it, you can't optimize it.
+- **Post-mortem Culture**: For complex system failures, look for process failure, not the culprit.

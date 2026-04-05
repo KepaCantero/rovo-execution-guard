@@ -1,0 +1,30 @@
+---
+description: Rules from Logging in Action (Phil Wilkins) - telemetry and log infrastructure
+globs: **/*.js,**/*.ts,**/cloud/**/*.js,**/aws/**/*.ts
+alwaysApply: false
+---
+
+# Logging in Action (Phil Wilkins)
+
+Specifically about infrastructure and telemetry design. In Forge log has limits; each entry must add value.
+
+- **Contextual Log**: Include installationId and accountId in each log entry to filter by client.
+- **Atomic Logs**: Each log entry should contain all necessary information to understand that event on its own.
+- **Log Separation**: Business logs (KPIs) vs. Technical logs (Debug).
+- **Large Volume Handling**: In Forge, log has limits; don't log entire 10MB attachment body.
+- **Log Sampling**: If too much traffic, log only 10% of successful requests, but 100% of errors.
+- **Unique Transaction Identifiers**: Generate UUID at resolver start and pass to all underlying functions.
+- **Precise Timestamps**: Use UTC with milliseconds to order events correctly.
+- **Don't log in loops**: Avoid log spam inside map or forEach.
+- **Standardized Tags**: Use consistent tags like service:approval, action:create.
+- **Log Masking**: Create utility that automatically hides sensitive info before printing to log.
+- **Breadcrumbs**: Log steps prior to critical action to reconstruct path to failure.
+- **SIEM Integration**: Prepare to export logs if client requires external security audit.
+- **Dynamic Log Level**: (If possible) allow changing log level without redeploying.
+- **Performance Logging**: Record how long complex storage queries take.
+- **Don't assume Log arrives**: Logging system can also fail; don't put critical logic there.
+- **JSON Format**: Greatly facilitates analysis tools like Splunk or Datadog.
+- **Human Readable vs Machine Readable**: Log should be machine-processable but human-readable in crisis.
+- **Error Categorization**: Classify errors by origin (Atlassian, Your Backend, Third Parties).
+- **Avoid Logging "Noise"**: "Entering function X" is useless noise. "Function X processed 5 items" is useful info.
+- **Log Auditing**: Periodically review logs to ensure you're not storing prohibited data.

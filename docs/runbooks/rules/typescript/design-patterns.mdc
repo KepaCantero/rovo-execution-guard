@@ -1,0 +1,20 @@
+---
+description: TypeScript design patterns applicable to the project (Vilic Vane)
+globs: **/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# TypeScript Design Patterns (Vilic Vane)
+
+- **Singleton**: Use carefully for global services (e.g. Logger); avoid shared mutable state.
+- **Factory**: To create different types of entities or operations (e.g. S3 converters, migration operations).
+- **Strategy**: To change logic according to context (e.g. validation by role, content type resolution).
+- **Adapter**: To wrap external APIs (Forge, Confluence, engine) and expose a stable contract to the domain.
+- **Command**: Decouple intention from execution (e.g. `CurrentStateOperation.execute()`, `MetadataOperation.execute()`).
+- **Template Method**: Define the skeleton of a flow (e.g. `execute()` that calls `setStatus` + `migrateContentStatus`).
+- **State**: For approval states or workflow transitions; use discriminated unions to represent states.
+- **Facade**: Simplify complex interfaces of external libraries (e.g. Confluence client, engine-adapter).
+- **Repository**: Abstract data access (e.g. `resource-map-repository`, `MigrationRepository`).
+- **Chain of Responsibility**: For chained validations (e.g. middlewares, request validators).
+- **Builder**: For complex configuration objects (e.g. migration body with `spaceId`, `contentVersion`, `contentType`).
+- **Dependency inversion**: Depend on interfaces/contracts, not concrete implementations.

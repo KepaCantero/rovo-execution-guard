@@ -1,0 +1,28 @@
+---
+description: Rules based on JavaScript: The Good Parts (Douglas Crockford)
+globs: **/*.js,**/*.jsx
+alwaysApply: false
+---
+
+# JavaScript: The Good Parts (Douglas Crockford)
+
+- **Eliminate the Bad Parts**: Avoid with, eval, and the Array constructor.
+- **Literal Objects**: The cleanest way to organize data.
+- **Augmenting Functions**: Add methods to basic types with caution.
+- **Clear Names**: Readability is the number one priority.
+- **Minimize Globals**: Use a single global object if you can't use modules.
+- **Semicolons**: Always use them to avoid automatic insertion errors.
+- **Consistent Indentation**: Vital for code review.
+- **Avoid new**: Prefer functions that return objects.
+- **Simple Regex**: If it's unreadable, it's a bug waiting to happen.
+- **Number Handling**: Watch out for floating point precision in financial calculations.
+- **Strings**: Treat them as immutable.
+- **Arrays vs Objects**: Use arrays for sequences, objects for mappings.
+- **Falsy Values**: Know the list: false, null, undefined, "", 0, NaN.
+- **Truthiness**: Don't assume an empty object is false.
+- **Try-Catch**: Wrap everything in the app's input layer.
+- **Method Chaining**: Use it for fluent APIs.
+- **Namespacing**: Organize your internal libraries.
+- **Constructor Functions**: Only use if you capitalize the name.
+- **Function Scope**: Traditional JS didn't have block scope (pre-ES6).
+- **Simplicity**: Less code is less bugs.

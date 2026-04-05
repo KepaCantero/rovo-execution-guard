@@ -1,0 +1,20 @@
+---
+description: Rules for refactoring to TypeScript (James Hickey)
+globs: **/*.ts,**/*.tsx,**/*.js
+alwaysApply: false
+---
+
+# Refactoring to TypeScript (James Hickey)
+
+- **Gradual migration**: Don't convert everything to TS at once; this project has JS in cloud/ and client/; add types at boundaries first.
+- **`allowJs` and `checkJs`**: Use them to validate existing JS while migrating.
+- **Types at boundaries**: Start with public functions, APIs, and DTOs that cross modules.
+- **`@ts-expect-error`**: Preferable to `@ts-ignore`; document why and remove when the type is fixed.
+- **Code smells**: Long functions, vague names, many parameters; refactor before adding features.
+- **Extract Method**: Divide long functions into functions with descriptive names.
+- **Move Method**: Place logic in the module/class that truly owns it.
+- **Eliminate boolean flags**: Replace with union types or discriminated states when they represent mutually exclusive states.
+- **Parameter Object**: Group arguments into a typed object when there are more than 2–3 parameters.
+- **Null handling**: Refactor to use optional chaining and nullish coalescing; explicitly type `undefined` where applicable.
+- **Compatibility**: Don't break public contracts (APIs, manifest, routes) when refactoring.
+- **Testability**: If something is hard to test, reconsider the design; refactoring should improve tests.

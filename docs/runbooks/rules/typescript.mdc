@@ -1,0 +1,18 @@
+---
+alwaysApply: true
+---
+
+# TYPESCRIPT DEVELOPMENT STANDARDS
+
+## Type Safety Requirements
+- NEVER use `any` type - always define proper interfaces
+- NO non-null assertions (`!`) - handle null/undefined explicitly
+- NO `as unknown as T` casting - use proper type guards
+- Define custom types for complex objects instead of inline types
+- use generic class if possible and not too complex
+
+## Error Handling Standards
+- Always implement try-catch blocks for async operations
+- Use Result<T, Error> pattern for operations that can fail
+- Log errors with context using the logger package
+- Handle Confluence API errors gracefully with retry logic

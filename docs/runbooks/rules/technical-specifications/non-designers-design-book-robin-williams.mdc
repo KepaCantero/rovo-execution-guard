@@ -1,0 +1,156 @@
+# The Non-Designer's Design Book (Robin Williams)
+
+**Source:** "The Non-Designer's Design Book" by Robin Williams  
+**Focus:** Estilo, división de contenido y maquetación (Las 4 reglas CRAP).
+
+## 1. CONTRAST (C)
+
+- **Si dos elementos no son iguales, hazlos muy diferentes:**
+  - ✅ Strong contrast between headings and body
+  - ✅ Clear distinction between sections
+  - ❌ Subtle differences that confuse
+
+- **Asegúrate de que el contraste de color sea accesible:** Texto negro sobre fondo blanco
+  - ✅ WCAG AA contrast ratios
+  - ✅ High contrast for readability
+  - ❌ Light gray on white
+
+- **Usa el "Color de Acento" solo para lo que requiere acción inmediata:**
+  - ✅ Accent for CTAs, warnings
+  - ✅ Restrained color usage
+  - ❌ Everything in bright colors
+
+- **Diferencia visualmente las advertencias:** (ej. un cuadro con fondo amarillo)
+  - ✅ Warning boxes stand out
+  - ✅ Error boxes clearly marked
+  - ❌ Warnings blend in
+
+## 2. REPETITION (R)
+
+- **Repite estilos:** Encabezados, listas, colores para dar unidad
+  - ✅ Consistent heading styles
+  - ✅ Consistent list formatting
+  - ✅ Consistent color scheme
+  - ❌ Different style each section
+
+- **Mantén la consistencia de los símbolos en todo el Tech Spec:**
+  - ✅ Same symbols = same meaning
+  - ❌ Inconsistent iconography
+
+- **Usa formato consistente:**
+  - ✅ Same code block style
+  - ✅ Same table style
+  - ✅ Same diagram style
+  - ❌ Different styles for same content type
+
+## 3. ALIGNMENT (A)
+
+- **Nada debe ponerse en la página de forma arbitraria:** Todo debe conectar visualmente
+  - ✅ Aligned to grid
+  - ✅ Consistent margins
+  - ❌ Random placement
+
+- **No centres el texto técnico:** El texto alineado a la izquierda es más rápido de leer
+  - ✅ Left-aligned body text
+  - ✅ Centered only for titles
+  - ❌ Centered paragraphs
+
+- **Crea una jerarquía de títulos clara:** (H1, H2, H3)
+  - ✅ Clear visual hierarchy
+  - ✅ Consistent heading sizes
+  - ❌ All headings same size
+
+- **Usa "Espaciado después del párrafo" en lugar de sangrías:**
+  - ✅ Space between paragraphs
+  - ❌ First-line indents
+
+- **Mantén los márgenes amplios:** El texto "ahogado" se siente estresante
+  - ✅ Generous margins
+  - ✅ Comfortable line length (max 80 characters)
+  - ❌ Text edge-to-edge
+
+## 4. PROXIMITY (P)
+
+- **Agrupa elementos relacionados:** Para que parezcan una unidad visual
+  - ✅ Related content grouped
+  - ✅ Space between groups
+  - ❌ Everything equally spaced
+
+- **Usa proximidad para mostrar relaciones:**
+  - ✅ Related diagrams near text
+  - ✅ Related sections together
+  - ❌ Related content scattered
+
+- **Termina cada sección con un separador visual claro:**
+  - ✅ Horizontal rule or space
+  - ✅ Clear section breaks
+  - ❌ No separation between sections
+
+## 5. TYPOGRAPHY
+
+- **Usa "Sans Serif" para el cuerpo del texto técnico:** (es más moderno y legible en pantalla)
+  - ✅ Sans-serif for body text
+  - ✅ Modern, screen-readable
+  - ❌ Serif for body text
+
+- **Usa "Monospaced" (tipo consola) para código o rutas de archivo:**
+  - ✅ Monospaced for code
+  - ✅ Monospaced for file paths
+  - ❌ Proportional fonts for code
+
+- **Usa encabezados descriptivos:** En lugar de "Sección 1", usa "Arquitectura de la Base de Datos"
+  - ✅ "Architecture Overview"
+  - ❌ "Section 2.1"
+
+- **No uses negrita, cursiva y subrayado al mismo tiempo:**
+  - ✅ One emphasis method at a time
+  - ❌ **Bold _italic_ <u>underlined</u>**
+
+## 6. CONTENT FORMATTING
+
+- **Usa listas con viñetas para romper bloques de texto densos:**
+  - ✅ Lists for multiple items
+  - ✅ Numbers for sequential steps
+  - ❌ Long paragraphs for lists
+
+- **El ancho de línea no debe superar los 80 caracteres:** Para no cansar la vista
+  - ✅ Comfortable reading width
+  - ❌ Full-width text blocks
+
+- **Usa tablas para comparaciones de "Antes vs. Después":**
+  - ✅ Tables for comparisons
+  - ✅ Clear column headers
+  - ❌ Paragraphs for comparisons
+
+- **No uses "Comic Sans" ni fuentes infantiles en una especificación:**
+  - ✅ Professional fonts
+  - ❌ Decorative or casual fonts
+
+- **Usa números para procesos secuenciales y puntos para listas sin orden:**
+  - ✅ Numbers: Step 1, Step 2, Step 3
+  - ✅ Bullets: Feature A, Feature B, Feature C
+  - ❌ Numbers for non-sequential items
+
+- **Crea un "Indice" o Tabla de Contenidos interactivo:**
+  - ✅ Clickable TOC
+  - ✅ Anchor links
+  - ❌ Static TOC
+
+- **Usa "Paginación" clara si el documento se va a imprimir o PDF:**
+  - ✅ Page numbers
+  - ✅ Clear page breaks
+  - ❌ No pagination
+
+- **Usa cuadros de resumen al inicio de cada sección:**
+  - ✅ Quick overview boxes
+  - ✅ Key points highlighted
+  - ❌ No summary, straight into details
+
+- **Destaca las palabras clave en negrita para facilitar el escaneo rápido:**
+  - ✅ Key terms bolded
+  - ✅ Important concepts emphasized
+  - ❌ Everything bolded
+
+---
+
+**Key Principle:** Apply CRAP principles (Contrast, Repetition, Alignment, Proximity) consistently. Create visual hierarchy and group related elements. Use professional typography and formatting.

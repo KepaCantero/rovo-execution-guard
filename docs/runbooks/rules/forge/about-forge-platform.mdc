@@ -1,0 +1,63 @@
+# About Forge Platform - 25 Rules
+
+Rules derived from: https://developer.atlassian.com/platform/forge/
+
+## Platform Overview
+
+1. **Serverless Development**: Forge is Atlassian's serverless app development platform designed for building secure, reliable, and scalable apps. Focus on innovation, not infrastructure.
+
+2. **Hosted Infrastructure**: Forge's compute and storage features let you build apps hosted entirely on Atlassian infrastructure. No need to manage servers or infrastructure.
+
+3. **Rapid Development**: Build fully-functional apps in just a few hours with hosting, multiple development environments, and API authentication built-in. Significantly reduces code needed.
+
+4. **Automatic Environments**: Forge automatically creates development, staging, and production environments for your app. No manual environment setup required.
+
+5. **Marketplace Distribution**: Forge apps can be distributed through Atlassian Marketplace or used as custom apps and integrations within organizations.
+
+## Security and Design
+
+6. **Secure by Design**: Forge apps run inside a second security layer enforcing tenancy isolation and data egress restriction by design. Security is built into the platform.
+
+7. **Data Control**: You control how and when data leaves Atlassian cloud. Forge handles authentication, identity, scaling, and tenancy automatically.
+
+8. **Shared Responsibility Model**: Understand shared responsibilities between you and Atlassian when building Forge apps. Review shared responsibility model documentation.
+
+9. **FaaS Platform Benefits**: As a FaaS platform, Forge takes care of authentication, identity, scaling, and tenancy. Focus on business logic, not infrastructure.
+
+10. **Data Egress Control**: Forge enforces data egress restrictions by design. Data leaving Atlassian cloud is controlled and monitored.
+
+## UI Development Options
+
+11. **UI Kit for Quick UI**: Use UI Kit to quickly build UIs using pre-built components. Components match Atlassian app look and feel with minimal coding.
+
+12. **Custom UI for Advanced Cases**: Use Custom UI for advanced use cases requiring custom interfaces. Define UI using HTML, CSS, JavaScript, and images.
+
+13. **UI Choice Strategy**: Choose UI Kit for standard interfaces matching Atlassian design. Choose Custom UI when you need complete control over user experience.
+
+14. **Component Consistency**: UI Kit components automatically match Atlassian app themes (light/dark mode). Provides consistent user experience.
+
+15. **Static Resources Support**: Custom UI supports static resources (HTML, CSS, JavaScript, images). Use for complex UI requirements not covered by UI Kit.
+
+## Storage and Infrastructure
+
+16. **Storage API Built-in**: Built-in Storage API eliminates need for external storage infrastructure. Store app data securely on Atlassian infrastructure.
+
+17. **FaaS and Triggers**: Use FaaS (Functions as a Service) and triggers to operate apps with virtually no owned infrastructure. Reduces costs and complexity.
+
+18. **Infrastructure Cost Reduction**: Operating apps with Forge is incredibly cheap compared to traditional infrastructure. No server costs or maintenance overhead.
+
+19. **Storage Options**: Forge provides multiple storage options: Key-Value Store, Custom Entity Store, SQL, and Object Store (EAP). Choose based on data requirements.
+
+20. **Data Persistence**: All storage options provide persistent, encrypted data storage. Data persists until deleted or updated by your app.
+
+## Platform Adoption
+
+21. **Preferred Platform**: Forge is the preferred cloud app development platform for Atlassian. New capabilities added every week.
+
+22. **Roadmap Tracking**: Track Forge product roadmap to see progress and upcoming features. Platform actively developed and improved.
+
+23. **Community Growth**: Forge has 5600+ apps created, 73,000+ CLI downloads, and 13,000+ active dev community members. Active and growing ecosystem.
+
+24. **Marketplace Reach**: Building Forge apps enables reaching millions of users through Atlassian Marketplace. Significant distribution opportunity.
+
+25. **Example Apps Reference**: Study example apps (Issue translator, Feedback app) to understand Forge capabilities and best practices. Learn from existing implementations.

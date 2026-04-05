@@ -1,0 +1,30 @@
+---
+description: Rules based on Clean Code (Robert C. Martin - Legacy Part)
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Clean Code (Robert C. Martin - Legacy Part)
+
+Focus on hygiene for inherited files.
+
+- **The "Truth Criterion"**: Code is the only documentation that doesn't lie.
+- **Single-thing functions**: If your legacy function has an and in the name, split it.
+- **Avoid "Zombie" Comments**: Don't comment code, delete it. Git remembers for you.
+- **Explanatory Variables**: Don't use id, use workflowTransitionId.
+- **Avoid "Mental Mapping"**: The reader shouldn't have to remember what tempVar2 means.
+- **Encapsulate Conditionals**: if (isEligible) > if (age > 18 && hasID).
+- **Avoid Encoding**: Don't use prefixes like sName or iCount (Hungarian notation).
+- **Class Structure**: Variables at top, public methods after, privates at end (Law of Stepdown).
+- **Don't return Null**: Return an empty object or throw a controlled error to avoid if (data === null).
+- **Don't pass Null**: It's worse than returning; breaks the chain of trust.
+- **Use Searchable Names**: It's hard to search for variable e in a large monorepo.
+- **Principle of Least Surprise**: Code should do what the name suggests.
+- **Avoid Temporal Coupling**: init(); process(); forces an order that usually breaks in legacy.
+- **Follow Project Standard**: Even if ugly, maintain consistency until you can change it massively.
+- **Indentation Limit**: Maximum 2 levels. If there are 3, extract function.
+- **Vertical Density**: Keep related lines together, without unnecessary blank spaces.
+- **Avoid "Feature Envy"**: A method that uses more data from another class than its own should move.
+- **Use constants instead of repeated strings.**
+- **Organize imports**: Avoid clutter at the start of the file.
+- **Keep it Simple (KISS)**: Don't try to be too clever with legacy code.

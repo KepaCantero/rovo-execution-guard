@@ -1,0 +1,30 @@
+---
+description: Rules from Microservices Patterns (Chris Richardson) - inter-service communication and API Gateway
+globs: **/routes/**/*.js,**/dc-bps-migration/**/*.js,**/engineWebhooks/**/*.js,**/cloud/**/*.js
+alwaysApply: false
+---
+
+# Microservices Patterns (Chris Richardson)
+
+Especially the inter-service communication and API aggregation part. Applicable to cloud, dc-bps-migration, engineWebhooks and Forge.
+
+- **API Gateway**: In Forge, manifest and resolver act as your gateway.
+- **API Composition**: Create services that aggregate data from multiple Atlassian APIs in a single response.
+- **Circuit Breaker**: If Confluence API is down, your API should return fast error instead of waiting timeout.
+- **Saga Pattern**: For transactions involving multiple API calls (e.g. create page then add permission).
+- **CQRS**: Separate read APIs from write APIs to optimize scalability.
+- **Event-Driven APIs**: Use Webhooks and Forge Events API to react to real-time changes.
+- **Transactional Outbox**: Ensure events are sent only if storage transaction was successful.
+- **Service Mesh Thinking**: Understand how your different Forge functions communicate with each other.
+- **Externalized Configuration**: Manage external API URLs outside source code.
+- **Log Aggregation**: Centralize logs from all your APIs for correlated debugging.
+- **Distributed Tracing**: Use correlation IDs to follow a request from UI to last external service.
+- **Backends for Frontends (BFF)**: Create a resolver specific to Custom UI and another for external triggers.
+- **Eventual Consistency**: Design API assuming data may take milliseconds to propagate.
+- **Consumer Idempotency**: Ensure your app can handle same Jira webhook twice.
+- **Failure Isolation**: "Notifications" module failing shouldn't bring down "Approvals".
+- **Consumer Contracts**: Write tests verifying your API doesn't break known clients.
+- **Perimeter Security**: Validate Forge token on every call.
+- **Protocol Buffers / gRPC**: Consider for internal communication if performance is critical (though Forge prefers JSON).
+- **Sidecar Pattern**: Use it mentally to separate network logic from business logic.
+- **Service Autonomy**: Each API should own its own storage schema.

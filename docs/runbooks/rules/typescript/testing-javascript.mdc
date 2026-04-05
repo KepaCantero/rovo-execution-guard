@@ -1,0 +1,22 @@
+---
+description: Testing rules applicable to TypeScript/JS (Lucas da Costa)
+globs: **/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.js,**/test/**/*,**/__tests__/**
+alwaysApply: false
+---
+
+# Testing (Lucas da Costa – Testing JavaScript)
+
+- **Tests as documentation**: Tests should read as behavior specification.
+- **Testing pyramid**: More unit tests, fewer E2E; integration for critical flows (migration, workflows).
+- **Behavior, not implementation**: Test what the code does (contract, results), not internal details.
+- **AAA**: Arrange (prepare), Act (execute), Assert (verify); keep each section clear.
+- **Clean mocks**: Don't over-mock; mock only external dependencies (HTTP, repositories).
+- **Meaningful coverage**: Don't aim for 100% by number; cover critical paths and error cases.
+- **Deterministic tests**: No randomness; use vi.setSystemTime or equivalents if you depend on time.
+- **Test error paths**: Include tests for API failures, failed validation, invalid states.
+- **Snapshots with moderation**: Only for stable output (e.g. serialization); avoid huge snapshots that hide regressions.
+- **Descriptive names**: `it('should include contentType in body when type is ContentType.Page', ...)`.
+- **State between tests**: Clean mocks and state in `beforeEach` to avoid coupling between tests.
+- **Parameterize when repeating**: Use `it.each` or loops for variants of the same behavior.
+- **Integration with APIs**: For Confluence/Forge, use mocks or contracts; document assumptions.
+- **Git Hooks**: Keep tests in pre-commit/pre-push (Husky) for fast feedback.

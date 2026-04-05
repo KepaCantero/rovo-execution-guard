@@ -1,0 +1,63 @@
+# Export App Data and Access in Cloud - 25 Rules
+
+Rules derived from: https://developer.atlassian.com/platform/app-migration/app-data/
+
+## Data Transformation Approach Selection
+
+1. **Unopinionated vs Structured**: Choose between unopinionated data upload (any format, full control) or structured data with transformers (automatic processing). Evaluate based on your data complexity.
+
+2. **Forge Storage Consideration**: For Key-Value Store or Custom Entity Store, prefer structured approach with data transformers to reduce transformation effort and leverage automatic ID mapping.
+
+3. **Format Flexibility**: Unopinionated approach allows any binary format. Structured approach requires specific formats but provides automatic transformations.
+
+## Data Export from Server
+
+4. **File Size Limits**: Split files larger than 25GB into multiple uploads. Platform supports maximum 25GB per individual file. Plan your export strategy accordingly.
+
+5. **createAppData Method**: Use `migrationGateway.createAppData(transferId)` to create output stream for exporting binary data. Use `createAppData(transferId, label)` to add metadata labels.
+
+6. **Stream Management**: Properly close output streams after writing data. Use try-with-resources or finally blocks to ensure streams are closed even on errors.
+
+7. **Label Usage Strategy**: Use labels to distinguish data types or add metadata supporting import process. Labels help organize and sequence export files.
+
+8. **Sequential Ordering**: If file sequence matters, use labels to help order export files sequentially after retrieval. Platform may not preserve upload sequence.
+
+9. **Parallel Upload Handling**: Design export logic to handle multiple files uploaded in parallel. Platform organizes files efficiently but may not match upload sequence.
+
+10. **Binary Data Writing**: Write binary data directly to output streams. Serialize complex objects to binary format before writing if needed.
+
+## Data Access in Cloud
+
+11. **App Data Retrieval API**: Use App data retrieval API endpoints to access exported app data from secure cloud storage. API provides signed S3 URLs for data access.
+
+12. **Transfer ID Usage**: Use `transferId` from migration events to identify which data to retrieve. Store transferId when received for subsequent API calls.
+
+13. **List Retrieval Endpoint**: Use GET `/migration/data/{transferId}/all` endpoint to retrieve list of all app data uploaded under specific transferId.
+
+14. **S3 Key Retrieval**: Extract `s3Key` from list response. Use s3Key to retrieve signed S3 URL for actual data download.
+
+15. **Signed URL Endpoint**: Use GET `/migration/data/{s3Key}` endpoint to retrieve signed S3 URL. URL expires one hour after retrieval.
+
+16. **URL Expiration Handling**: Request fresh signed URLs as needed until transfer is settled. URLs expire one hour after retrieval but can be refreshed.
+
+## Access Timing and Limits
+
+17. **12-Day Access Window**: Access exported data within 12 days of receiving first notification. Plan data processing to complete within this window.
+
+18. **Mappings Lifespan Alignment**: Access data and mappings before end of mappings lifespan. Coordinate data access with mapping retrieval timing.
+
+19. **Transfer Settlement Awareness**: Once transfer is settled, App data retrieval API returns HTTP 403 error. Complete data access before settlement.
+
+20. **Rate Limiting Handling**: If API responds with HTTP 429, you've reached request limit. Wait a few minutes before retrying requests.
+
+21. **5xx Error Retry Strategy**: When API responds with HTTP 5xx error, retry request with exponential backoff strategy. Issue is likely temporary.
+
+## Data Processing Strategy
+
+22. **Incremental Processing**: Design data retrieval process to be incremental. Process data in batches rather than loading everything at once.
+
+23. **Data Merging**: Consider merging data from multiple migrations. Customers may run multiple migrations targeting same cloud site.
+
+24. **Label-Based Processing**: Use labels from app data list to identify data types and process accordingly. Labels help organize import logic.
+
+25. **Error Recovery**: Implement error recovery for failed data retrievals. Retry failed downloads with exponential backoff before marking as failed.

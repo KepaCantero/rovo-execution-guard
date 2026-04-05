@@ -1,0 +1,16 @@
+---
+alwaysApply: true
+---
+
+# DOCUMENTATION STANDARDS
+
+## JSDoc Requirements
+- Document all public functions with @param and @returns
+- Include usage examples for complex functions
+- Document error conditions and edge cases
+- Explain business logic, not just technical implementation
+
+## README Updates
+- Update related README files when adding new features
+- Include setup instructions for new dependencies
+- Document environment variables and configuration. We use integration tests environment variables, and forge environment variables(Logger).

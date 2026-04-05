@@ -1,0 +1,2575 @@
+# DMS BACKOFFICE APP RULES
+
+This document contains comprehensive rules for developing and using the Data Migration Service (DMS) Backoffice App, a Jira Forge app with global screen UI designed to manage DMS migrations.
+
+## Overview
+
+The DMS Backoffice App is a Jira Forge app with a global screen UI designed to manage DMS migrations. It provides app owners with a centralized interface to register their apps for migration, monitor migration statuses, and manage access controls. The app enables seamless data migration from external sources to Forge Storage (KVS/SQL), allowing apps to become Level 4 applications within the Atlassian infrastructure.
+
+## Product Definition
+
+### Current Problem
+
+Some of the Appfire Cloud Atlassian apps store customer or operational data externally, outside the Atlassian Cloud infrastructure. This limits their adoption of Atlassian Forge and prevents them from achieving the "Runs on Atlassian" (RoA) badge (Level 4 Forge Adoption).
+
+**Edge Case:** An inactive tenant when the app was on level 3 or 2 might need to be migrated once the app is already on level 4. This process supports this edge case.
+
+### Goals and Objectives
+
+- Enable a seamless and transparent migration of external data into Forge Storage for customers
+- Maintain a single version of the app capable of seamlessly working with either the previous external data source or Forge Storage, without the need to deploy a new version
+- Allow apps to qualify as Level 4 Forge App and earn the RoA badge
+- Ensure minimal disruption to customers and provide transparent migration status tracking to app teams
+
+### Key Features
+
+**Functional Requirements:**
+- Automated migration workflow via Batch Processing Service (BPS) that pushes data to the app
+- Support for KVS and SQL primarily. Support for Secret Storage and Entity Storage later if needed
+- Migration readiness through a set of clear requirements
+- Minimal app-side changes required. Platform provides a library with common parts
+- Support for rollback ability that removes all records created on Forge Storage
+- Migration triggered manually for individual tenant or predefined set of tenants via backoffice
+- Comprehensive migration reporting and tracking via Migration Service Backoffice
+- Scale seamlessly regardless of number of active tenants or complexity
+
+**Non-Functional Requirements:**
+- Monitor technical and business KPIs (TBD)
+- Provide documentation and support to get app to "migration ready" state
+- Provide documentation and support to implement and deploy migration stack for each app
+
+**Key Features:**
+- App registration for migration with user-provided App ID
+- Migration stack ID validation (must end with "::forge-storage-migration")
+- Access control management (users and groups)
+- Migration status tracking (NOT_STARTED, IN_PROGRESS, COMPLETED, FAILED)
+- Edit and delete functionality for registered apps
+- Pagination for large app lists
+- Professional UI with Atlassian Design System components
+- Migration management for app installations across tenants
+- Tenant installation filtering and bulk operations
+- Migration status tracking and rollback capabilities
+
+## Components
+
+### Rule 0: DMS System Components
+
+**The migration involves the following key components:**
+
+**1. Batch Processing Service (BPS)**
+- Centralized service orchestrating the migration process execution
+- Includes data extraction, transformation, and loading into Forge Storage
+- Completely transparent to app developers
+- Belongs to Document Management Category
+- Platform will integrate REST API with Auth Service
+- Documentation available in internal repo (requires VPN access)
+
+**2. Migration Stack (BPS Extension)**
+- BPS client offering for migration integration:
+  - **Tasks Integration Contracts**: Decouple migration logic from execution mechanism
+  - **Migrations Job and Tasks base domain models**
+  - **Producer and Consumer interfaces**
+  - **Deployment Tooling**: AWS CDK Constructs, CLI tool
+  - **REST API Client**: Public operations available in service
+
+**App Developer Responsibilities:**
+- Extend base migration domain model if required
+- Implement producer and consumer interfaces
+- Integrate client in pipeline to automate deployment to AWS account
+
+**3. Migration Service Backoffice**
+- Centralized interface for manually triggering migrations
+- Individual tenant or predefined sets of tenants
+- Comprehensive tracking and reporting by app and by app/tenant pair
+- Essential for success of migration initiative
+
+**4. "Migration Ready" Forge App**
+- Version of app prepared to handle migration process
+- Must meet migration readiness requirements
+- Supports seamless data access via Forge Remote
+
+**Requirements:**
+- **MUST** understand all system components
+- **MUST** implement Migration Stack (Producer and Consumer)
+- **MUST** prepare app to be "Migration Ready"
+- **MUST** use Migration Service Backoffice for migration management
+- **SHOULD** understand BPS architecture and capabilities
+
+## Requirements
+
+### Rule 1: Service Dependencies
+
+**Required Services:**
+
+**1. Installation Service:**
+- Provides tenant installation data
+- Manages app installations across different Atlassian Cloud sites
+- Essential for retrieving the list of active installations for registered apps
+- Manages tenant-specific migration operations
+
+**2. Token Repository Service:**
+- Manages authentication tokens and credentials
+- Required for secure communication between DMS Backoffice App and external services
+- Ensures secure access to tenant data and migration operations
+
+**3. Migration Service:**
+- Core service that orchestrates data migration processes
+- Requires a fully tested and deployed Migration Stack to be available for each registered app
+
+**Requirements:**
+- **MUST** integrate with Installation Service for tenant data
+- **MUST** use Token Repository Service for authentication
+- **MUST** ensure Migration Service is accessible
+- **MUST** handle service unavailability gracefully
+- **SHOULD** implement retry logic for service calls
+- **MUST** handle authentication errors appropriately
+
+### Rule 2: Migration Stack
+
+**Definition:**
+A Migration Stack is a predefined, tested configuration that defines how data should be migrated from external sources to Forge Storage (KVS/SQL).
+
+**Migration Stack Requirements:**
+- **MUST** be fully tested in a staging environment before registration
+- **MUST** be deployed to the Migration Service before app registration
+- **MUST** have stack ID ending with "::forge-storage-migration" to be valid
+- **MUST** be registered within the Platform DMS service
+
+**Stack ID Validation:**
+```typescript
+function isValidMigrationStackId(stackId: string): boolean {
+  return stackId.endsWith('::forge-storage-migration');
+}
+```
+
+**Requirements:**
+- **MUST** validate migration stack ID format before registration
+- **MUST** ensure migration stack is deployed and available
+- **MUST NOT** allow registration with invalid stack ID format
+- **SHOULD** verify stack availability before registration
+- **MUST** provide clear error messages for invalid stack IDs
+
+## Use Cases
+
+### Rule 3: App Registration and Listing Feature
+
+**Feature Description:**
+Enables app owners to register their applications for data migration through the DMS Backoffice interface. Provides comprehensive validation, access control management, and status tracking capabilities.
+
+**Feature: App Registration for Migration and Listing**
+```
+As an app owner
+I want to register my app for migration in the DMS Backoffice
+So that I can migrate my data from external sources to Forge Storage and become a Level 4 app
+```
+
+**Background:**
+```
+Given the DMS Backoffice App is installed and accessible as a Jira App
+  And I have appropriate permissions to register apps for migration
+  And the DMS service is running and accessible
+  And the app to be migrated has the migration stack ready and registered within the Platform DMS service
+  And I am viewing the DMS Backoffice global screen
+```
+
+**Scenario 1: Successfully register an app for migration**
+
+**Description:** An app owner successfully registers their app for migration by providing all required information including App ID, Migration Stack ID, and access controls.
+
+**Gherkin Steps:**
+```
+Given I am on the DMS Backoffice global screen
+When I click the "Register App" button
+Then I see the registration form with fields:
+  | Field | Required | Type |
+  | App Name | Yes | Text |
+  | App ID | Yes | Text |
+  | Migration Stack ID | Yes | Text |
+  | Access Control (Users) | No | Multi-select |
+  | Access Control (Groups) | No | Multi-select |
+
+When I fill in the form:
+  | Field | Value |
+  | App Name | "My Awesome App" |
+  | App ID | "com.example.myapp" |
+  | Migration Stack ID | "my-stack::forge-storage-migration" |
+  | Access Control (Users) | ["user1@example.com", "user2@example.com"] |
+  | Access Control (Groups) | ["admin-group"] |
+
+And I click the "Register" button
+Then the app is successfully registered
+And I see a success message: "App 'My Awesome App' has been registered for migration"
+And the app appears in the registered apps list
+And the migration status is "NOT_STARTED"
+```
+
+**Requirements:**
+- **MUST** validate all required fields before submission
+- **MUST** validate migration stack ID format
+- **MUST** store app registration in persistent storage
+- **MUST** display success message after registration
+- **MUST** update app list immediately after registration
+- **SHOULD** set initial migration status to NOT_STARTED
+
+**Scenario 2: Validation error for invalid migration stack ID format**
+
+**Description:** The system validates that the Migration Stack ID follows the required format ending with "::forge-storage-migration".
+
+**Gherkin Steps:**
+```
+Given I am on the registration form
+When I fill in the form:
+  | Field | Value |
+  | App Name | "My App" |
+  | App ID | "com.example.app" |
+  | Migration Stack ID | "invalid-stack-id" |
+
+And I click the "Register" button
+Then I see a validation error: "Migration Stack ID must end with '::forge-storage-migration'"
+And the form is not submitted
+And the app is not registered
+```
+
+**Requirements:**
+- **MUST** validate migration stack ID format on form submission
+- **MUST** display clear error message for invalid format
+- **MUST NOT** allow submission with invalid stack ID
+- **SHOULD** validate format in real-time as user types
+- **MUST** highlight the invalid field
+
+**Scenario 3: Validation error for missing required fields**
+
+**Description:** The system validates that all required fields (App Name, App ID, Migration Stack ID) are provided before allowing registration.
+
+**Gherkin Steps:**
+```
+Given I am on the registration form
+When I leave required fields empty:
+  | Field | Value |
+  | App Name | "" |
+  | App ID | "" |
+  | Migration Stack ID | "" |
+
+And I click the "Register" button
+Then I see validation errors for all empty required fields:
+  | Field | Error Message |
+  | App Name | "App Name is required" |
+  | App ID | "App ID is required" |
+  | Migration Stack ID | "Migration Stack ID is required" |
+
+And the form is not submitted
+And the app is not registered
+```
+
+**Requirements:**
+- **MUST** validate all required fields before submission
+- **MUST** display field-specific error messages
+- **MUST NOT** allow submission with missing required fields
+- **SHOULD** validate fields in real-time
+- **MUST** highlight fields with errors
+
+**Scenario 4: View registered apps with different migration statuses**
+
+**Description:** Users can view a list of registered apps with different migration statuses, filtered by their access permissions.
+
+**Gherkin Steps:**
+```
+Given I am on the DMS Backoffice global screen
+And there are registered apps with different statuses:
+  | App Name | App ID | Status |
+  | App A | "com.example.appa" | NOT_STARTED |
+  | App B | "com.example.appb" | IN_PROGRESS |
+  | App C | "com.example.appc" | COMPLETED |
+  | App D | "com.example.appd" | FAILED |
+
+When I view the registered apps list
+Then I see all apps I have access to
+And each app displays:
+  | Field | Display |
+  | App Name | Visible |
+  | App ID | Visible |
+  | Migration Stack ID | Visible |
+  | Status | With status badge |
+  | Actions | Edit, Delete buttons |
+
+And apps are filtered by my access permissions
+And I can see pagination controls if there are more than 10 apps
+```
+
+**Requirements:**
+- **MUST** display all apps user has access to
+- **MUST** show migration status with appropriate badges
+- **MUST** implement pagination for large lists
+- **MUST** filter apps by user permissions
+- **SHOULD** sort apps by registration date (newest first)
+- **MUST** display all required app information
+
+**Scenario 6: Edit existing app registration**
+
+**Description:** App owners can edit existing app registrations to update access controls while keeping App ID and Migration Stack ID immutable.
+
+**Gherkin Steps:**
+```
+Given I am viewing the registered apps list
+And there is an app "My Awesome App" registered
+When I click the "Edit" button for "My Awesome App"
+Then I see the edit form with:
+  | Field | Editable | Current Value |
+  | App Name | Yes | "My Awesome App" |
+  | App ID | No | "com.example.myapp" |
+  | Migration Stack ID | No | "my-stack::forge-storage-migration" |
+  | Access Control (Users) | Yes | ["user1@example.com"] |
+  | Access Control (Groups) | Yes | ["admin-group"] |
+
+When I update:
+  | Field | New Value |
+  | App Name | "My Updated App" |
+  | Access Control (Users) | ["user1@example.com", "user3@example.com"] |
+
+And I click the "Save" button
+Then the app registration is updated
+And I see a success message: "App 'My Updated App' has been updated"
+And the app list reflects the changes
+And App ID and Migration Stack ID remain unchanged
+```
+
+**Requirements:**
+- **MUST** allow editing of App Name and Access Controls
+- **MUST NOT** allow editing of App ID and Migration Stack ID
+- **MUST** display current values in edit form
+- **MUST** validate updated data before saving
+- **MUST** update storage after successful save
+- **SHOULD** show confirmation before saving changes
+
+**Scenario 7: Cancel edit app registration**
+
+**Description:** Users can cancel the edit operation without saving changes, preserving the original app information.
+
+**Gherkin Steps:**
+```
+Given I am editing app "My Awesome App"
+And I have made changes to the form
+When I click the "Cancel" button
+Then the edit form is closed
+And no changes are saved
+And the app information remains unchanged
+And I return to the apps list view
+```
+
+**Requirements:**
+- **MUST** allow canceling edit operation
+- **MUST NOT** save changes when canceled
+- **MUST** preserve original app information
+- **SHOULD** show confirmation if unsaved changes exist
+- **MUST** return to apps list after cancel
+
+**Scenario 8: Edit app registration with validation errors**
+
+**Description:** The system validates form data during edit operations and prevents saving invalid information.
+
+**Gherkin Steps:**
+```
+Given I am editing app "My Awesome App"
+When I clear the App Name field
+And I click the "Save" button
+Then I see a validation error: "App Name is required"
+And the form is not submitted
+And the app information is not updated
+```
+
+**Requirements:**
+- **MUST** validate form data during edit
+- **MUST** display validation errors
+- **MUST NOT** save invalid data
+- **SHOULD** validate in real-time
+- **MUST** highlight fields with errors
+
+**Scenario 9: Change migration stack ID requires deletion and re-registration**
+
+**Description:** When changing the Migration Stack ID, the app must be deleted and re-registered with the new stack ID, resulting in a new App ID.
+
+**Gherkin Steps:**
+```
+Given I am viewing app "My Awesome App" with:
+  | Field | Value |
+  | App ID | "com.example.myapp" |
+  | Migration Stack ID | "old-stack::forge-storage-migration" |
+
+When I try to edit the Migration Stack ID
+Then the Migration Stack ID field is disabled
+And I see a message: "Migration Stack ID cannot be changed. Delete and re-register the app to use a different stack."
+
+When I delete the app and re-register with:
+  | Field | Value |
+  | App Name | "My Awesome App" |
+  | App ID | "com.example.myapp" |
+  | Migration Stack ID | "new-stack::forge-storage-migration" |
+
+Then the app is registered with a new App ID
+And the old App ID is no longer associated with this app
+```
+
+**Requirements:**
+- **MUST** disable Migration Stack ID field in edit mode
+- **MUST** show message explaining why it cannot be changed
+- **MUST** require deletion and re-registration to change stack ID
+- **MUST** generate new App ID on re-registration
+- **SHOULD** warn user about data implications of deletion
+
+### Rule 4: Migration Management for App Installations Feature
+
+**Feature Description:**
+Enables app owners to manage migration status for their app installations across different tenants. Provides comprehensive tenant management, filtering capabilities, bulk operations, and migration status tracking with rollback functionality.
+
+**Feature: Migration Management for App Installations**
+```
+As an app owner
+I want to manage migration status for my app installations across different tenants
+So that I can control which tenants are ready for migration and monitor the overall migration progress
+```
+
+**Background:**
+```
+Given the DMS Backoffice App is installed and accessible as a Jira App
+  And I have appropriate permissions to manage app migrations
+  And the DMS service is running and accessible
+  And I have previously registered an app for migration
+  And the app has installations across multiple tenants
+  And the installation service provides the list of active installations for the app at registration time
+  And I am viewing the DMS Backoffice global screen with the registered apps list
+```
+
+**Scenario 1: View tenant installations for a specific app**
+
+**Description:** An app owner navigates to the tenant installations view to see all installations for their registered app with migration status overview.
+
+**Gherkin Steps:**
+```
+Given I am viewing the registered apps list
+And there is an app "My Awesome App" registered
+When I click on "My Awesome App" or the "View Installations" button
+Then I navigate to the tenant installations view
+And I see a list of tenant installations:
+  | Tenant | Installation ID | Cloud ID | Status | Actions |
+  | appfire.atlassian.net | "ari:cloud:ecosystem::installation/inst-001" | "ari:cloud:ecosystem::site/cloud-001" | NOT_STARTED | Enable |
+  | startup.atlassian.net | "ari:cloud:ecosystem::installation/inst-002" | "ari:cloud:ecosystem::site/cloud-002" | IN_PROGRESS | Details |
+  | company.atlassian.net | "ari:cloud:ecosystem::installation/inst-003" | "ari:cloud:ecosystem::site/cloud-003" | COMPLETED | Details |
+  | enterprise.atlassian.net | "ari:cloud:ecosystem::installation/inst-004" | "ari:cloud:ecosystem::site/cloud-004" | FAILED | Rollback, Details |
+
+And I see migration statistics:
+  | Metric | Value |
+  | Total Installations | 4 |
+  | Not Started | 1 |
+  | In Progress | 1 |
+  | Completed | 1 |
+  | Failed | 1 |
+```
+
+**Requirements:**
+- **MUST** display all tenant installations for the app
+- **MUST** show migration status for each tenant
+- **MUST** display migration statistics
+- **MUST** provide navigation back to apps list
+- **SHOULD** load installations from Installation Service
+- **MUST** handle empty installation lists gracefully
+
+**Scenario 2: Filter tenants by identifier using typeahead**
+
+**Description:** Users can filter tenant installations by typing tenant identifiers (base URL, installation ID, or cloud ID) with typeahead suggestions.
+
+**Gherkin Steps:**
+```
+Given I am viewing tenant installations for "My Awesome App"
+And there are multiple tenant installations
+When I type "appfire" in the filter/search field
+Then I see typeahead suggestions matching "appfire":
+  | Suggestion |
+  | appfire.atlassian.net |
+  | appfire-installation-001 |
+
+When I select "appfire.atlassian.net" or press Enter
+Then the list is filtered to show only:
+  | Tenant |
+  | appfire.atlassian.net |
+
+And other tenants are hidden
+And the filter shows "appfire.atlassian.net" as active
+```
+
+**Requirements:**
+- **MUST** provide search/filter input field
+- **MUST** implement typeahead suggestions
+- **MUST** filter by tenant identifier (base URL, installation ID, cloud ID)
+- **MUST** update list in real-time as user types
+- **SHOULD** highlight matching text in suggestions
+- **MUST** handle no matches gracefully
+
+**Scenario 3: Clear filter and view all tenants**
+
+**Description:** Users can clear applied filters to view all tenant installations and see overall migration statistics.
+
+**Gherkin Steps:**
+```
+Given I have applied a filter showing only "appfire.atlassian.net"
+When I click the "Clear" or "X" button on the filter
+Then the filter is cleared
+And all tenant installations are displayed again
+And migration statistics reflect all tenants
+```
+
+**Requirements:**
+- **MUST** provide clear filter functionality
+- **MUST** restore full list when filter is cleared
+- **MUST** update statistics to reflect all tenants
+- **SHOULD** reset filter input field
+
+**Scenario 4: Enable migration for a single tenant**
+
+**Description:** App owners can enable migration for individual tenants by clicking the Enable button, which sets the migration status to IN_PROGRESS.
+
+**Gherkin Steps:**
+```
+Given I am viewing tenant installations for "My Awesome App"
+And there is a tenant "appfire.atlassian.net" with status NOT_STARTED
+When I click the "Enable" button for "appfire.atlassian.net"
+Then I see a confirmation dialog: "Enable migration for appfire.atlassian.net?"
+
+When I confirm the action
+Then the migration is enabled
+And the status changes to IN_PROGRESS
+And I see a success message: "Migration enabled for appfire.atlassian.net"
+And the Enable button is replaced with "Details" button
+And the migration process begins
+```
+
+**Requirements:**
+- **MUST** provide Enable button for NOT_STARTED tenants
+- **MUST** show confirmation dialog before enabling
+- **MUST** update status to IN_PROGRESS after confirmation
+- **MUST** trigger migration process
+- **MUST** update UI to reflect new status
+- **SHOULD** show loading state during enable operation
+
+**Scenario 5: Rollback migration for a single tenant**
+
+**Description:** App owners can rollback failed migrations, but rollback is disabled for migrations in progress. The system shows appropriate button states and confirmation dialogs.
+
+**Gherkin Steps:**
+```
+Given I am viewing tenant installations for "My Awesome App"
+And there is a tenant "enterprise.atlassian.net" with status FAILED
+When I view the actions for "enterprise.atlassian.net"
+Then I see a "Rollback" button enabled
+
+When I click the "Rollback" button
+Then I see a confirmation dialog: "Rollback migration for enterprise.atlassian.net? This will revert the migration."
+
+When I confirm the rollback
+Then the rollback process begins
+And I see a success message: "Rollback initiated for enterprise.atlassian.net"
+And the status changes appropriately
+
+Given there is a tenant "startup.atlassian.net" with status IN_PROGRESS
+When I view the actions for "startup.atlassian.net"
+Then the "Rollback" button is disabled
+And I see a tooltip: "Rollback is only available for failed migrations"
+```
+
+**Requirements:**
+- **MUST** enable Rollback button only for FAILED migrations
+- **MUST** disable Rollback button for IN_PROGRESS migrations
+- **MUST** show confirmation dialog before rollback
+- **MUST** trigger rollback process after confirmation
+- **MUST** update status after rollback
+- **SHOULD** show tooltip explaining why rollback is disabled
+
+**Scenario 6: Open bulk migration modal dialog**
+
+**Description:** Users can open a modal dialog to perform bulk migration operations on multiple tenants simultaneously.
+
+**Gherkin Steps:**
+```
+Given I am viewing tenant installations for "My Awesome App"
+And there are multiple tenants with status NOT_STARTED
+When I click the "Bulk Operations" button
+Then a modal dialog opens
+And I see:
+  | Element | Description |
+  | Checkboxes | Select multiple tenants |
+  | Select All | Select/deselect all tenants |
+  | Action Dropdown | Choose action (Enable, Rollback) |
+  | Selected Count | Number of selected tenants |
+  | Apply Button | Execute bulk action |
+  | Cancel Button | Close modal without action |
+
+When I select multiple tenants
+Then the selected count updates
+And I can choose a bulk action
+```
+
+**Requirements:**
+- **MUST** provide bulk operations functionality
+- **MUST** allow selecting multiple tenants
+- **MUST** show selected count
+- **MUST** provide action dropdown with available operations
+- **MUST** validate selected tenants are eligible for chosen action
+- **SHOULD** show confirmation before applying bulk action
+
+### Rule 5: Migration Details Display Feature
+
+**Feature Description:**
+Enables app owners to view detailed migration information for tenant installations, including BPS job status, progress tracking, error handling, and status refresh capabilities. Provides comprehensive insights into individual migration processes.
+
+**Feature: Migration Details Display for Tenant Installations**
+```
+As an app owner or administrator
+I want to view detailed migration information for tenant installations
+So that I can monitor migration progress, troubleshoot issues, and track completion status
+```
+
+**Background:**
+```
+Given I am viewing the tenant installations for app "My Awesome App"
+  And the app has the following tenant installations:
+    | Tenant | Installation ID | Cloud ID | Current Status |
+    | appfire.atlassian.net | "ari:cloud:ecosystem::installation/inst-001" | "ari:cloud:ecosystem::site/cloud-001" | IN_PROGRESS |
+    | startup.atlassian.net | "ari:cloud:ecosystem::installation/inst-002" | "ari:cloud:ecosystem::site/cloud-002" | COMPLETED |
+    | company.atlassian.net | "ari:cloud:ecosystem::installation/inst-003" | "ari:cloud:ecosystem::site/cloud-003" | FAILED |
+    | enterprise.atlassian.net | "ari:cloud:ecosystem::installation/inst-004" | "ari:cloud:ecosystem::site/cloud-004" | COMPLETED |
+    | newtenant.atlassian.net | "ari:cloud:ecosystem::installation/inst-005" | "ari:cloud:ecosystem::site/cloud-005" | NOT_STARTED |
+  And the BPS (Business Process Service) provides migration job status via REST API
+  And the migration job status API endpoint is "/bps-api/jobs/status/{jobId}/{customerId}"
+```
+
+**Scenario 1: View migration details for in-progress tenant**
+
+**Description:** Users can view detailed migration information for tenants with IN_PROGRESS status, including BPS job status, progress tracking, and refresh capabilities.
+
+**Gherkin Steps:**
+```
+Given I am viewing tenant installations for "My Awesome App"
+And there is a tenant "appfire.atlassian.net" with status IN_PROGRESS
+When I click the "Details" button for "appfire.atlassian.net"
+Then a modal dialog opens showing migration details:
+  | Section | Content |
+  | Tenant Info | appfire.atlassian.net, Installation ID, Cloud ID |
+  | Migration Status | IN_PROGRESS with status badge |
+  | BPS Job Status | Current job status from BPS API |
+  | Progress | Progress bar showing completion percentage (e.g., 45%) |
+  | Started At | Timestamp when migration started |
+  | Last Updated | Timestamp of last status update |
+  | Refresh Button | Button to refresh status from BPS |
+
+When I click the "Refresh" button
+Then the status is refreshed from BPS API
+And I see updated progress and status information
+And a loading indicator shows during refresh
+```
+
+**Requirements:**
+- **MUST** display detailed migration information in modal
+- **MUST** show BPS job status from API
+- **MUST** display progress with progress bar
+- **MUST** show timestamps (started, last updated)
+- **MUST** provide refresh functionality
+- **SHOULD** auto-refresh periodically for IN_PROGRESS migrations
+- **MUST** handle API errors gracefully
+
+**Scenario 2: View migration details for completed tenant**
+
+**Description:** Users can view completed migration details including duration, final progress, and completion status without refresh capabilities.
+
+**Gherkin Steps:**
+```
+Given I am viewing tenant installations for "My Awesome App"
+And there is a tenant "startup.atlassian.net" with status COMPLETED
+When I click the "Details" button for "startup.atlassian.net"
+Then a modal dialog opens showing migration details:
+  | Section | Content |
+  | Tenant Info | startup.atlassian.net, Installation ID, Cloud ID |
+  | Migration Status | COMPLETED with success badge |
+  | BPS Job Status | COMPLETED |
+  | Progress | 100% with completed indicator |
+  | Started At | Timestamp when migration started |
+  | Completed At | Timestamp when migration completed |
+  | Duration | Calculated duration (e.g., "2 hours 15 minutes") |
+  | Refresh Button | Not shown (completed migrations don't need refresh) |
+
+And the refresh button is not displayed
+And I see a success message or indicator
+```
+
+**Requirements:**
+- **MUST** display completed migration details
+- **MUST** show completion timestamp
+- **MUST** calculate and display duration
+- **MUST** show 100% progress
+- **MUST NOT** show refresh button for completed migrations
+- **SHOULD** show success indicator
+
+**Scenario 3: View migration details for failed tenant with errors**
+
+**Description:** Users can view failed migration details including error information, progress at failure point, and copy error functionality for troubleshooting.
+
+**Gherkin Steps:**
+```
+Given I am viewing tenant installations for "My Awesome App"
+And there is a tenant "company.atlassian.net" with status FAILED
+When I click the "Details" button for "company.atlassian.net"
+Then a modal dialog opens showing migration details:
+  | Section | Content |
+  | Tenant Info | company.atlassian.net, Installation ID, Cloud ID |
+  | Migration Status | FAILED with error badge |
+  | BPS Job Status | FAILED |
+  | Progress | Progress at failure point (e.g., 67%) |
+  | Started At | Timestamp when migration started |
+  | Failed At | Timestamp when migration failed |
+  | Error Message | Detailed error message from BPS |
+  | Error Stack | Full error stack trace (collapsible) |
+  | Copy Error Button | Button to copy error details |
+
+When I click the "Copy Error" button
+Then the error details are copied to clipboard
+And I see a confirmation: "Error details copied to clipboard"
+
+When I expand the error stack trace
+Then I see the full stack trace for debugging
+```
+
+**Requirements:**
+- **MUST** display failed migration details
+- **MUST** show error message and stack trace
+- **MUST** show progress at failure point
+- **MUST** provide copy error functionality
+- **MUST** show failure timestamp
+- **SHOULD** make error stack trace collapsible
+- **MUST** format error information clearly
+
+**Scenario 4: Refresh migration status from BPS**
+
+**Description:** Users can refresh migration status from the BPS service to get real-time updates on migration progress and status changes.
+
+**Gherkin Steps:**
+```
+Given I am viewing migration details for "appfire.atlassian.net" with status IN_PROGRESS
+When I click the "Refresh" button
+Then a loading indicator appears
+And an API call is made to: GET /bps-api/jobs/status/{jobId}/{customerId}
+
+When the API responds with updated status:
+  | Field | Value |
+  | Status | IN_PROGRESS |
+  | Progress | 78% |
+  | Last Updated | Current timestamp |
+
+Then the migration details are updated:
+  | Field | New Value |
+  | Progress | 78% |
+  | Last Updated | Current timestamp |
+
+And the loading indicator disappears
+And I see a success message: "Status refreshed"
+```
+
+**Requirements:**
+- **MUST** call BPS API to refresh status
+- **MUST** show loading indicator during refresh
+- **MUST** update all relevant fields after refresh
+- **MUST** handle API errors gracefully
+- **SHOULD** show success/error messages
+- **MUST** update last updated timestamp
+
+**Scenario 5: Details button disabled for not-started migrations**
+
+**Description:** Details button is disabled for NOT_STARTED migrations since no migration details are available until the migration begins.
+
+**Gherkin Steps:**
+```
+Given I am viewing tenant installations for "My Awesome App"
+And there is a tenant "newtenant.atlassian.net" with status NOT_STARTED
+When I view the actions for "newtenant.atlassian.net"
+Then the "Details" button is disabled
+And I see a tooltip: "Migration details are available after migration starts"
+
+When I try to click the disabled button
+Then nothing happens
+And the details modal does not open
+```
+
+**Requirements:**
+- **MUST** disable Details button for NOT_STARTED migrations
+- **MUST** show tooltip explaining why it's disabled
+- **MUST NOT** allow opening details for NOT_STARTED migrations
+- **SHOULD** visually indicate disabled state
+
+**Scenario 6: Close migration details modal**
+
+**Description:** Users can close the migration details modal to return to the tenant installations list view.
+
+**Gherkin Steps:**
+```
+Given I am viewing migration details modal for a tenant
+When I click the "Close" button or click outside the modal
+Then the modal is closed
+And I return to the tenant installations list view
+And the list state is preserved (filters, scroll position)
+```
+
+**Requirements:**
+- **MUST** provide close button
+- **MUST** allow closing by clicking outside modal
+- **MUST** allow closing with Escape key
+- **MUST** preserve list state when closing
+- **SHOULD** return focus to previous element
+
+## Implementation Guidelines
+
+### Rule 6: UI Components and Design System
+
+**Atlassian Design System:**
+- **MUST** use Atlassian Design System components
+- **MUST** follow Atlassian design guidelines
+- **SHOULD** use Forge UI components where available
+- **MUST** ensure accessibility compliance
+
+**Key Components:**
+- Tables for app and tenant lists
+- Forms for registration and editing
+- Modals for details and confirmations
+- Buttons with appropriate states (enabled/disabled)
+- Status badges for migration statuses
+- Progress bars for migration progress
+- Typeahead for filtering
+- Pagination for large lists
+
+**Requirements:**
+- **MUST** use Atlassian Design System
+- **MUST** ensure responsive design
+- **MUST** follow accessibility guidelines
+- **SHOULD** provide loading states
+- **MUST** handle empty states gracefully
+
+### Rule 7: Data Storage and State Management
+
+**Storage Requirements:**
+- **MUST** store app registrations persistently
+- **MUST** store migration statuses for tenants
+- **MUST** use Forge Storage (KVS or SQL) for persistence
+- **SHOULD** cache tenant installation data
+- **MUST** handle storage errors gracefully
+
+**State Management:**
+- **MUST** manage UI state appropriately
+- **SHOULD** use React state management patterns
+- **MUST** sync state with backend services
+- **SHOULD** implement optimistic updates where appropriate
+
+**Requirements:**
+- **MUST** persist app registrations
+- **MUST** persist migration statuses
+- **SHOULD** implement caching strategies
+- **MUST** handle storage errors
+- **SHOULD** sync with external services
+
+### Rule 8: API Integration
+
+**Installation Service Integration:**
+```typescript
+// Get tenant installations for an app
+async function getTenantInstallations(appId: string): Promise<TenantInstallation[]> {
+  const response = await fetch(`/installation-service/apps/${appId}/installations`);
+  return response.json();
+}
+```
+
+**BPS API Integration:**
+```typescript
+// Get migration job status
+async function getMigrationStatus(jobId: string, customerId: string): Promise<MigrationStatus> {
+  const response = await fetch(`/bps-api/jobs/status/${jobId}/${customerId}`);
+  return response.json();
+}
+```
+
+**Token Repository Integration:**
+- **MUST** use Token Repository Service for authentication
+- **MUST** handle token refresh
+- **MUST** include tokens in API requests
+- **MUST** handle authentication errors
+
+**Requirements:**
+- **MUST** integrate with Installation Service
+- **MUST** integrate with BPS API
+- **MUST** use Token Repository Service
+- **MUST** handle API errors gracefully
+- **SHOULD** implement retry logic
+- **MUST** handle rate limiting
+
+### Rule 9: Error Handling
+
+**Error Types:**
+- **Validation Errors**: Form validation failures
+- **API Errors**: Service communication failures
+- **Authentication Errors**: Token/credential failures
+- **Storage Errors**: Persistence failures
+
+**Error Handling Patterns:**
+```typescript
+try {
+  await registerApp(appData);
+  showSuccessMessage('App registered successfully');
+} catch (error) {
+  if (error.type === 'VALIDATION_ERROR') {
+    showValidationErrors(error.fields);
+  } else if (error.type === 'API_ERROR') {
+    showErrorMessage('Failed to register app. Please try again.');
+  } else {
+    showErrorMessage('An unexpected error occurred.');
+  }
+}
+```
+
+**Requirements:**
+- **MUST** handle all error types appropriately
+- **MUST** display user-friendly error messages
+- **MUST** log errors for debugging
+- **SHOULD** provide retry mechanisms
+- **MUST** handle network failures gracefully
+
+### Rule 10: Testing Requirements
+
+**Unit Testing:**
+- Test form validation logic
+- Test status calculations
+- Test filter/search functionality
+- Test error handling
+
+**Integration Testing:**
+- Test API integrations
+- Test storage operations
+- Test workflow end-to-end
+- Test error scenarios
+
+**E2E Testing:**
+- Test complete user workflows
+- Test all Gherkin scenarios
+- Test UI interactions
+- Test cross-browser compatibility
+
+**Requirements:**
+- **MUST** write unit tests for business logic
+- **MUST** write integration tests for APIs
+- **SHOULD** write E2E tests for critical flows
+- **MUST** test all Gherkin scenarios
+- **SHOULD** achieve high test coverage
+
+### Rule 11: Migration Ready Requirements
+
+**A "Migration Ready" Forge App must meet the following requirements:**
+
+**1. Data Access via Forge Remote**
+- App should already be at Forge level 2 or 3
+- Access data via Forge Remote:
+  - From Frontend: https://developer.atlassian.com/platform/forge/remote/calling-from-frontend/
+  - From Function: https://developer.atlassian.com/platform/forge/remote/calling-from-function/
+- Ideally reuse existing Connect Backend to minimize effort
+- See: https://developer.atlassian.com/platform/adopting-forge-from-connect/using-connect-from-forge-remote/
+
+**2. Seamless Data Source Switching**
+- App must work seamlessly with original external Data Source OR Forge Storage
+- Use migration status flag stored in KVS to determine data source
+- Flag type: `MigrationStatus = 'IN_PROGRESS' | 'COMPLETED' | 'FAILED'`
+- Data Access Layer must use this flag to route to appropriate storage
+
+**Example Implementation:**
+```typescript
+type MigrationStatus = 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+
+async function getMigrationStatus(tenantId: string): Promise<MigrationStatus> {
+  const status = await kvs.get(`migration:${tenantId}:status`);
+  return status || 'NOT_STARTED';
+}
+
+async function getData(tenantId: string, key: string) {
+  const migrationStatus = await getMigrationStatus(tenantId);
+  
+  if (migrationStatus === 'COMPLETED') {
+    // Use Forge Storage
+    return await forgeStorage.get(key);
+  } else {
+    // Use external data source
+    return await externalDataSource.get(key);
+  }
+}
+```
+
+**3. Read-Only Mode (Optional)**
+- No built-in Read-Only Mode in Atlassian Cloud (unlike DC Platform)
+- For some apps, prevent updates to DB while migration is in progress
+- Maintain consistency and integrity of migration process
+- Implementation varies by app functionality
+
+**Read-Only Mode Implementation:**
+```typescript
+async function updateData(tenantId: string, key: string, value: any) {
+  const migrationStatus = await getMigrationStatus(tenantId);
+  
+  if (migrationStatus === 'IN_PROGRESS') {
+    throw new Error('Data updates are disabled during migration. Please try again after migration completes.');
+  }
+  
+  // Proceed with update
+  const dataSource = migrationStatus === 'COMPLETED' 
+    ? forgeStorage 
+    : externalDataSource;
+  return await dataSource.update(key, value);
+}
+```
+
+**Alternative Approaches:**
+- Run migration process on weekends
+- Implement app-specific read-only mechanisms
+- Depends on likelihood of data updates during migration
+
+**Requirements:**
+- **MUST** implement Forge Remote data access
+- **MUST** use migration status flag for data source routing
+- **MUST** implement seamless switching between data sources
+- **SHOULD** implement read-only mode if data updates are likely during migration
+- **MUST** handle migration status flag appropriately
+- **SHOULD** reuse existing Connect Backend when possible
+
+### Rule 12: Migration Stack Implementation
+
+**BPS Client Integration:**
+
+**Producer Implementation:**
+```typescript
+import { MigrationProducer } from '@appfire-platform/bps-client';
+
+class MyAppMigrationProducer implements MigrationProducer {
+  async produceMigrationTasks(appId: string, tenantId: string): Promise<MigrationTask[]> {
+    // Extract data from external source
+    const externalData = await externalDataSource.getAll(tenantId);
+    
+    // Transform to migration tasks
+    return externalData.map(data => ({
+      taskId: generateTaskId(),
+      tenantId,
+      appId,
+      data: transformData(data),
+      metadata: {
+        source: 'external-db',
+        timestamp: new Date().toISOString(),
+      },
+    }));
+  }
+}
+```
+
+**Consumer Implementation:**
+```typescript
+import { MigrationConsumer } from '@appfire-platform/bps-client';
+
+class MyAppMigrationConsumer implements MigrationConsumer {
+  async consumeMigrationTask(task: MigrationTask): Promise<void> {
+    // Load data into Forge Storage
+    await forgeStorage.set(task.data.key, task.data.value);
+    
+    // Update progress tracking
+    await updateMigrationProgress(task.tenantId, task.taskId);
+  }
+  
+  async handleError(task: MigrationTask, error: Error): Promise<void> {
+    // Log error and update status
+    await logMigrationError(task.tenantId, task.taskId, error);
+    throw error; // Let BPS handle retry
+  }
+}
+```
+
+**Deployment:**
+- Use AWS CDK Constructs provided by BPS client
+- Integrate in CI/CD pipeline
+- Deploy to Platform AWS account
+- Configure via CLI tool
+
+**Requirements:**
+- **MUST** implement Producer interface
+- **MUST** implement Consumer interface
+- **MUST** extend base domain models if needed
+- **MUST** integrate BPS client in deployment pipeline
+- **SHOULD** handle errors appropriately in Consumer
+- **MUST** transform data appropriately in Producer
+
+### Rule 13: Communication Backoffice ⇄ Forge App
+
+**Problem:**
+Forge apps cannot subscribe to KVS changes. To react to back-office actions, the app must either:
+- Poll KVS (minimum 5-minute interval via Forge Scheduler), or
+- Receive an explicit call via WebTrigger
+
+Polling is too slow and rigid through static config (manifest). We prefer a direct, command-based trigger.
+
+**Solution: WebTrigger as a Command Proxy**
+Use a single WebTrigger endpoint that dispatches based on a `type` field in the request. Internally, a Strategy pattern maps `type` → handler.
+
+**Contract:**
+```typescript
+interface CommandRequest {
+  type: CommandType;
+  payload: Record<string, unknown>;  // Varies per type
+}
+
+type CommandType = 
+  | 'startMigration'      // Back office command
+  | 'resetMigration'      // Back office command
+  | 'migratedData'        // Consumer command
+  | 'migrationFinished';  // Consumer command
+```
+
+**Command Types:**
+
+**1. Back Office Commands:**
+
+**startMigration:**
+- Start migration if not running or completed
+- **MUST** return `{ migrationJobId: string }` on success
+- Payload: `{ installationId: string, migrationStackId: string, ... }`
+
+**resetMigration:**
+- Clear status value
+- Optionally purge app storage (app-specific)
+- Payload: `{ installationId: string, purgeStorage?: boolean }`
+
+**2. Consumer Commands:**
+
+**migratedData:**
+- Per task from Producer
+- Carries data to persist
+- Payload: `{ migrationId: string, installationId: string, data: any }`
+
+**migrationFinished:**
+- Sent when no tasks remain
+- Includes summary to verify
+- Payload: `{ migrationId: string, installationId: string, summary: MigrationSummary }`
+
+**Implementation with Strategy Pattern:**
+```typescript
+interface CommandHandler {
+  handle(request: CommandRequest): Promise<CommandResponse>;
+}
+
+class StartMigrationHandler implements CommandHandler {
+  async handle(request: CommandRequest): Promise<CommandResponse> {
+    const { installationId, migrationStackId } = request.payload;
+    
+    // Check current status
+    const status = await getMigrationStatus(installationId);
+    if (status === 'IN_PROGRESS' || status === 'COMPLETED') {
+      throw new Error('Migration already running or completed');
+    }
+    
+    // Start migration
+    const migrationJobId = await startMigration(installationId, migrationStackId);
+    
+    return {
+      statusCode: 200,
+      body: { migrationJobId },
+    };
+  }
+}
+
+class ResetMigrationHandler implements CommandHandler {
+  async handle(request: CommandRequest): Promise<CommandResponse> {
+    const { installationId, purgeStorage } = request.payload;
+    
+    // Clear migration status
+    await setMigrationStatus(installationId, 'NOT_STARTED');
+    
+    // Optionally purge storage
+    if (purgeStorage) {
+      await purgeAppStorage(installationId);
+    }
+    
+    return {
+      statusCode: 200,
+      body: { success: true },
+    };
+  }
+}
+
+class MigratedDataHandler implements CommandHandler {
+  async handle(request: CommandRequest): Promise<CommandResponse> {
+    const { migrationId, installationId, data } = request.payload;
+    
+    // Store migrated data
+    await storeMigratedData(installationId, data);
+    
+    return {
+      statusCode: 200,
+      body: { success: true },
+    };
+  }
+}
+
+class MigrationFinishedHandler implements CommandHandler {
+  async handle(request: CommandRequest): Promise<CommandResponse> {
+    const { migrationId, installationId, summary } = request.payload;
+    
+    // Validate migration
+    const validation = await validateMigration(installationId, summary);
+    
+    // Set status
+    await setMigrationStatus(installationId, validation.status === 'OK' ? 'COMPLETED' : 'FAILED');
+    
+    return {
+      statusCode: 200,
+      body: { success: true, validation },
+    };
+  }
+}
+
+// Command dispatcher
+const commandHandlers: Record<CommandType, CommandHandler> = {
+  startMigration: new StartMigrationHandler(),
+  resetMigration: new ResetMigrationHandler(),
+  migratedData: new MigratedDataHandler(),
+  migrationFinished: new MigrationFinishedHandler(),
+};
+
+// Web trigger implementation
+export const dmsCommandWebTrigger = async (req: WebTriggerRequest) => {
+  const { type, payload } = req.body;
+  
+  if (!type || !commandHandlers[type]) {
+    return {
+      statusCode: 400,
+      body: { error: `Unknown command type: ${type}` },
+    };
+  }
+  
+  try {
+    const handler = commandHandlers[type];
+    return await handler.handle({ type, payload });
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: { 
+        error: error.message,
+        type,
+      },
+    };
+  }
+};
+```
+
+**Migration Status Flag:**
+- App **MUST** keep flag `DMS_MIGRATION_STATUS` in KVS
+- Back office reads this flag with Forge App OAuth token from Token Repository Service
+- Flag values: `NOT_STARTED`, `IN_PROGRESS`, `COMPLETED`, `FAILED`
+
+**Exposing WebTrigger URL to Back Office:**
+- Back office cannot infer each app installation webtrigger URLs
+- App **MUST** write WebTrigger URL to KVS at install time: `DMS_MIGRATION_WEBTRIGGER`
+- Back office reads this value to send commands
+
+**Installation Handler:**
+```typescript
+export const appInstalled = async (event: AppInstalledEvent) => {
+  const installationId = event.installationId;
+  const webTriggerUrl = getWebTriggerUrl('dms-command');
+  
+  // Store web trigger URL in KVS
+  await kvs.set(`DMS_MIGRATION_WEBTRIGGER:${installationId}`, webTriggerUrl);
+  
+  // Initialize migration status
+  await kvs.set(`DMS_MIGRATION_STATUS:${installationId}`, 'NOT_STARTED');
+};
+```
+
+**Back Office Reading WebTrigger URL:**
+```typescript
+// Back office reads web trigger URL from KVS
+async function getAppWebTriggerUrl(installationId: string): Promise<string> {
+  const token = await tokenRepositoryService.getAppToken(installationId);
+  const kvs = createForgeKvsClient(token);
+  
+  return await kvs.get(`DMS_MIGRATION_WEBTRIGGER:${installationId}`);
+}
+
+// Back office sends command
+async function sendCommand(
+  installationId: string,
+  commandType: CommandType,
+  payload: Record<string, unknown>
+): Promise<void> {
+  const webTriggerUrl = await getAppWebTriggerUrl(installationId);
+  
+  await fetch(webTriggerUrl, {
+    method: 'POST',
+    body: JSON.stringify({ type: commandType, payload }),
+  });
+}
+```
+
+**Requirements:**
+- **MUST** implement single WebTrigger endpoint with command dispatcher
+- **MUST** use Strategy pattern to map command type to handler
+- **MUST** store `DMS_MIGRATION_STATUS` flag in KVS
+- **MUST** store `DMS_MIGRATION_WEBTRIGGER` URL in KVS at install time
+- **MUST** return `{ migrationJobId: string }` for startMigration command
+- **MUST** handle all command types appropriately
+- **MUST** validate command type before processing
+- **SHOULD** provide clear error messages for invalid commands
+
+### Rule 14: Enable Migration Data Ingestion
+
+**Web Trigger Configuration:**
+
+**Dynamic Web Trigger (Recommended):**
+```typescript
+// Dynamic web trigger for migration data ingestion
+export const migrationWebTrigger = async (req: WebTriggerRequest) => {
+  const { tenantId, data, taskId } = req.body;
+  
+  try {
+    // Load data into Forge Storage
+    await forgeStorage.set(data.key, data.value);
+    
+    // Update migration progress
+    await updateMigrationProgress(tenantId, taskId);
+    
+    return {
+      statusCode: 200,
+      body: { success: true, taskId },
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: { 
+        success: false, 
+        error: error.message,
+        taskId,
+      },
+    };
+  }
+};
+```
+
+**Static Web Trigger (Edge Case):**
+- For edge case where inactive tenant needs migration when app is already Level 4
+- Web trigger must be "static"
+- Detailed error information will not be available
+- See: https://developer.atlassian.com/platform/forge/runtime-reference/web-triggers/#web-trigger-types
+
+**Web Trigger Response:**
+- **200 success response**: Migration data loaded successfully
+- **500 error response**: Error with details in body
+
+**Manifest Configuration:**
+```yaml
+modules:
+  webTrigger:
+    - key: migration-ingestion
+      url: /migration/ingest
+      function: migrationWebTrigger
+```
+
+**Requirements:**
+- **MUST** define web trigger for migration data ingestion
+- **MUST** return 200 for success, 500 for errors
+- **MUST** include error details in 500 response body
+- **SHOULD** use dynamic web trigger when possible
+- **MUST** handle data loading errors gracefully
+- **MUST** update migration progress tracking
+
+### Rule 15: Migration Status Flag Management
+
+**Flag Storage:**
+```typescript
+// Store migration status in KVS
+const MIGRATION_STATUS_KEY = (tenantId: string) => 
+  `migration:${tenantId}:status`;
+
+async function setMigrationStatus(
+  tenantId: string, 
+  status: MigrationStatus
+): Promise<void> {
+  await kvs.set(MIGRATION_STATUS_KEY(tenantId), status);
+}
+
+async function getMigrationStatus(tenantId: string): Promise<MigrationStatus | null> {
+  return await kvs.get(MIGRATION_STATUS_KEY(tenantId));
+}
+```
+
+**Status Transitions:**
+- **NOT_STARTED** → **IN_PROGRESS**: When migration begins
+- **IN_PROGRESS** → **COMPLETED**: When migration succeeds
+- **IN_PROGRESS** → **FAILED**: When migration fails
+- **FAILED** → **IN_PROGRESS**: When rollback and retry
+
+**Data Source Routing:**
+```typescript
+function getDataSource(migrationStatus: MigrationStatus | null) {
+  if (migrationStatus === 'COMPLETED') {
+    return forgeStorage;
+  }
+  return externalDataSource;
+}
+```
+
+**Requirements:**
+- **MUST** store migration status flag in KVS
+- **MUST** use consistent key pattern: `migration:{tenantId}:status`
+- **MUST** update status flag during migration lifecycle
+- **MUST** use flag for data source routing
+- **SHOULD** handle null/undefined status (defaults to external source)
+- **MUST** update flag atomically
+
+### Rule 16: Rollback Implementation
+
+**Rollback Process:**
+```typescript
+async function rollbackMigration(tenantId: string): Promise<void> {
+  // 1. Verify migration status allows rollback
+  const status = await getMigrationStatus(tenantId);
+  if (status !== 'FAILED') {
+    throw new Error('Rollback only available for failed migrations');
+  }
+  
+  // 2. Delete all records created in Forge Storage
+  const migratedKeys = await getMigratedKeys(tenantId);
+  for (const key of migratedKeys) {
+    await forgeStorage.delete(key);
+  }
+  
+  // 3. Update migration status
+  await setMigrationStatus(tenantId, 'NOT_STARTED');
+  
+  // 4. Log rollback
+  await logMigrationEvent(tenantId, 'ROLLBACK', {
+    timestamp: new Date().toISOString(),
+    keysDeleted: migratedKeys.length,
+  });
+}
+```
+
+**Rollback Requirements:**
+- **MUST** only allow rollback for FAILED migrations
+- **MUST** delete all records created in Forge Storage
+- **MUST** track migrated keys for rollback
+- **MUST** update migration status after rollback
+- **MUST** log rollback events
+- **SHOULD** provide confirmation before rollback
+
+### Rule 17: RACI Responsibilities
+
+**RACI Diagram:**
+
+| Components/Teams | Platform Team | App Team |
+|-----------------|---------------|----------|
+| **Batch Processing Service (BPS)** | R, A | C, I |
+| **Migration Stack (BPS Plugin)** | A, C, I | R, A |
+| **Migration Service Backoffice** | R, A | C, I |
+| **Forge App ("Migration Ready")** | C, I, R | R, A |
+
+**Legend:**
+- **R** - Responsible
+- **A** - Accountable
+- **C** - Consulted
+- **I** - Informed
+
+**Platform Team Responsibilities:**
+- Responsible and Accountable for BPS
+- Accountable, Consulted, Informed for Migration Stack
+- Responsible and Accountable for Migration Service Backoffice
+- Consulted, Informed, Responsible for Forge App
+
+**App Team Responsibilities:**
+- Consulted and Informed for BPS
+- Responsible and Accountable for Migration Stack
+- Consulted and Informed for Migration Service Backoffice
+- Responsible and Accountable for Forge App
+
+**Requirements:**
+- **MUST** understand RACI responsibilities
+- **MUST** coordinate with Platform Team for BPS and Backoffice
+- **MUST** take ownership of Migration Stack implementation
+- **MUST** ensure app is Migration Ready
+- **SHOULD** consult Platform Team when needed
+
+### Rule 18: High Level Architecture
+
+**Architecture Components:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Migration Service Backoffice            │
+│              (Manual Trigger, Tracking, Reporting)          │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Batch Processing Service (BPS)                  │
+│         (Orchestration, Execution, Job Management)            │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   Migration Stack                            │
+│              (Producer: Extract & Transform)                 │
+│              (Consumer: Load to Forge Storage)              │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Forge App (Migration Ready)                     │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  Web Trigger: Migration Data Ingestion              │   │
+│  │  Data Access Layer: Route by Migration Status Flag  │   │
+│  │  Forge Storage: KVS/SQL                             │   │
+│  └──────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Data Flow:**
+1. Migration triggered via Backoffice
+2. BPS orchestrates migration process
+3. Migration Stack Producer extracts data from external source
+4. Migration Stack Consumer loads data via Web Trigger
+5. Forge App ingests data into Forge Storage
+6. Migration status tracked and reported via Backoffice
+
+**Requirements:**
+- **MUST** understand architecture components
+- **MUST** implement components according to architecture
+- **MUST** ensure proper data flow between components
+- **SHOULD** document app-specific architecture variations
+
+## Core Use Cases
+
+### Rule 19: DMS Core Use Cases Overview
+
+**Overview:**
+The Data Migration Service enables Forge app developers to migrate data from external sources to Forge Storage (KVS or SQL), allowing apps to access and manage data within the Atlassian infrastructure and become Level 4 apps.
+
+**Gherkin: Feature and Background**
+```
+Feature: Data Migration Service - Migration Process
+As a Forge app developer
+I want to migrate data from external sources to Forge Storage
+So that my app can access and manage data within the Atlassian infrastructure and become a Level 4 app
+
+Background:
+Given the Data Migration Service is running and accessible
+  And I have a valid Forge level 2 or 3 app which has source data that needs to be migrated
+  And the app has implemented a READONLY mode based on the MIGRATION_STATUS flag to avoid consistency problem while the data is being migrated
+  And I have implemented and loaded a migration stack in the Migration Service using identifier migrationStackId
+```
+
+**Important Note:**
+Use Cases 1 and 2 both migrate data to Forge KVS Storage, but they use different approaches:
+- **Use Case 1**: Uses a web trigger approach (similar to Use Case 3 for SQL) where the DMS sends data to your app's web trigger function
+- **Use Case 2**: Uses direct KVS REST API access where the DMS stores data directly in KVS without going through your web trigger
+
+**Requirements:**
+- **MUST** understand the difference between web trigger and REST API approaches
+- **MUST** implement READONLY mode based on MIGRATION_STATUS flag
+- **MUST** have migration stack implemented and loaded in Migration Service
+- **MUST** ensure app is Forge level 2 or 3 before migration
+
+### Rule 20: Use Case 1 - Request Migration to Forge KVS Storage (Web Trigger)
+
+**Description:**
+Migrate data to Forge Key-Value Store (KVS) Storage using web trigger approach.
+
+**Gherkin Specification:**
+```
+Scenario 1: Request migration to Forge KVS Storage
+Given I have set the required permission to use KVS Storage
+  And a Web trigger function that will receive and handle the data to be stored into KVS Storage
+  And The following parameters:
+  - migrationsId: Generated UUIDv7
+  - migrationStackId: The id used to identify your migration stack
+  - installationId: Provided as claim in the FIT
+  - webTriggerUrl: URL from the web trigger function that will receive and handle the data to be stored into KVS Storage
+
+When I submit a migration request using Forge Remote with those parameters to the Data Migration Service
+Then the migration request should be accepted
+  And the MIGRATION_STATUS flag is set to IN_PROGRESS
+  And the Migration Service sends data in multiple requests to the web trigger (e.g., record by record)
+  And for KVS target, data is sent as key-value pairs in JSON format
+
+When the Data Migration Service completes the data transfer to KVS Storage
+Then the MIGRATION_STATUS flag is set to COMPLETED
+  And the app automatically starts using KVS Storage as the only source of data and READONLY mode is no longer in effect
+```
+
+**Sequence Diagram:**
+```
+sequenceDiagram
+    participant App as Forge App
+    participant DMS as Data Migration Service
+    participant WT as Web Trigger
+    participant KVS as Forge KVS Storage
+    
+    App->>DMS: Submit migration request<br/>(migrationId, migrationStackId,<br/>installationId, webTriggerUrl)
+    DMS->>DMS: Set MIGRATION_STATUS = IN_PROGRESS
+    DMS->>WT: Send data (key-value pairs, JSON)
+    WT->>KVS: Store data in KVS
+    WT->>DMS: 200 OK
+    DMS->>DMS: Continue sending data...
+    DMS->>DMS: Set MIGRATION_STATUS = COMPLETED
+    DMS->>App: Migration completed
+    App->>App: Switch to KVS Storage only<br/>Disable READONLY mode
+```
+
+**Implementation:**
+```typescript
+// Web trigger for KVS migration data ingestion
+export const kvsMigrationWebTrigger = async (req: WebTriggerRequest) => {
+  const { migrationId, installationId, data } = req.body;
+  
+  // Data format: { key: string, value: any }
+  const { key, value } = data;
+  
+  try {
+    // Store in KVS
+    await kvs.set(key, value);
+    
+    // Update progress
+    await updateMigrationProgress(migrationId, installationId);
+    
+    return {
+      statusCode: 200,
+      body: { success: true, migrationId },
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: { 
+        success: false, 
+        error: error.message,
+        migrationId,
+      },
+    };
+  }
+};
+```
+
+**Requirements:**
+- **MUST** set required permission to use KVS Storage
+- **MUST** implement web trigger function to receive data
+- **MUST** accept data as key-value pairs in JSON format
+- **MUST** set MIGRATION_STATUS to IN_PROGRESS when migration starts
+- **MUST** set MIGRATION_STATUS to COMPLETED when migration finishes
+- **MUST** handle data in multiple requests (record by record)
+- **MUST** return 200 for success, 500 for errors
+- **MUST** switch to KVS Storage only after COMPLETED
+
+### Rule 21: Use Case 2 - Request Migration to Forge KVS Storage (REST API)
+
+**Description:**
+Migrate data to Forge KVS Storage using direct KVS REST API access with token management.
+
+**Gherkin Specification:**
+```
+Scenario 2: Request migration to Forge KVS Storage using direct REST API
+Given I have set the required permission to use KVS Storage
+  And I have the following parameters:
+  - migrationId: <Generated UUIDv7>
+  - migrationStackId: The app id used to identify your migration stack
+  - installationId: Provided as claim in the FIT
+
+When I submit a migration request using Forge Remote with those parameters to the Data Migration Service
+Then the migration request should be accepted
+  And the MIGRATION_STATUS flag is set to IN_PROGRESS
+  And the Data Migration Service accesses the app's data through Forge Remote
+
+When the Forge Remote token expires during migration
+Then the Data Migration Service automatically requests a new token from the Token Repository Service
+  And the migration continues with the new token
+
+When the Data Migration Service completes the data transfer to KVS Storage
+Then the MIGRATION_STATUS flag is set to COMPLETED using REST API
+  And the app automatically starts using KVS Storage as the only source of data and READONLY mode is no longer in effect
+```
+
+**Sequence Diagram:**
+```
+sequenceDiagram
+    participant App as Forge App
+    participant DMS as Data Migration Service
+    participant TRS as Token Repository Service
+    participant FR as Forge Remote
+    participant KVS as Forge KVS Storage (REST API)
+    
+    App->>DMS: Submit migration request<br/>(migrationId, migrationStackId,<br/>installationId)
+    DMS->>DMS: Set MIGRATION_STATUS = IN_PROGRESS
+    DMS->>TRS: Request token
+    TRS->>DMS: Return token
+    DMS->>FR: Access app data via Forge Remote
+    FR->>DMS: Return data
+    DMS->>KVS: Store data via REST API
+    KVS->>DMS: 200 OK
+    Note over DMS,TRS: Token expires
+    DMS->>TRS: Request new token
+    TRS->>DMS: Return new token
+    DMS->>FR: Continue accessing data
+    DMS->>KVS: Continue storing data
+    DMS->>DMS: Set MIGRATION_STATUS = COMPLETED<br/>(via REST API)
+    DMS->>App: Migration completed
+    App->>App: Switch to KVS Storage only<br/>Disable READONLY mode
+```
+
+**Key Differences from Use Case 1:**
+- No web trigger function required
+- DMS directly accesses KVS via REST API
+- Token management handled automatically by Token Repository Service
+- Token refresh handled transparently during migration
+
+**Requirements:**
+- **MUST** set required permission to use KVS Storage
+- **MUST** provide migrationId, migrationStackId, installationId
+- **MUST NOT** provide webTriggerUrl (not needed for REST API approach)
+- **MUST** allow DMS to access app data via Forge Remote
+- **MUST** handle token expiration and refresh automatically
+- **MUST** set MIGRATION_STATUS to IN_PROGRESS when migration starts
+- **MUST** set MIGRATION_STATUS to COMPLETED via REST API when migration finishes
+- **MUST** switch to KVS Storage only after COMPLETED
+
+### Rule 22: Use Case 3 - Request Migration to Forge SQL Storage
+
+**Description:**
+Migrate data to Forge SQL Storage with schema management. This rule provides high-level technical definition of a reference Producer–Consumer pair for migrating data from an external PostgreSQL database into Forge SQL.
+
+**Components Required:**
+
+**1. Forge App:**
+- Forge SQL configured and schema created
+- Web trigger for saving data into Forge SQL Storage
+- Egress for calling DMS
+
+**2. PostgreSQL (External Source):**
+- Data partitioned by tenant identifier (e.g., installationId)
+- Dockerized and exposed with localtunnel (for reference implementation)
+
+**3. DMS Producer/Consumer:**
+- Knowledge about remote and forge schemas
+- Configurable batch statement size
+
+**Gherkin Specification:**
+```
+Scenario 3: Request migration to Forge SQL Storage
+Given I have set the required permission to use SQL Storage
+  And I have declared the SQL module in my Forge app manifest
+  And I have configured scheduled triggers for schema migrations
+  And I have defined the database schema using DDL statements
+  And I have a Web trigger function that will receive and handle the data to be stored into SQL Storage
+  And I have the following parameters:
+  - migrationId: Generated UUIDv7
+  - migrationStackId: The app id used to identify your migration stack
+  - installationId: Provided as claim in the FIT
+  - webTriggerUrl: URL from the web trigger function that will receive and handle the data to be stored into SQL Storage
+
+When I submit a migration request using Forge Remote with those parameters to the Data Migration Service
+Then the migration request should be accepted
+  And the MIGRATION_STATUS flag is set to IN_PROGRESS
+  And the Migration Service sends data in multiple requests to the web trigger (e.g., record by record)
+  And for SQL target, data is sent as prepared statements with corresponding pre-formatted values
+
+When the Data Migration Service completes the data transfer to SQL Storage
+Then the MIGRATION_STATUS flag is set to COMPLETED
+  And the app automatically starts using SQL Storage as the only source of data and READONLY mode is no longer in effect
+```
+
+**Sequence Diagram:**
+```
+sequenceDiagram
+    participant App as Forge App
+    participant DMS as Data Migration Service
+    participant WT as Web Trigger
+    participant SQL as Forge SQL Storage
+    
+    App->>DMS: Submit migration request<br/>(migrationId, migrationStackId,<br/>installationId, webTriggerUrl)
+    DMS->>DMS: Set MIGRATION_STATUS = IN_PROGRESS
+    DMS->>WT: Send data (prepared statements)
+    WT->>SQL: Execute prepared statement
+    SQL->>WT: Success
+    WT->>DMS: 200 OK
+    DMS->>DMS: Continue sending data...
+    DMS->>DMS: Set MIGRATION_STATUS = COMPLETED
+    DMS->>App: Migration completed
+    App->>App: Switch to SQL Storage only<br/>Disable READONLY mode
+```
+
+**Manifest Configuration:**
+```yaml
+modules:
+  sql:
+    - key: main
+      database: default
+  scheduledTrigger:
+    - key: schema-migration
+      schedule: cron(0 0 * * ? *)
+      function: schemaMigrationFunction
+  webTrigger:
+    - key: sql-migration-ingestion
+      url: /migration/sql/ingest
+      function: sqlMigrationWebTrigger
+```
+
+**Implementation:**
+```typescript
+// Web trigger for SQL migration data ingestion
+export const sqlMigrationWebTrigger = async (req: WebTriggerRequest) => {
+  const { migrationId, installationId, data } = req.body;
+  
+  // Data format: { query: string, values: any[] }
+  const { query, values } = data;
+  
+  try {
+    // Execute prepared statement
+    await sql.query(query, values);
+    
+    // Update progress
+    await updateMigrationProgress(migrationId, installationId);
+    
+    return {
+      statusCode: 200,
+      body: { success: true, migrationId },
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: { 
+        success: false, 
+        error: error.message,
+        migrationId,
+      },
+    };
+  }
+};
+```
+
+**Requirements:**
+- **MUST** set required permission to use SQL Storage
+- **MUST** declare SQL module in manifest.yml
+- **MUST** configure scheduled triggers for schema migrations
+- **MUST** define database schema using DDL statements
+- **MUST Reference:** `docs/database-schema.md` for complete schema definitions when creating tables:
+  - Use table structures defined in `docs/database-schema.md`
+  - Respect column types, constraints, primary keys, and indexes as specified
+  - Follow relationship patterns (logical relationships, only one explicit FK constraint)
+- **MUST** implement web trigger function to receive data
+- **MUST** accept data as prepared statements with values
+- **MUST** set MIGRATION_STATUS to IN_PROGRESS when migration starts
+- **MUST** set MIGRATION_STATUS to COMPLETED when migration finishes
+- **MUST** handle data in multiple requests (record by record)
+- **MUST** return 200 for success, 500 for errors
+- **MUST** switch to SQL Storage only after COMPLETED
+
+### Rule 22.1: SQL Migration - Happy Path Implementation
+
+**Happy Path: Successful Data Migration**
+
+**Process Flow:**
+1. App requests migration job to DMS providing:
+   - `webTriggerURL`
+   - `installationId`
+   - Optional `batchSize` for number of rows per task (default: 10)
+
+2. DMS Producer scans PostgreSQL database:
+   - For each table, Producer filters by `installationId`
+   - Builds multi-row INSERT statements containing up to `batchSize` rows per task
+   - **Note**: REPLACE can be used instead of INSERT to make process idempotent
+   - Each produced task contains:
+     - Parameterized prepared statement
+     - Associated array of parameters
+
+3. DMS Consumer calls app web trigger sending:
+   - Prepared statement + parameters
+
+4. App executes statement via Forge SQL
+
+5. On final task, DMS Consumer notifies web trigger (with different payload) so App sets internal migration status to FINISHED
+
+**Producer Implementation:**
+```typescript
+class SQLMigrationProducer implements MigrationProducer {
+  async produceMigrationTasks(
+    appId: string,
+    installationId: string,
+    batchSize: number = 10
+  ): Promise<MigrationTask[]> {
+    const tasks: MigrationTask[] = [];
+    
+    // Get all tables for this installation
+    const tables = await getTablesForInstallation(installationId);
+    
+    for (const table of tables) {
+      // Get data partitioned by installationId
+      const rows = await postgres.query(
+        `SELECT * FROM ${table} WHERE installation_id = $1`,
+        [installationId]
+      );
+      
+      // Build batches
+      for (let i = 0; i < rows.length; i += batchSize) {
+        const batch = rows.slice(i, i + batchSize);
+        const { query, values } = buildMultiRowInsert(table, batch);
+        
+        tasks.push({
+          taskId: generateTaskId(),
+          installationId,
+          appId,
+          query,
+          values,
+          table,
+          isFinal: i + batchSize >= rows.length && table === tables[tables.length - 1],
+        });
+      }
+    }
+    
+    return tasks;
+  }
+  
+  private buildMultiRowInsert(table: string, rows: any[]): { query: string, values: any[] } {
+    // Build parameterized multi-row INSERT
+    // Example: INSERT INTO table (col1, col2) VALUES ($1, $2), ($3, $4), ...
+    const columns = Object.keys(rows[0]);
+    const placeholders: string[] = [];
+    const values: any[] = [];
+    
+    rows.forEach((row, idx) => {
+      const rowPlaceholders = columns.map((_, colIdx) => 
+        `$${idx * columns.length + colIdx + 1}`
+      ).join(', ');
+      placeholders.push(`(${rowPlaceholders})`);
+      values.push(...columns.map(col => row[col]));
+    });
+    
+    const query = `INSERT INTO ${table} (${columns.join(', ')}) VALUES ${placeholders.join(', ')}`;
+    
+    return { query, values };
+  }
+}
+```
+
+**Consumer Implementation:**
+```typescript
+class SQLMigrationConsumer implements MigrationConsumer {
+  async consumeMigrationTask(task: MigrationTask): Promise<void> {
+    const { query, values, isFinal, migrationId, installationId } = task;
+    
+    // Call web trigger
+    const response = await fetch(webTriggerUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        migrationId,
+        installationId,
+        query,
+        values,
+        isFinal,
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Web trigger failed: ${response.statusText}`);
+    }
+  }
+}
+```
+
+**Web Trigger Implementation:**
+```typescript
+export const sqlMigrationWebTrigger = async (req: WebTriggerRequest) => {
+  const { migrationId, installationId, query, values, isFinal } = req.body;
+  
+  try {
+    // Execute prepared statement
+    await sql.query(query, values);
+    
+    // Handle final task
+    if (isFinal) {
+      await setMigrationStatus(installationId, 'COMPLETED');
+      await disableReadOnlyMode(installationId);
+    }
+    
+    return {
+      statusCode: 200,
+      body: { success: true, migrationId },
+    };
+  } catch (error) {
+    if (isFinal) {
+      await setMigrationStatus(installationId, 'FAILED');
+    }
+    
+    return {
+      statusCode: 500,
+      body: { 
+        success: false, 
+        error: error.message,
+        migrationId,
+      },
+    };
+  }
+};
+```
+
+**Idempotency with REPLACE:**
+```typescript
+// Use REPLACE instead of INSERT for idempotency
+private buildMultiRowReplace(table: string, rows: any[]): { query: string, values: any[] } {
+  // REPLACE INTO table (col1, col2) VALUES ($1, $2), ($3, $4), ...
+  // This makes the process idempotent - safe to retry
+  const { query, values } = this.buildMultiRowInsert(table, rows);
+  return {
+    query: query.replace('INSERT INTO', 'REPLACE INTO'),
+    values,
+  };
+}
+```
+
+**Requirements:**
+- **MUST** filter data by installationId in Producer
+- **MUST** build multi-row INSERT/REPLACE statements
+- **MUST** use parameterized prepared statements
+- **SHOULD** use REPLACE for idempotency
+- **MUST** handle final task differently to set status
+- **MUST** execute statements via Forge SQL
+- **SHOULD** configure batch size appropriately (default: 10 rows)
+
+### Rule 22.2: SQL Migration - Error Path and Rollback
+
+**Error Path: Rollback and Retry**
+
+**Process Flow:**
+1-3. Same as happy path
+
+4. Error occurs in DMS Consumer (internal error or App returns error)
+
+5. On final task, DMS Consumer notifies web trigger so App sets migration flag to FAILURE
+
+6. App executes "Rollback" on Forge SQL Storage to delete migrated data
+
+7. Enables clean retry after fixing the issue
+
+**Note:** If REPLACE is used instead of INSERT, migration becomes idempotent, explicit rollback may be unnecessary, and starting a new migration will be safe.
+
+**Error Handling:**
+```typescript
+export const sqlMigrationWebTrigger = async (req: WebTriggerRequest) => {
+  const { migrationId, installationId, query, values, isFinal } = req.body;
+  
+  try {
+    await sql.query(query, values);
+    
+    if (isFinal) {
+      // Check job status before setting FINISHED
+      const jobStatus = await getMigrationJobStatus(migrationId);
+      
+      if (jobStatus.hasFailures) {
+        await setMigrationStatus(installationId, 'FAILED');
+        await requestRollback(installationId);
+      } else {
+        await setMigrationStatus(installationId, 'COMPLETED');
+        await disableReadOnlyMode(installationId);
+      }
+    }
+    
+    return { statusCode: 200, body: { success: true } };
+  } catch (error) {
+    // Handle error
+    if (isFinal) {
+      await setMigrationStatus(installationId, 'FAILED');
+    }
+    
+    return {
+      statusCode: 500,
+      body: { success: false, error: error.message },
+    };
+  }
+};
+```
+
+**Rollback Implementation:**
+```typescript
+async function rollbackSQLMigration(installationId: string): Promise<void> {
+  // Get all tables that were migrated
+  const migratedTables = await getMigratedTables(installationId);
+  
+  for (const table of migratedTables) {
+    // Delete all rows for this installation
+    await sql.query(
+      `DELETE FROM ${table} WHERE installation_id = $1`,
+      [installationId]
+    );
+  }
+  
+  // Clear migration tracking
+  await clearMigrationTracking(installationId);
+  await setMigrationStatus(installationId, 'NOT_STARTED');
+}
+```
+
+**Requirements:**
+- **MUST** check job status on final task before setting FINISHED
+- **MUST** set status to FAILED if any tasks failed
+- **MUST** implement rollback to delete migrated data
+- **SHOULD** use REPLACE for idempotency (avoids need for explicit rollback)
+- **MUST** enable clean retry after rollback
+- **SHOULD** track migrated tables for rollback
+
+### Rule 22.3: SQL Migration - Validation
+
+**Purpose:**
+After a migration process that FINISHED correctly, verify that data migrated into Forge SQL for the current installation (installationId) is complete and correct.
+
+**Process:**
+1. On final task, Consumer sends summary with per-table statistics from source (external DB), scoped to installationId
+2. Web trigger receives summary, queries Forge SQL and compares results
+3. App saves validation outcome alongside migration status
+
+**Summary Payload:**
+```typescript
+interface MigrationSummary {
+  migrationId: string;
+  installationId: string;
+  overall: {
+    totalTables: number;
+    totalRows: number;
+  };
+  tables: Array<{
+    table: string;
+    rowCount: number;
+  }>;
+}
+
+// Example payload
+const summary: MigrationSummary = {
+  migrationId: "e6b7b9f0-1234-4e3c-9f5d-abc123",
+  installationId: "ari:cloud:ecosystem::app/abcd-1234",
+  overall: { totalTables: 5, totalRows: 12450 },
+  tables: [
+    { table: "users", rowCount: 250 },
+    { table: "projects", rowCount: 1200 },
+    { table: "issues", rowCount: 11000 },
+  ],
+};
+```
+
+**Validation Implementation:**
+```typescript
+async function validateMigration(
+  installationId: string,
+  summary: MigrationSummary
+): Promise<ValidationResult> {
+  const results: ValidationCheck[] = [];
+  
+  // Check 1: Table existence
+  for (const tableSummary of summary.tables) {
+    const tableExists = await checkTableExists(tableSummary.table);
+    if (!tableExists) {
+      results.push({
+        check: 'table_existence',
+        table: tableSummary.table,
+        passed: false,
+        message: `Table ${tableSummary.table} does not exist`,
+      });
+      continue;
+    }
+    
+    // Check 2: Row count parity
+    const actualRowCount = await sql.query(
+      `SELECT COUNT(*) as count FROM ${tableSummary.table} WHERE installation_id = $1`,
+      [installationId]
+    );
+    
+    if (actualRowCount[0].count !== tableSummary.rowCount) {
+      results.push({
+        check: 'row_count',
+        table: tableSummary.table,
+        passed: false,
+        message: `Row count mismatch: expected ${tableSummary.rowCount}, got ${actualRowCount[0].count}`,
+        expected: tableSummary.rowCount,
+        actual: actualRowCount[0].count,
+      });
+    } else {
+      results.push({
+        check: 'row_count',
+        table: tableSummary.table,
+        passed: true,
+      });
+    }
+    
+    // Check 3: Basic nullability (recommended)
+    const requiredColumns = getRequiredColumns(tableSummary.table);
+    for (const column of requiredColumns) {
+      const nullCount = await sql.query(
+        `SELECT COUNT(*) as count FROM ${tableSummary.table} WHERE installation_id = $1 AND ${column} IS NULL`,
+        [installationId]
+      );
+      
+      if (nullCount[0].count > 0) {
+        results.push({
+          check: 'nullability',
+          table: tableSummary.table,
+          column,
+          passed: false,
+          message: `Column ${column} has ${nullCount[0].count} NULL values`,
+        });
+      }
+    }
+  }
+  
+  const allPassed = results.every(r => r.passed);
+  
+  return {
+    status: allPassed ? 'OK' : 'KO',
+    message: allPassed 
+      ? 'Migration validated successfully'
+      : `Validation failed: ${results.filter(r => !r.passed).map(r => r.message).join('; ')}`,
+    checks: results,
+  };
+}
+```
+
+**Validation Checks:**
+1. **Table existence**: Every table listed in summary exists in Forge SQL
+2. **Row count parity per table**: For each table, COUNT(*) must equal summary's rowCount
+3. **Basic nullability (recommended)**: COUNT(requiredColumn IS NULL) = 0 for required columns
+
+**Outcome:**
+- Validation status: `OK` if all checks pass, `KO` if any check fails
+- Message containing differences (which table doesn't match and the difference)
+
+**Requirements:**
+- **MUST** validate table existence
+- **MUST** validate row count parity per table
+- **SHOULD** validate basic nullability for required columns
+- **MUST** save validation outcome with migration status
+- **MUST** provide detailed error messages for failed validations
+- **SHOULD** perform validation automatically on final task
+
+### Rule 22.4: SQL Migration - Risks and Mitigations
+
+**Risk 1: Idempotency**
+
+**Risk:** Re-running migrations duplicates/conflicts rows.
+
+**Mitigation:**
+- Use REPLACE SQL statements instead of INSERT
+- Make App always rollback Forge SQL after receiving FAILURE or before starting new migration
+
+**Risk 2: Partial Failure**
+
+**Risk:** Some tasks succeed while others fail, leaving inconsistent state.
+
+**Mitigation:**
+- DMS Consumer will check job status on final task to send proper value for migration flag (FAILURE or FINISHED)
+- Implement rollback mechanism to clean up partial migrations
+
+**Risk 3: Data Not Partitioned by Tenant**
+
+**Risk:** Reading data that does not belong to the App installation.
+
+**Mitigation:**
+- Analyze original schema and define proper strategy to recover only data of the specific installation
+- Always filter by installationId in Producer queries
+- Validate data belongs to installation before migration
+
+**Risk 4: Rate Limits / Throughput / Timeouts**
+
+**Risk:** Overloading web trigger or SQL execution rate limits; DMS Producer takes too much time scanning database.
+
+**Mitigation:**
+- Tune batch size of statements (e.g., less or greater than 25 rows)
+- Implement exponential backoff and retries
+- Plan a database scanning strategy that could split migration in more than 1 job
+- Monitor rate limits and adjust accordingly
+
+**Requirements:**
+- **MUST** implement idempotency (REPLACE or rollback)
+- **MUST** handle partial failures appropriately
+- **MUST** ensure data is properly partitioned by tenant
+- **MUST** handle rate limits and timeouts
+- **SHOULD** tune batch size based on performance
+- **SHOULD** implement retry logic with backoff
+
+### Rule 22.5: Forge SQL Limitations
+
+**Forge SQL Limitations:**
+- **No foreign keys**: Foreign key constraints are not supported
+- **No transactions**: Transaction support is not available
+- **Only one query statement can be executed at a time**: Cannot execute multiple statements in a single call
+
+**Impact on Migration Strategy:**
+
+**Schema Definition:**
+- Original schema should not use foreign keys (for reference example)
+- Schema must be adapted to work without foreign key constraints
+- Relationships must be maintained at application level
+
+**Migration Strategy:**
+- **Insert order is irrelevant**: Producer can read row by row starting with any table
+- **Multi-row INSERT/REPLACE statements**: Act as a transaction per statement
+- **No need for transactions**: Multi-row inserts are quicker than many single inserts
+- **One query at a time**: Each web trigger call executes one prepared statement
+
+**Example:**
+```typescript
+// ✅ Good: Multi-row INSERT (acts as single operation)
+await sql.query(
+  `INSERT INTO users (id, name) VALUES ($1, $2), ($3, $4), ($5, $6)`,
+  [1, 'Alice', 2, 'Bob', 3, 'Charlie']
+);
+
+// ❌ Bad: Multiple statements (not supported)
+await sql.query(`
+  INSERT INTO users (id, name) VALUES (1, 'Alice');
+  INSERT INTO users (id, name) VALUES (2, 'Bob');
+`);
+
+// ❌ Bad: Foreign keys (not supported)
+CREATE TABLE orders (
+  id INT PRIMARY KEY,
+  user_id INT REFERENCES users(id)  -- Not supported
+);
+```
+
+**Requirements:**
+- **MUST** understand Forge SQL limitations
+- **MUST NOT** use foreign keys in schema
+- **MUST NOT** rely on transactions
+- **MUST** execute one query statement at a time
+- **SHOULD** use multi-row INSERT/REPLACE for efficiency
+- **MUST** maintain relationships at application level
+- **SHOULD** design schema to work within limitations
+
+### Rule 23: Use Case 4 - Handle Migration Errors and Failure Scenarios
+
+**Description:**
+Manage migration failures and provide recovery mechanisms.
+
+**Gherkin Specification:**
+```
+Scenario 4: Handle migration errors and failure scenarios
+Given I have initiated a migration request to either KVS or SQL Storage
+  And the MIGRATION_STATUS flag is set to IN_PROGRESS
+
+When an error occurs during the migration process
+Then the Data Migration Service should immediately stop the migration process
+  And the MIGRATION_STATUS flag should be set to FAILED
+  And the app should remain in READONLY mode to prevent data inconsistency
+
+When the MIGRATION_STATUS flag is FAILED
+Then the Web Trigger function should allow for a special request param that indicates removing all the data from Forge Storage
+
+When I attempt to retry the migration
+Then I should be able to submit a new migration request with a new migrationId
+  And the new migration should start from the beginning even if the partially migrated data has not been removed
+```
+
+**Sequence Diagram:**
+```
+sequenceDiagram
+    participant App as Forge App
+    participant DMS as Data Migration Service
+    participant WT as Web Trigger
+    participant Storage as Forge Storage
+    
+    App->>DMS: Submit migration request
+    DMS->>DMS: Set MIGRATION_STATUS = IN_PROGRESS
+    DMS->>WT: Send data
+    WT->>Storage: Store data
+    Note over WT,Storage: Error occurs
+    Storage->>WT: Error response
+    WT->>DMS: 500 Error
+    DMS->>DMS: Stop migration process
+    DMS->>DMS: Set MIGRATION_STATUS = FAILED
+    DMS->>App: Migration failed
+    App->>App: Remain in READONLY mode
+    
+    Note over App,DMS: Retry migration
+    App->>DMS: Submit new migration request<br/>(new migrationId)
+    DMS->>WT: Request cleanup (optional)
+    WT->>Storage: Remove all migrated data
+    DMS->>DMS: Start new migration from beginning
+```
+
+**Error Handling Implementation:**
+```typescript
+// Web trigger with error handling
+export const migrationWebTrigger = async (req: WebTriggerRequest) => {
+  const { migrationId, installationId, data, cleanup } = req.body;
+  
+  // Handle cleanup request
+  if (cleanup === true) {
+    try {
+      await cleanupMigratedData(installationId);
+      return {
+        statusCode: 200,
+        body: { success: true, cleanup: true },
+      };
+    } catch (error) {
+      return {
+        statusCode: 500,
+        body: { success: false, error: error.message },
+      };
+    }
+  }
+  
+  // Handle data ingestion
+  try {
+    await storeMigrationData(data);
+    await updateMigrationProgress(migrationId, installationId);
+    
+    return {
+      statusCode: 200,
+      body: { success: true, migrationId },
+    };
+  } catch (error) {
+    // Update status to FAILED
+    await setMigrationStatus(installationId, 'FAILED');
+    
+    return {
+      statusCode: 500,
+      body: { 
+        success: false, 
+        error: error.message,
+        migrationId,
+        status: 'FAILED',
+      },
+    };
+  }
+};
+```
+
+**Cleanup Implementation:**
+```typescript
+async function cleanupMigratedData(installationId: string): Promise<void> {
+  // Get all migrated keys
+  const migratedKeys = await getMigratedKeys(installationId);
+  
+  // Delete all migrated data
+  for (const key of migratedKeys) {
+    await kvs.delete(key);
+  }
+  
+  // Clear migration tracking
+  await clearMigrationTracking(installationId);
+}
+```
+
+**Retry Logic:**
+```typescript
+// Retry migration with new migrationId
+async function retryMigration(
+  migrationStackId: string,
+  installationId: string,
+  webTriggerUrl: string,
+  cleanupFirst: boolean = false
+): Promise<string> {
+  // Generate new migrationId
+  const newMigrationId = generateUUIDv7();
+  
+  // Optional cleanup before retry
+  if (cleanupFirst) {
+    await requestCleanup(installationId, webTriggerUrl);
+  }
+  
+  // Submit new migration request
+  return await submitMigrationRequest({
+    migrationId: newMigrationId,
+    migrationStackId,
+    installationId,
+    webTriggerUrl,
+  });
+}
+```
+
+**Requirements:**
+- **MUST** stop migration process immediately on error
+- **MUST** set MIGRATION_STATUS to FAILED on error
+- **MUST** keep app in READONLY mode when status is FAILED
+- **MUST** support cleanup request via web trigger
+- **MUST** allow retry with new migrationId
+- **MUST** start new migration from beginning (even if partial data exists)
+- **SHOULD** provide cleanup functionality before retry
+- **MUST** handle errors gracefully in web trigger
+- **MUST** return appropriate error codes (500) with error details
+
+### Rule 24: Rate Limiting and Quotas
+
+**Rate Limiting Considerations:**
+- BPS and DMS must handle Forge platform quotas and limits
+- Rate limits on web triggers must be handled
+- Some constraints may result in failure scenarios (Use Case 4)
+- Batch processing and throttling should be considered
+
+**Forge Platform Limits:**
+- Web trigger rate limits
+- KVS operation limits (1000 RPS, 4000 reads/writes per minute)
+- SQL operation limits
+- Function timeout limits (25s standard, 900s async)
+
+**Handling Rate Limits:**
+```typescript
+// Web trigger with rate limit handling
+export const migrationWebTrigger = async (req: WebTriggerRequest) => {
+  try {
+    await storeMigrationData(data);
+    return { statusCode: 200, body: { success: true } };
+  } catch (error) {
+    // Check if rate limit error
+    if (error.status === 429) {
+      // Return error to trigger retry with backoff
+      return {
+        statusCode: 500,
+        body: { 
+          success: false, 
+          error: 'Rate limit exceeded',
+          retryable: true,
+        },
+      };
+    }
+    // Other errors
+    return {
+      statusCode: 500,
+      body: { success: false, error: error.message },
+    };
+  }
+};
+```
+
+**Requirements:**
+- **MUST** handle rate limits on web triggers
+- **MUST** respect Forge platform quotas and limits
+- **SHOULD** implement batch processing where possible
+- **SHOULD** implement throttling to stay within limits
+- **MUST** handle rate limit errors appropriately (scenario 4)
+- **SHOULD** consider batching data to optimize quota usage
+
+## References
+
+- **Forge Remote**: https://developer.atlassian.com/platform/forge/remote/
+- **Using Connect from Forge Remote**: https://developer.atlassian.com/platform/adopting-forge-from-connect/using-connect-from-forge-remote/
+- **Web Triggers**: https://developer.atlassian.com/platform/forge/runtime-reference/web-triggers/
+- **Forge Platform Quotas and Limits**: https://developer.atlassian.com/platform/forge/platform-quotas-and-limits/
+- **BPS Documentation**: Internal repo (requires VPN access)
+- **DMS Use Cases**: https://appfire.atlassian.net/wiki/spaces/PLATFORM/pages/2324365328
+- **DMS Core Use Cases**: https://appfire.atlassian.net/wiki/spaces/PLATFORM/pages/2373419305
+- **DMS SQL Migration Tech Specs**: PSS-9090
+- **Manage your database schema in Forge SQL**: https://developer.atlassian.com/platform/forge/runtime-reference/sql-api/manage-your-database-schema/
+- **Forge SQL tutorial**: https://developer.atlassian.com/platform/forge/runtime-reference/sql-api/tutorial/
+- **Execute SQL operations with @forge/sql**: https://developer.atlassian.com/platform/forge/runtime-reference/sql-api/execute-sql-operations/
+- **Migrate data to Forge SQL**: https://developer.atlassian.com/platform/forge/runtime-reference/sql-api/migrate-data-to-forge-sql/
+- **Forge SQL limitations**: https://developer.atlassian.com/platform/forge/runtime-reference/sql-api/#limitations
+
+- **Atlassian Design System**: https://atlassian.design/
+- **Forge UI Components**: https://developer.atlassian.com/platform/forge/ui-kit/
+- **Forge Storage**: https://developer.atlassian.com/platform/forge/runtime-reference/storage-api/
+- **Jira Forge Apps**: https://developer.atlassian.com/platform/forge/

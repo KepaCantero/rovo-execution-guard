@@ -1,0 +1,140 @@
+# Fundamentals of Software Architecture (Mark Richards & Neal Ford)
+
+**Source:** "Fundamentals of Software Architecture" by Mark Richards & Neal Ford  
+**Focus:** Cómo diagramar decisiones técnicas y estructuras complejas.
+
+## 1. C4 MODEL AND CONTEXT
+
+- **Usa el Modelo C4:** Divide diagramas en niveles: Contexto, Contenedores, Componentes y Código
+  - **Context:** System and its relationships with users and external systems
+  - **Containers:** High-level technical building blocks
+  - **Components:** Building blocks within a container
+  - **Code:** Classes, interfaces, and functions (optional detail)
+
+- **Diagrama el Contexto Primero:** Antes de entrar al código, muestra cómo interactúa el sistema con usuarios y otros sistemas
+  - ✅ Start with system context diagram
+  - ✅ Show external actors and systems
+  - ❌ Jumping straight to component details
+
+- **Evita los "Diagramas de Cajas Misteriosas":** Cada caja debe tener un nombre claro y una descripción de su responsabilidad
+  - ✅ "User Service - Handles user authentication and profile management"
+  - ❌ "Service A" or "Component"
+
+- **Mantén la Abstracción Consistente:** No mezcles una base de datos con una clase específica en el mismo nivel
+  - ✅ Same abstraction level per diagram
+  - ❌ Mixing infrastructure and code details
+
+## 2. FLOW AND SEQUENCE DIAGRAMS
+
+- **Diferencia Líneas de Flujo:** Usa líneas continuas para llamadas sincrónicas y punteadas para asincrónicas
+  - ✅ Solid: Direct API calls, synchronous operations
+  - ✅ Dashed: Message queues, events, async operations
+  - ❌ All lines same style
+
+- **Usa Diagramas de Secuencia para Lógica Temporal:** Si el orden de los pasos importa, no uses un diagrama de bloques
+  - ✅ Sequence diagrams for API calls, workflows
+  - ✅ Show timing relationships
+  - ❌ Flowcharts for temporal sequences
+
+- **Muestra el Flujo de Datos:** Indica la dirección de la información con puntas de flecha claras
+  - ✅ Clear arrow direction
+  - ✅ Label data being transferred
+  - ❌ Ambiguous or missing arrows
+
+- **Documenta los "Side Effects":** Si una acción dispara un evento oculto, grafícalo
+  - ✅ Show all triggered events
+  - ✅ Document side effects explicitly
+  - ❌ Hidden or undocumented side effects
+
+- **Usa Diagramas de Actividad para Lógica de Negocio:**
+  - ✅ Activity diagrams for business workflows
+  - ✅ Show decision points clearly
+  - ❌ Using sequence diagrams for business logic
+
+## 3. ARCHITECTURE ELEMENTS
+
+- **Identifica los "Acoplamientos":** Usa flechas para mostrar qué componente depende de cuál
+  - ✅ Clear dependency arrows
+  - ✅ Direction shows dependency direction
+  - ❌ Unclear dependencies
+
+- **Visualiza los "Bonded Contexts":** En microservicios, usa fronteras visuales para separar dominios
+  - ✅ Clear boundaries between contexts
+  - ✅ Color coding for different domains
+  - ❌ No visual separation
+
+- **Usa Colores para Capacidades:** (ej. Azul para servicios internos, naranja para externos)
+  - ✅ Consistent color scheme
+  - ✅ Colors have meaning
+  - ❌ Random colors
+
+- **Diagrama la Infraestructura:** Separa la lógica de negocio de los servidores físicos
+  - ✅ Separate logical and physical diagrams
+  - ✅ Infrastructure diagrams show deployment
+  - ❌ Mixing logic and infrastructure
+
+- **Visualiza la Escalabilidad:** Muestra cómo se duplican los nodos tras un balanceador
+  - ✅ Show replication/scaling
+  - ✅ Load balancers clearly marked
+  - ❌ Single node diagrams for scalable systems
+
+- **Indica los Protocolos:** Escribe "HTTPS", "gRPC" o "AMQP" sobre las líneas de conexión
+  - ✅ Protocol labels on connections
+  - ✅ Clear communication methods
+  - ❌ Unlabeled connections
+
+- **Usa Iconos de Industria:** (AWS, Azure, Docker) para reconocimiento instantáneo
+  - ✅ Standard cloud/infrastructure icons
+  - ✅ Recognizable symbols
+  - ❌ Custom icons requiring explanation
+
+- **Muestra los Puntos de Fallo:** Indica dónde están los Circuit Breakers
+  - ✅ Failure points marked
+  - ✅ Resilience patterns visible
+  - ❌ No failure handling shown
+
+## 4. DIAGRAM QUALITY
+
+- **Evita los diagramas "Spaghetti":** Si hay demasiadas líneas cruzadas, divide el gráfico en dos
+  - ✅ Maximum 7-10 components per diagram
+  - ✅ Split complex systems
+  - ❌ One diagram with 50+ connections
+
+- **Define la Leyenda:** Nunca asumas que el lector sabe qué significa una caja roja
+  - ✅ Clear legend for all symbols
+  - ✅ Color meanings explained
+  - ❌ Unexplained symbols
+
+- **Usa Diagramas de Despliegue para DevOps:**
+  - ✅ Show deployment architecture
+  - ✅ Environment separation
+  - ❌ No deployment information
+
+- **Simplifica para los Stakeholders:** Crea una versión "ligera" para jefes de proyecto
+  - ✅ Simplified context diagrams
+  - ✅ Business-focused views
+  - ❌ Same technical detail for all audiences
+
+- **Mantén los diagramas actualizados:** Un diagrama viejo es más peligroso que no tener ninguno
+  - ✅ Diagrams versioned with code
+  - ✅ Regular updates
+  - ❌ Outdated diagrams
+
+- **Usa herramientas de "Diagrams as Code":** (Mermaid, PlantUML) para facilitar cambios
+  - ✅ Version-controlled diagrams
+  - ✅ Easy to update
+  - ❌ Static image files
+
+- **Usa UML solo si es necesario:** No te fuerces a seguir reglas rígidas si un diagrama simple comunica mejor
+  - ✅ Use UML when it adds value
+  - ✅ Simple diagrams when sufficient
+  - ❌ Over-engineering diagrams
+
+- **Anota las Decisiones Arquitectónicas (ADRs):** El gráfico muestra el qué, el texto adjunto explica el porqué
+  - ✅ ADRs linked to diagrams
+  - ✅ Decision rationale documented
+  - ❌ Diagrams without context
+
+---
+
+**Key Principle:** Use C4 model for layered abstraction. Start with context, maintain consistent abstraction levels, and keep diagrams updated. Use diagrams as code for maintainability.

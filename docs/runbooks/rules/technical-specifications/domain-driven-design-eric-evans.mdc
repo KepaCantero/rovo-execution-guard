@@ -1,0 +1,163 @@
+# Domain-Driven Design: Tackling Complexity (Eric Evans)
+
+**Source:** "Domain-Driven Design: Tackling Complexity" by Eric Evans  
+**Focus:** Cómo usar el lenguaje y los gráficos para modelar procesos de negocio.
+
+## 1. UBIQUITOUS LANGUAGE
+
+- **Usa el "Ubiquitous Language":** El nombre de la tabla en el gráfico debe ser el mismo que usa el experto de negocio
+  - ✅ Business terms in diagrams
+  - ✅ Same terminology as domain experts
+  - ✅ Glossary aligned with business
+  - ❌ Technical jargon different from business
+
+- **Mantén el modelo de dominio visualmente separado de la base de datos física:**
+  - ✅ Domain model separate from DB schema
+  - ✅ Business concepts vs implementation
+  - ❌ Mixing domain and persistence
+
+## 2. BOUNDED CONTEXTS
+
+- **Visualiza los "Bounded Contexts":** Usa fronteras claras para separar, por ejemplo, "Inventario" de "Facturación"
+  - ✅ Clear boundaries between contexts
+  - ✅ Visual separation
+  - ✅ Context names match business domains
+  - ❌ No clear boundaries
+
+- **Usa "Context Maps":** Gráficos que muestran cómo se comunican diferentes dominios (Upstream/Downstream)
+  - ✅ Context maps showing domain relationships
+  - ✅ Upstream/Downstream clearly marked
+  - ✅ Communication patterns shown
+  - ❌ No context mapping
+
+- **Muestra las "Anticorruption Layers":** Cómo tu sistema se protege de APIs externas feas
+  - ✅ Anti-corruption layers shown
+  - ✅ External API isolation
+  - ✅ Translation layers documented
+  - ❌ Direct external API coupling
+
+- **Documenta los mapeos de datos entre contextos:**
+  - ✅ Data mappings between contexts
+  - ✅ Translation logic shown
+  - ❌ No mapping documentation
+
+- **Muestra el origen de los datos maestros:**
+  - ✅ Master data source identified
+  - ✅ Single source of truth shown
+  - ❌ Unclear data ownership
+
+## 3. ENTITIES AND VALUE OBJECTS
+
+- **Identifica las "Entidades" vs "Value Objects":** Usa iconos o colores para diferenciarlos en el modelo de datos
+  - ✅ Entities vs Value Objects distinction
+  - ✅ Visual differentiation (icons/colors)
+  - ✅ Identity vs value semantics clear
+  - ❌ No distinction shown
+
+- **Diagrama los "Aggregates":** Muestra qué objetos deben viajar siempre juntos
+  - ✅ Aggregate boundaries shown
+  - ✅ Aggregate roots identified
+  - ✅ Consistency boundaries clear
+  - ❌ No aggregate modeling
+
+- **Evita el "Anemic Domain Model":** No grafiques solo datos; muestra los métodos principales
+  - ✅ Domain logic shown
+  - ✅ Key methods documented
+  - ✅ Behavior, not just data
+  - ❌ Data-only models
+
+- **Documenta los "Repositores" y "Servicios":**
+  - ✅ Repositories shown
+  - ✅ Domain services documented
+  - ✅ Application services identified
+  - ❌ No service layer shown
+
+## 4. DOMAIN EVENTS AND PROCESSES
+
+- **Muestra los "Domain Events":** Usa flechas para indicar qué sucede cuando algo cambia (ej. "PedidoPagado")
+  - ✅ Domain events shown
+  - ✅ Event flow documented
+  - ✅ Event names match business language
+  - ❌ No event modeling
+
+- **Usa diagramas de flujo para procesos de dominio complejos:**
+  - ✅ Flow diagrams for complex domain processes
+  - ✅ Business process visualization
+  - ❌ No process modeling
+
+- **Usa diagramas de "Sagas" para transacciones largas entre servicios:**
+  - ✅ Saga patterns shown
+  - ✅ Long-running transactions
+  - ✅ Compensation flows
+  - ❌ No saga modeling
+
+- **Indica la consistencia eventual vs. inmediata:**
+  - ✅ Consistency model shown
+  - ✅ Eventual vs immediate consistency
+  - ✅ Trade-offs documented
+  - ❌ No consistency information
+
+## 5. ARCHITECTURAL PATTERNS
+
+- **Usa colores para diferenciar capas de la arquitectura hexagonal:**
+  - ✅ Hexagonal architecture layers
+  - ✅ Color coding for layers
+  - ✅ Ports and adapters shown
+  - ❌ No layer distinction
+
+- **Diferencia claramente el modelo de lectura (Read) del de escritura (Write) si usas CQRS:**
+  - ✅ CQRS separation shown
+  - ✅ Read vs Write models distinct
+  - ✅ Command vs Query separation
+  - ❌ No CQRS distinction
+
+- **Usa flechas de dependencia inversa (Inyección de Dependencia):**
+  - ✅ Dependency inversion shown
+  - ✅ Abstractions vs implementations
+  - ❌ Direct dependencies only
+
+## 6. DOMAIN MODELING
+
+- **Agrupa por módulos de negocio, no por tipo de archivo:**
+  - ✅ Grouped by business modules
+  - ✅ Domain organization
+  - ❌ Technical organization (controllers, services)
+
+- **Visualiza la "Core Domain":** Resalta la parte del gráfico que genera dinero/valor
+  - ✅ Core domain highlighted
+  - ✅ Supporting domains shown
+  - ✅ Generic domains identified
+  - ❌ All domains equal
+
+- **Simplifica el modelo:** Si una tabla no ayuda al negocio, ocúltala en la vista de dominio
+  - ✅ Only business-relevant entities
+  - ✅ Technical details hidden
+  - ❌ All technical details shown
+
+- **Documenta las reglas de invariantes (lo que nunca debe cambiar):**
+  - ✅ Invariants documented
+  - ✅ Business rules shown
+  - ✅ Constraints clear
+  - ❌ No invariants documented
+
+## 7. COLLABORATION AND DEPENDENCIES
+
+- **Usa diagramas de colaboración entre objetos:**
+  - ✅ Collaboration diagrams
+  - ✅ Object interactions
+  - ✅ Domain object relationships
+  - ❌ No collaboration modeling
+
+- **Evita dependencias circulares en tus gráficos:**
+  - ✅ No circular dependencies
+  - ✅ Clear dependency direction
+  - ❌ Circular references
+
+- **Muestra cómo se propagan los cambios en el sistema:**
+  - ✅ Change propagation shown
+  - ✅ Impact analysis
+  - ❌ No change impact shown
+
+---
+
+**Key Principle:** Use ubiquitous language throughout. Visualize bounded contexts clearly, model aggregates and domain events, and separate domain model from infrastructure. Focus on business value and core domain.

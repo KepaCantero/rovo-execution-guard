@@ -1,0 +1,62 @@
+# FORGE CHANGELOG RULES
+
+Reglas exhaustivas basadas en el changelog oficial de Forge para mantenerse actualizado con cambios de plataforma y evitar breaking changes.
+
+## AUDITORÍA
+
+1. **Revisar changelog regularmente**: Consultar https://developer.atlassian.com/platform/forge/changelog/ antes de implementar nuevas features
+2. **Verificar estado de features**: Verificar si features están en GA, Preview, Beta o EAP antes de usarlas en producción
+3. **Auditar breaking changes**: Revisar anuncios de deprecación y remoción de features (ej: icon glyphs removidos en enero 2026)
+4. **Validar versiones de CLI**: Verificar que se usa versión actualizada de `@forge/cli` para acceder a nuevas features
+5. **Revisar límites de recursos**: Verificar límites actuales de resource bundles (100 MB individual, 1 GB total, 25,000 archivos máximo)
+6. **Auditar uso de hooks deprecados**: Verificar que no se usa `useProductContext` para theme cuando `useTheme` está disponible
+7. **Validar soporte de Node.js**: Verificar versión de Node.js soportada (Node 24 desde CLI 12.14.0)
+8. **Revisar disponibilidad por producto**: Verificar que features están disponibles para el producto específico (Jira, Confluence)
+9. **Auditar uso de EAP features**: Documentar uso de features en EAP y prepararse para cambios potenciales
+10. **Validar compatibilidad de módulos**: Verificar que módulos usados no han sido deprecados o removidos
+
+## DISEÑO
+
+11. **Diseñar para preview features**: Usar features en Preview con precaución, pueden cambiar antes de GA
+12. **Estructurar migración de Connect**: Planificar migración de módulos Connect a Forge cuando estén disponibles (ej: Jira Issue Fields)
+13. **Diseñar manejo de límites**: Estructurar apps para respetar límites acumulativos (archivos totales, tamaño total)
+14. **Estructurar uso de hooks modernos**: Preferir hooks reactivos (`useTheme`) sobre acceso directo a context cuando estén disponibles
+15. **Diseñar para cambios de API**: Estructurar código para facilitar actualización cuando APIs cambien (ej: webTrigger.queryUrls)
+16. **Estructurar manejo de modelos LLM**: Para Forge LLMs, usar `list()` para obtener modelos activos y evitar deprecated
+17. **Diseñar para viewport sizes**: Considerar nuevos viewport sizes (ej: fullscreen) cuando diseñen modales y configs
+18. **Estructurar uso de REST APIs**: Diseñar endpoints expuestos con apiRoute module considerando autenticación 3LO
+19. **Diseñar para customer-managed egress**: Considerar configuración de dominios externos cuando features requieran conexiones externas
+20. **Estructurar manejo de background scripts**: Para Jira, considerar global background scripts para coordinación cross-page
+
+## IMPLEMENTACIÓN
+
+21. **Actualizar CLI regularmente**: Ejecutar `npm install -g @forge/cli@latest` para acceder a últimas features y fixes
+22. **Usar useTheme hook**: Reemplazar acceso a `theme.colorMode` vía `useProductContext` con `useTheme()` hook reactivo
+23. **Implementar verificación de modelos**: Para Forge LLMs, usar `list()` y filtrar por `status: 'active'` antes de usar modelos
+24. **Usar webTrigger.queryUrls**: Implementar query de URLs existentes antes de crear nuevas para evitar duplicados
+25. **Implementar webTrigger.deleteUrl**: Incluir cleanup de URLs cuando ya no se necesiten para evitar acumulación
+26. **Usar view.onClose cuando disponible**: Implementar callbacks de cierre para modales usando `view.onClose()` en EAP
+27. **Implementar fullscreen viewport**: Usar viewport `fullscreen` para modales cuando sea apropiado y esté disponible
+28. **Usar AdfRenderer para embedded macros**: Para bodied macros, usar `AdfRenderer` component o `view.createAdfRendererIframeProps`
+29. **Implementar manejo de límites**: Validar tamaño de resource bundles antes de deploy, respetar límites acumulativos
+30. **Usar colorPalette en charts**: Para UI Kit Visualisation Charts, usar prop `colorPalette` para colores personalizados
+31. **Implementar migración de Issue Fields**: Migrar Connect Issue Fields a Forge custom fields cuando sea apropiado
+32. **Usar apiRoute module**: Para exponer REST APIs, definir endpoints en manifest usando apiRoute module con scopes apropiados
+33. **Implementar autenticación 3LO**: Para REST APIs expuestas, configurar OAuth 2.0 3LO para autenticación externa
+34. **Usar global background scripts**: Para Jira, implementar global background scripts cuando se necesite coordinación cross-page
+35. **Implementar verificación de iconos**: Verificar que iconos usados no estén en lista de removidos (ej: billing-filled, dropbox)
+36. **Usar Node 24 cuando disponible**: Actualizar entorno de desarrollo para usar Node 24 con CLI 12.14.0+
+37. **Implementar manejo de EAP**: Para features en EAP, completar sign-up forms y prepararse para cambios potenciales
+38. **Usar métodos nuevos de API**: Preferir métodos nuevos de APIs (ej: webTrigger.queryUrls) sobre workarounds antiguos
+39. **Implementar validación de recursos**: Validar que recursos no excedan límites individuales ni acumulativos antes de deploy
+40. **Usar hooks reactivos**: Preferir hooks que se actualizan automáticamente (ej: useTheme) sobre acceso manual a context
+41. **Implementar manejo de preview**: Para features en Preview, documentar uso y prepararse para cambios antes de GA
+42. **Usar SDK actualizado**: Mantener `@forge/react`, `@forge/api`, `@forge/bridge` actualizados para acceder a nuevas features
+43. **Implementar fallbacks**: Para features nuevas, implementar fallbacks cuando no estén disponibles en todos los entornos
+44. **Usar documentación oficial**: Consultar documentación oficial para detalles de implementación de nuevas features
+45. **Implementar testing de cambios**: Probar cambios de Forge platform en desarrollo antes de actualizar producción
+46. **Usar roadmap para planificación**: Consultar platform roadmap para planificar adopción de features futuras
+47. **Implementar monitoreo de breaking changes**: Suscribirse a anuncios de breaking changes y deprecaciones
+48. **Usar versiones específicas cuando necesario**: Fijar versiones de paquetes cuando features nuevas causen incompatibilidades
+49. **Implementar migración gradual**: Para cambios grandes (ej: migración Connect → Forge), planificar migración gradual
+50. **Usar community resources**: Consultar RFCs y community discussions para entender dirección futura de Forge platform

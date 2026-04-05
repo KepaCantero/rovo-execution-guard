@@ -1,0 +1,457 @@
+# Migration Implementation Requirements - Technical Specification Rules
+
+**Source:** Technical Specification Document - Extra Requirements  
+**Date:** 2026-02-05  
+**Context:** Additional requirements for documenting migration implementation, covering migration types, rate limits, DMS integration, status storage, real-time migration, and temporary solution considerations.
+
+## Migration Implementation Documentation Rules
+
+### MIG-IMP-001: Migration Implementation Documentation Requirement
+**Rule:** The migration implementation SHALL be fully documented, including:
+- All migrated data types and their sources
+- Required transformations for each data type
+- Migration flow and architecture
+- Error handling strategies
+- Performance considerations
+- Monitoring and observability
+
+**Rationale:** Complete documentation ensures maintainability, troubleshooting, and knowledge transfer during the temporary migration period.
+
+### MIG-IMP-002: Temporary Solution Documentation
+**Rule:** The migration solution SHALL be documented as temporary (2-3 months lifespan) with:
+- Clear indication of temporary nature in all documentation
+- Quick implementation prioritization over long-term maintainability
+- Disposability considerations (easy removal after migration period)
+- Focus on speed and simplicity
+- Explicit cleanup procedures documented
+
+**Rationale:** Temporary solutions require different design priorities than permanent systems. Documentation must reflect this.
+
+## Migration Types and Transformations Rules
+
+### MIG-IMP-003: Content Properties Migration (cw-status)
+**Rule:** Content Properties (`cw-status`) SHALL be migrated with:
+- **Source:** Confluence Content Properties API v2 (`GET /wiki/rest/api/content/{id}/property/{key}`)
+- **Transformation:**
+  - Parse JSON structure
+  - Validate required fields
+  - Map field names if needed (maintain backward compatibility)
+- **Storage:** Forge SQL table `ContentState` (see `docs/database-schema.md` for complete schema)
+- **Idempotency:** Check if `contentId` already exists before insert (use `IF NOT EXISTS` pattern)
+- **Schema Mapping:** Reference `docs/database-schema.md` for complete column definitions:
+  - `contentId`: VARCHAR(36) (PRIMARY KEY)
+  - `name`: VARCHAR(255) (state name)
+  - `enabled`: INT(1) (workflow enabled flag)
+  - `colour`: VARCHAR(45) (state colour)
+  - `final`: INT(1) (whether state is final)
+  - `latestWorkflowId`: CHAR(36) (reference to Workflow)
+  - `latestWorkflowVersion`: INT (workflow version)
+  - `version`: INT (optimistic locking)
+  - See `docs/database-schema.md` for all columns and constraints
+
+### MIG-IMP-004: Custom Content State Migration (cwc-state)
+**Rule:** Custom Content State (`cwc-state`) SHALL be migrated with:
+- **Source:** Confluence Custom Content API v2
+- **Custom Content Type:** `cwc-state`
+- **Transformation:**
+  - Extract state data from custom content payload
+  - Map custom content fields to table columns
+  - Preserve all state metadata
+- **Storage:** Forge SQL table `ContentState` (see `docs/database-schema.md` for complete schema)
+- **Idempotency:** Check `contentId` before insert (use idempotent operations)
+- **Schema Mapping:** Reference `docs/database-schema.md` for complete column definitions:
+  - `ContentState` table stores workflow state for content
+  - See `docs/database-schema.md` for all columns, types, and constraints
+
+### MIG-IMP-005: Custom Content Activity Migration (cwc-dc-doc-activity)
+**Rule:** Custom Content Activity (`cwc-dc-doc-activity`) SHALL be migrated with:
+- **Source:** Confluence Custom Content API v2
+- **Custom Content Type:** `cwc-dc-doc-activity`
+- **Transformation:**
+  - Extract activity records from custom content
+  - Flatten nested structures (state, payload, users)
+  - Map UUIDs to strings (Forge SQL VARCHAR)
+  - Extract denormalized fields (state_name, state_color, state_final) for querying
+- **Storage:** Reference `docs/database-schema.md` for complete schema:
+  - Forge SQL table `DocumentActivity` (main activity records)
+  - Forge SQL table `DocumentActivityUsers` (user associations)
+- **Idempotency:** Check `id` (activity ID) before insert
+- **Schema Mapping:** Reference `docs/database-schema.md` for complete column definitions:
+  - `DocumentActivity`: id, operationId, contentId, stateName, stateColor, stateFinal, contentVersion, accountId, activityName, date, payload, state, orderSequence
+  - `DocumentActivityUsers`: id, activityId (FK), userId, decisionDate
+  - See `docs/database-schema.md` for all columns, types, constraints, and relationships
+
+### MIG-IMP-006: Fireflow Resources Migration
+**Rule:** Fireflow Resources SHALL be migrated with:
+- **Source:** Fireflow REST API (`/resources`, `/resources/{id}/parameters`, `/resources/{id}/commands`, `/resources/{id}/events`)
+- **Transformation:**
+  - Map Fireflow resource structure to Forge SQL tables
+  - Preserve all metadata and relationships
+  - Convert timestamps to ISO 8601 format
+  - Map UUIDs to VARCHAR strings
+- **Storage:** Reference `docs/database-schema.md` for complete schema:
+  - Forge SQL table `Workflow` (workflow definitions - main resource data)
+  - Forge SQL table `WorkflowParameter` (workflow parameters)
+  - Forge SQL table `WorkflowVersion` (workflow version history)
+  - Forge SQL table `WorkflowLink` (workflow links to spaces/content)
+  - Forge SQL table `WorkflowLabel` (workflow labels)
+- **Idempotency:** Check primary keys before insert for each table
+- **Schema Mapping:** Reference `docs/database-schema.md` for complete column definitions:
+  - See `docs/database-schema.md` for all tables, columns, types, constraints, indexes, and relationships
+
+### MIG-IMP-007: Transformation Idempotency Requirement
+**Rule:** All transformations SHALL be idempotent:
+- Check for existing data before inserting
+- Use `IF NOT EXISTS` patterns or `SELECT` before `INSERT`
+- Handle duplicate key errors gracefully
+- Ensure running migration multiple times produces same result
+- Maximum 20 skippable errors per entity type before failing migration
+
+**Rationale:** Idempotency ensures safe retries and reruns without data corruption.
+
+### MIG-IMP-008: Data Preservation Requirement
+**Rule:** Transformations SHALL preserve all source data:
+- Preserve all source data in JSON columns when exact structure unknown
+- Extract commonly queried fields to dedicated columns for performance
+- Maintain backward compatibility with existing data structures
+- Handle missing data gracefully (not all content has all data types)
+
+## Rate Limits and Back Pressure Rules
+
+### MIG-IMP-009: Rate Limits as Primary Constraint
+**Rule:** Confluence API rate limits SHALL be considered FIRST in all calculations:
+- Chunking strategy
+- Retry logic
+- Batch size
+- Progress tracking frequency
+- Concurrency levels
+
+**Rationale:** Rate limits are the PRIMARY constraint affecting migration performance, not system capacity.
+
+### MIG-IMP-010: Rate Limit Detection and Handling
+**Rule:** Rate limit handling SHALL implement:
+- **Detection:** HTTP 429 response with `Retry-After` header
+- **Response:** Respect `Retry-After` header value
+- **Jitter:** Apply jitter multiplier [0.7, 1.0] to prevent synchronized retries
+- **Back Pressure:** Reduce concurrency by 50% on first rate limit
+- **Further Reduction:** Reduce by additional 25% on consecutive rate limits
+- **Minimum Concurrency:** Never reduce below 1 request at a time
+- **Recovery:** Gradually increase concurrency when rate limits subside
+
+### MIG-IMP-011: Concurrency Reduction Strategy
+**Rule:** Concurrency reduction SHALL be applied when:
+- HTTP 429 (rate limit) received
+- Multiple consecutive rate limit errors
+- High error rate (>10% of requests)
+
+**Implementation:**
+- Start with initial concurrency (e.g., 10 concurrent requests)
+- Reduce by 50% on first rate limit
+- Further reduce by 25% on consecutive rate limits
+- Minimum: 1 request at a time
+- Gradually increase after 10+ consecutive successes
+
+### MIG-IMP-012: Request Throttling Strategy
+**Rule:** Request throttling SHALL be applied when:
+- Approaching rate limit threshold (e.g., 80% of limit)
+- High request rate detected
+- Proactive prevention needed
+
+**Implementation:**
+- Calculate delay based on rate limit window
+- Distribute requests evenly across time window
+- Formula: `delayBetweenRequests = (rateLimitWindow * 1000) / maxRequestsPerWindow`
+- Monitor rate limit headers (`X-RateLimit-Remaining`) proactively
+
+### MIG-IMP-013: Batch Size Reduction Strategy
+**Rule:** Batch size SHALL be reduced dynamically when:
+- Rate limits hit during batch processing
+- Web Trigger timeouts (5s limit)
+- Payload size approaching limits (~1MB)
+
+**Implementation:**
+- Start with recommended size (e.g., 25 items)
+- Reduce by 50% on rate limit
+- Minimum batch size: 1 item
+- Calculate optimal batch size considering:
+  - Rate limit constraints
+  - Timeout constraints (5s for Web Triggers)
+  - Payload size constraints (~1MB)
+
+### MIG-IMP-014: Exponential Backoff with Jitter
+**Rule:** Exponential backoff SHALL be used for:
+- Rate limit errors (HTTP 429)
+- Transient errors (HTTP 500-504)
+- Network timeouts
+
+**Implementation:**
+- **Rate Limits:** Use `Retry-After` header value with jitter [0.7, 1.0]
+- **Transient Errors:** Exponential backoff with jitter [0.7, 1.3]
+- **Formula:** `delay = min(baseDelay * pow(2, retryCount) * jitter, maxDelay)`
+- **Base Delay:** 5 seconds
+- **Max Delay:** 900 seconds (15 minutes)
+- **Jitter Range:** [0.7, 1.3] for exponential backoff
+
+### MIG-IMP-015: Circuit Breaker Pattern
+**Rule:** Circuit breaker SHALL be implemented when:
+- High error rate (>50% failures)
+- Multiple consecutive rate limits
+- System appears overloaded
+
+**Implementation:**
+- **States:** Closed → Open → Half-Open → Closed
+- **Failure Threshold:** 10 consecutive failures
+- **Timeout:** 60 seconds before attempting half-open
+- **Behavior:**
+  - Open: Stop sending requests temporarily
+  - Half-Open: Test recovery with single request
+  - Closed: Normal operation
+
+## DMS Integration Rules
+
+### MIG-IMP-016: DMS Producer Registration
+**Rule:** DMS Producer code SHALL be:
+- **Implemented:** Developer implements Producer code in RoA application
+- **Registered:** Producer code registers with DMS platform during app deployment
+- **Not Activated:** Producer is NOT active until triggered via DMS Backoffice UI
+- **CRITICAL:** DMS Backoffice UI only triggers/dispatches migration; Producer code is already registered
+
+**Rationale:** Producer code must exist before migration can be triggered.
+
+### MIG-IMP-017: Exhaustive Content Iteration Strategy
+**Rule:** Content iteration SHALL be exhaustive:
+- Iterate through ALL spaces
+- Iterate through ALL content items (pages and blogposts)
+- Check each content item individually for migration data
+- Cannot reliably pre-filter content that has migration data
+- Most spaces/contents don't have CDM-related data (in most instances)
+- Iteration overhead is high, but migration data volume is relatively low
+
+**Rationale:** Cannot reliably determine which content has migration data without checking each item.
+
+### MIG-IMP-018: Content Iteration Flow
+**Rule:** Content iteration SHALL follow this flow:
+1. List all spaces using Confluence API v2
+2. For each space, list all content items (pages and blogposts)
+3. For each content item:
+   - Check content properties for `cw-status`
+   - Query custom content for `cwc-state` and `cwc-dc-doc-activity`
+   - Check if content has associated Fireflow resources (if applicable)
+4. Extract data when found
+5. Group extracted data into batches
+6. Send batches to DMS Consumer
+
+### MIG-IMP-019: DMS Batch Processing Constraints
+**Rule:** DMS batches SHALL respect Web Trigger constraints:
+- **Timeout:** 5 seconds maximum
+- **Payload:** ~1MB maximum
+- **Rate Limits:** Strict per tenant
+- **Batch Validation:** Each batch must validate before sending:
+  - `estimatedPayloadSize < 1MB`
+  - `estimatedProcessingTime < 5s`
+  - `batchSize <= maxBatchSize` where `maxBatchSize = min(chunkSize, floor(1MB / averageItemSize), itemsProcessableIn5s)`
+
+**Rationale:** Web Trigger constraints are CRITICAL and must be respected.
+
+### MIG-IMP-020: DMS Producer Error Handling
+**Rule:** DMS Producer SHALL handle errors:
+- **Rate Limit Handling:** Respect Confluence API rate limits with exponential backoff
+- **Transient Error Handling:** Retry failed API calls with exponential backoff
+- **Skip Logic:** Skip content items after max retries (max 20 skippable errors)
+- **Batch Failure Handling:** Retry failed batch sends, split large batches if payload too large
+- **Persistence:** Persist failed batches for manual retry
+
+## Status Storage and Visualization Rules
+
+### MIG-IMP-021: Multi-Layer Status Storage
+**Rule:** Migration status SHALL use multi-layer storage:
+- **Real-Time Status (Forge KVS):**
+  - Fast access to current migration state
+  - Key Pattern: `migration:status:{installationId}`
+  - Update Frequency: After each batch processed
+  - TTL: Migration duration + 7 days
+- **Detailed Progress (Forge SQL):**
+  - Historical progress tracking and analytics
+  - Table: `migration_status`
+  - Update Frequency: After each phase completion
+  - Retention: Permanent (for audit and analysis)
+- **Error Tracking (Forge SQL):**
+  - Failed entity tracking and retry management
+  - Table: `MigrationFailedEntities`
+  - Update Frequency: On error occurrence
+  - Retention: Until resolved or manually cleared
+
+**Rationale:** Multi-layer storage balances performance (KVS) with persistence (SQL).
+
+### MIG-IMP-022: Status Update Frequency
+**Rule:** Status updates SHALL follow:
+- **Real-Time Updates (KVS):** After each batch processed, on phase completion, on error occurrence, on status change
+- **Batch Updates (SQL):** After each phase completion, on migration completion, on migration failure, periodic snapshots (every 100 batches)
+
+**Rationale:** Frequent KVS updates for real-time visibility, less frequent SQL updates for persistence.
+
+### MIG-IMP-023: Status Visualization Components
+**Rule:** Status visualization SHALL provide:
+- **Migration Dashboard:**
+  - Overall migration status
+  - Progress bar (percentage complete)
+  - Current phase indicator
+  - Error summary
+  - Estimated completion time
+  - Update Frequency: Real-time (poll KVS every 5-10 seconds)
+- **Progress Details:**
+  - Detailed progress breakdown by entity type
+  - Processing rate (items per second)
+  - Error rate
+  - Retry statistics
+  - Update Frequency: Every batch completion
+- **Error Dashboard:**
+  - Failed entities list
+  - Error categories
+  - Retry status
+  - Manual retry controls
+  - Update Frequency: On error occurrence
+
+### MIG-IMP-024: Status API Endpoints
+**Rule:** Status API SHALL provide endpoints:
+- `GET /migration/status/{installationId}` - Get migration status (returns MigrationStatusKVS)
+- `GET /migration/progress/{installationId}` - Get detailed progress (returns status + detailedProgress + errors)
+- `GET /migration/errors/{installationId}` - Get error details (returns failedEntities + errorSummary)
+
+**Rationale:** API endpoints enable programmatic access to migration status.
+
+## Real-Time Migration Rules
+
+### MIG-IMP-025: Dual Migration Strategy
+**Rule:** Migration SHALL use dual strategy:
+- **Batch Migration (Initial):**
+  - Migrates all existing data at migration start
+  - Processes historical data exhaustively
+  - Runs until all existing data migrated
+- **Real-Time Migration (Ongoing):**
+  - Captures changes made during batch migration
+  - Captures changes made after batch migration completes
+  - Processes changes as they occur
+  - Runs in parallel with batch migration
+
+**Rationale:** Dual strategy ensures all data is migrated, including changes during migration period.
+
+### MIG-IMP-026: Change Capture Mechanism
+**Rule:** Change capture SHALL detect:
+- **Content Property Changes:** Monitor `cw-status` property updates
+- **Custom Content Changes:** Monitor `cwc-state` and `cwc-dc-doc-activity` custom content updates
+- **Fireflow Resource Changes:** Monitor Fireflow API for resource updates
+- **Change Queue:** Changes SHALL be queued in AWS Queue (MIG-BPS-013)
+- **Queue Benefits:** Natural throttling, retry on failure, prevents data loss
+
+### MIG-IMP-027: Change Detection Methods
+**Rule:** Change detection SHALL use:
+- **Method 1: Event Listeners (Preferred):**
+  - Register Forge event listeners for content updates
+  - Listen for content property changes
+  - Listen for custom content changes
+  - Queue changes immediately
+  - Event Types: `content.updated`, `content.created`, `content.deleted`
+- **Method 2: Polling (Fallback):**
+  - Periodically poll for changes (every 5-10 minutes during migration)
+  - Compare current state with last known state
+  - Detect differences
+  - Queue changes for migration
+  - Reduce frequency to every 30 minutes after batch migration completes
+
+**Rationale:** Event listeners are preferred but polling provides fallback reliability.
+
+### MIG-IMP-028: Real-Time Change Processing
+**Rule:** Real-Time change processing SHALL follow:
+1. Dequeue change from AWS Queue
+2. Extract changed data from CoF
+3. Transform data using transformation rules
+4. Validate transformed data
+5. Store data in RoA Forge Storage
+6. Update migration status
+
+**Error Handling:**
+- Retry failed changes with exponential backoff
+- Persist permanently failed changes
+- Log all change processing errors
+- Maintain change queue integrity
+
+### MIG-IMP-029: Conflict Resolution Strategy
+**Rule:** Conflicts between batch and real-time migration SHALL be resolved:
+- **Idempotency:** Both processes use idempotent operations
+- **Last Write Wins:** Use timestamps to determine latest data
+- **Conflict Detection:** Detect conflicts using version numbers
+- **Conflict Resolution:** Prefer real-time data (more recent)
+
+**Implementation:**
+- Check if entity already processed by batch migration
+- Compare timestamps
+- If real-time change is newer, update
+- If batch migration data is newer or same, skip
+- Log conflicts for monitoring
+
+### MIG-IMP-030: Real-Time Migration Performance
+**Rule:** Real-Time migration SHALL optimize:
+- **Latency:** Change detection < 1 minute (event listeners) or 5-10 minutes (polling)
+- **Processing:** Change processing < 5 seconds (Web Trigger timeout)
+- **End-to-End:** < 10 minutes typically
+- **Throughput:** Limited by Web Trigger constraints (5s timeout, ~1MB payload)
+- **Rate Limits:** Limited by Confluence API rate limits
+- **Typical Rate:** 10-50 changes per minute per tenant
+
+**Optimization Strategies:**
+- Batch real-time changes (group multiple changes into batches)
+- Prioritize recent changes (process newer changes first)
+- Deduplication (detect duplicate changes using change IDs)
+
+## Temporary Solution Rules
+
+### MIG-IMP-031: Temporary Solution Design Principles
+**Rule:** Temporary solution (2-3 months lifespan) SHALL prioritize:
+- **Speed:** Quick implementation over perfect configuration
+- **Simplicity:** Minimal setup steps
+- **Disposability:** Easy removal after migration period
+- **Documentation:** Clear removal procedures documented
+- **Focus:** Only includes features necessary for successful migration
+- **Avoid:** Over-engineering; use straightforward patterns
+
+**Rationale:** Temporary solutions have different priorities than permanent systems.
+
+### MIG-IMP-032: Temporary Solution Deployment
+**Rule:** Temporary solution deployment SHALL:
+- Prioritize speed over perfect configuration
+- Use minimal setup steps
+- Document cleanup procedures
+- Include removal instructions
+- Avoid complex infrastructure
+- Use straightforward patterns
+
+### MIG-IMP-033: Post-Migration Cleanup
+**Rule:** After migration period ends (2-3 months), SHALL:
+1. **Stop Migration Services:**
+   - Disable DMS Producer
+   - Stop real-time change detection
+   - Archive migration data
+2. **Remove Temporary Components:**
+   - Remove migration-specific code
+   - Drop temporary migration tables (if not needed)
+   - Remove migration monitoring dashboards
+3. **Document Cleanup:**
+   - Document what was removed
+   - Archive migration logs
+   - Update system documentation
+
+**Rationale:** Clean removal ensures no technical debt remains after migration period.
+
+## Summary
+
+These rules complement existing BPS migration rules (MIG-BPS-001 through MIG-BPS-036) and provide comprehensive coverage for:
+- Migration implementation documentation
+- Migration types, sources, and transformations
+- Rate limits and back pressure handling
+- DMS integration and content iteration
+- Status storage and visualization
+- Real-time migration considerations
+- Temporary solution design and cleanup
+
+All rules SHALL be followed during migration implementation to ensure successful, reliable, and maintainable migration process.

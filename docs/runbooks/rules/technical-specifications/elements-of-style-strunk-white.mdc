@@ -1,0 +1,128 @@
+# The Elements of Style (Strunk & White)
+
+**Source:** "The Elements of Style" by Strunk & White  
+**Focus:** The fundamental rules of writing that make a spec "Attractive" and professional.
+
+## 1. CONCISENESS
+
+- **Omit needless words:** The most important rule for technical specs
+  - ✅ "The API validates input"
+  - ❌ "The API performs validation on the input data"
+
+- **Be clear:** Clarity is the ultimate beauty in a tech spec
+  - Clear statements
+  - Direct language
+  - No ambiguity
+
+- **Do not explain too much:** If the diagram is clear, don't repeat it in text
+  - Diagrams show structure
+  - Text explains behavior and constraints
+
+- **Sé Breve:** If you can say it in one sentence, don't use three
+  - ✅ Concise statements
+  - ❌ Verbose explanations
+
+## 2. VOICE AND TONE
+
+- **Use the active voice:** "The server handles..." (Clearer/Direct)
+  - ✅ "The system validates input before processing"
+  - ❌ "Input validation is performed by the system"
+
+- **Put statements in positive form:** Say what it is, not what it isn't
+  - ✅ "The API returns status 200 on success"
+  - ❌ "The API does not return errors on success"
+
+- **Do not affect a breezy manner:** Keep it professional
+  - Avoid casual language
+  - Use technical terminology correctly
+
+- **Do not inject opinion:** A tech spec is for facts and logic
+  - ✅ "The system uses OAuth 2.0 for authentication"
+  - ❌ "OAuth 2.0 is the best authentication method"
+
+## 3. LANGUAGE AND WORD CHOICE
+
+- **Use definite, specific, concrete language:**
+  - ✅ "Processes 1000 requests/second"
+  - ❌ "Handles high traffic"
+
+- **Avoid "Fancy" words:** Use "Use" instead of "Utilize"
+  - ✅ "Use the API"
+  - ❌ "Utilize the API"
+
+- **Avoid "Very," "Little," "Pretty":** These weaken words
+  - ✅ "Significant performance improvement"
+  - ❌ "Very significant performance improvement"
+
+- **Do not overstate:** Don't say "Amazing performance"; say "10ms"
+  - ✅ "10ms average response time"
+  - ❌ "Amazingly fast performance"
+
+- **Do not use dialect:** Use standard technical English
+  - Standard terminology
+  - Consistent spelling
+  - Professional language
+
+- **Avoid foreign languages or Latin phrases:** Use clear English
+  - ✅ "For example"
+  - ❌ "e.g." (unless in a list)
+
+- **Prefer the standard to the offbeat:**
+  - Use common technical terms
+  - Follow industry conventions
+
+## 4. STRUCTURE AND FLOW
+
+- **The paragraph is the unit of composition:** One idea per paragraph
+  - Keep paragraphs focused
+  - Use headers to break up content
+
+- **Keep related words together:** Don't separate the subject from the verb
+  - ✅ "The system processes requests"
+  - ❌ "The system, which handles authentication, processes requests"
+
+- **Express coordinate ideas in similar form (Parallelism):**
+  - ✅ "The API validates input, processes requests, and returns responses"
+  - ❌ "The API validates input, processing happens, and responses are returned"
+
+- **Avoid a succession of loose sentences:**
+  - Vary sentence structure
+  - Use subordination for related ideas
+
+- **Place the emphatic words of a sentence at the end:**
+  - ✅ "The system processes 1000 requests per second"
+  - ❌ "1000 requests per second is what the system processes"
+
+## 5. NUMBERS AND FIGURES
+
+- **Use figures for numbers:** Use "5" instead of "five" for technical clarity
+  - ✅ "5 retries"
+  - ❌ "five retries"
+
+- **Do not take shortcuts with spelling or acronyms:**
+  - Spell out acronyms on first use
+  - Use consistent terminology
+
+## 6. FORMATTING
+
+- **Use dashes to set off parenthetical expressions:**
+  - "The API—which uses OAuth 2.0—validates tokens"
+
+- **In summaries, keep to one tense:**
+  - Use present tense for current behavior
+  - Use past tense for historical context
+
+- **Write in a way that comes naturally:**
+  - Clear and direct
+  - Avoid forced complexity
+
+## 7. REVISION
+
+- **Revise and rewrite:** A great spec is polished until it shines
+  - Multiple revisions
+  - Peer review
+  - Continuous improvement
+
+---
+
+**Key Principle:** Omit needless words, use active voice, be specific and concrete. Clarity is the ultimate beauty in technical writing.

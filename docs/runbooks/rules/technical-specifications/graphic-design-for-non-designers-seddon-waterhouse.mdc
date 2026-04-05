@@ -1,0 +1,159 @@
+# Graphic Design for Non-Designers (Tony Seddon & Jane Waterhouse)
+
+**Source:** "Graphic Design for Non-Designers" by Tony Seddon & Jane Waterhouse  
+**Focus:** Estilo visual para que el documento no parezca un "borrador" de Word.
+
+## 1. GRID AND ALIGNMENT
+
+- **Usa una "Retícula" (Grid):** Alinea todos tus diagramas y cuadros de texto a ejes invisibles
+  - ✅ All elements aligned to grid
+  - ✅ Consistent margins
+  - ✅ Visual alignment
+  - ❌ Random placement
+
+- **Alinea los textos de los diagramas al centro o izquierda, nunca a ambos lados:**
+  - ✅ Center or left alignment
+  - ✅ Consistent text alignment
+  - ❌ Justified text in diagrams
+
+- **Mantén una distancia mínima entre cajas (Padding):**
+  - ✅ Consistent padding
+  - ✅ Adequate spacing
+  - ❌ Cramped layout
+
+## 2. COLOR PALETTE
+
+- **Elige una paleta de colores técnica:** (ej. Gris oscuro para texto, un solo color de acento como azul o verde)
+  - ✅ Technical color palette
+  - ✅ Dark gray for text
+  - ✅ Single accent color
+  - ❌ Multiple bright colors
+
+- **Evita los colores brillantes o neón:** Cansan la vista en lecturas largas
+  - ✅ Muted, professional colors
+  - ✅ Easy on the eyes
+  - ❌ Bright neon colors
+
+- **Evita los degradados de color:**
+  - ✅ Solid colors
+  - ❌ Color gradients
+
+- **Usa fondos grises muy claros para distinguir bloques de código:**
+  - ✅ Light gray backgrounds for code
+  - ✅ Visual distinction
+  - ❌ White background for code
+
+## 3. TYPOGRAPHY
+
+- **Usa fuentes "Mono" para fragmentos de código:** (Fira Code, JetBrains Mono)
+  - ✅ Monospaced fonts for code
+  - ✅ Fira Code, JetBrains Mono
+  - ❌ Proportional fonts for code
+
+- **Crea "Jerarquía Tipográfica":** Títulos en Bold Sans-Serif, cuerpo en Serif o Sans ligero
+  - ✅ Bold Sans-Serif for headings
+  - ✅ Serif or light Sans for body
+  - ✅ Clear typographic hierarchy
+  - ❌ All text same style
+
+- **Mantén el grosor de línea constante en todo el documento:**
+  - ✅ Consistent line weight
+  - ✅ Same stroke width throughout
+  - ❌ Varying line weights
+
+## 4. VISUAL ELEMENTS
+
+- **No uses sombras:** Las sombras hacen que los diagramas técnicos se vean anticuados
+  - ✅ Flat design
+  - ✅ No shadows
+  - ❌ Drop shadows, 3D effects
+
+- **Usa bordes redondeados solo para "Contenedores", rectos para "Componentes":**
+  - ✅ Rounded for containers
+  - ✅ Sharp for components
+  - ✅ Consistent border style
+  - ❌ All rounded or all sharp
+
+- **Usa el "Espacio en Blanco" como separador:** No llenes cada rincón con texto
+  - ✅ Generous white space
+  - ✅ Breathing room
+  - ❌ Cramped, filled layout
+
+- **Usa flechas con puntas cerradas para flujo de datos, abiertas para herencia:**
+  - ✅ Closed arrows: Data flow
+  - ✅ Open arrows: Inheritance
+  - ✅ Consistent arrow styles
+  - ❌ All arrows same style
+
+- **Usa "Iconografía" plana (Flat Icons):**
+  - ✅ Flat design icons
+  - ✅ No 3D effects
+  - ❌ 3D or realistic icons
+
+## 5. TABLES AND CODE BLOCKS
+
+- **Diferencia los encabezados de las tablas con un fondo sutil:**
+  - ✅ Subtle background for table headers
+  - ✅ Visual distinction
+  - ❌ Same style for headers and cells
+
+- **Usa fondos grises muy claros para distinguir bloques de código:**
+  - ✅ Light gray background for code blocks
+  - ✅ Visual separation
+  - ❌ White background
+
+## 6. CONTENT ORGANIZATION
+
+- **Usa cuadros de "Nota" o "Advertencia" consistentes:**
+  - ✅ Consistent callout boxes
+  - ✅ Same style for notes/warnings
+  - ❌ Different styles each time
+
+- **Usa "Tablas de Contenido" visuales:**
+  - ✅ Visual table of contents
+  - ✅ Icons or graphics in TOC
+  - ❌ Plain text TOC only
+
+- **Usa "Bullet Points" con estilo personalizado (cuadrados o flechas):**
+  - ✅ Custom bullet styles
+  - ✅ Consistent bullet design
+  - ❌ Default bullets
+
+- **Organiza el contenido en columnas si el texto es muy corto:**
+  - ✅ Multi-column for short text
+  - ✅ Better use of space
+  - ❌ Single column for short content
+
+## 7. DIAGRAMS AND GRAPHICS
+
+- **Asegúrate de que los diagramas tengan suficiente resolución (SVG o PNG de alta calidad):**
+  - ✅ High-resolution diagrams
+  - ✅ SVG or high-quality PNG
+  - ❌ Low-resolution images
+
+- **Usa pies de figura descriptivos para cada gráfico:**
+  - ✅ Descriptive figure captions
+  - ✅ Explain what diagram shows
+  - ❌ No captions or generic captions
+
+- **Asegúrate de que el documento sea legible en modo oscuro:**
+  - ✅ Dark mode compatible
+  - ✅ Sufficient contrast
+  - ❌ Low contrast, dark mode issues
+
+## 8. DOCUMENT STRUCTURE
+
+- **Usa una sola orientación de página (preferiblemente vertical) para todo el spec:**
+  - ✅ Consistent page orientation
+  - ✅ Prefer vertical/portrait
+  - ❌ Mixed orientations
+
+- **Finaliza con una "Guía de Estilo" interna para futuros documentos:**
+  - ✅ Style guide appendix
+  - ✅ Document standards
+  - ✅ Future reference
+  - ❌ No style guide
+
+---
+
+**Key Principle:** Use a grid system for alignment, choose a technical color palette, create typographic hierarchy, and use flat design. Ensure high-quality graphics and consistent styling throughout. Make documents look professional, not like Word drafts.

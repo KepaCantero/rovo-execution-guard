@@ -1,0 +1,28 @@
+---
+description: Rules based on Clean Architecture (Robert C. Martin)
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Clean Architecture (Robert C. Martin)
+
+- **The Dependency Rule**: Dependencies always point inward (to the Domain).
+- **Framework Independence**: Your logic should not depend on Forge or React.
+- **Testable**: Business should be testable without UI or DB.
+- **UI Independence**: Changing Custom UI to UI Kit shouldn't break backend.
+- **Database Independence**: Changing Storage to DynamoDB should be trivial.
+- **Entities**: Objects that encapsulate critical business rules.
+- **Use Cases**: Software that orchestrates data flow toward entities.
+- **Interface Adapters**: Translators between use cases and infrastructure.
+- **Boundaries**: Define interfaces to cross layers.
+- **The center is the Domain.**
+- **Details are Infrastructure (DB, Web, APIs).**
+- **Architecture is Intent**: Looking at your repo, you should see "Workflow Management", not "Forge App".
+- **Stability**: Depend on things more stable than you.
+- **Abstraction**: Inner layers should be the most abstract.
+- **Components**: Organize your monorepo into cohesive components.
+- **SOLID Principles**: The foundation of all clean architecture.
+- **Coupling**: Keep it to a minimum.
+- **Cohesion**: What changes together, lives together.
+- **Postponable Decisions**: Good architecture lets you decide the DB at the end.
+- **Boundaries**: Keep layers physically separated (folders/packages).

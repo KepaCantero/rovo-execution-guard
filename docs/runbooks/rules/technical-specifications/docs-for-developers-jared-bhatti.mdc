@@ -1,0 +1,133 @@
+# Docs for Developers (Jared Bhatti et al.)
+
+**Source:** "Docs for Developers" by Jared Bhatti et al.  
+**Focus:** Managing the documentation lifecycle within a tech team.
+
+## 1. AUDIENCE AND PURPOSE
+
+- **Understand your audience:** Are you writing for an Architect or a Junior Dev?
+  - Adjust technical depth
+  - Provide appropriate context
+  - Use appropriate terminology
+
+- **Define the "Problem Statement" first:** Why are we building this?
+  - Start with: "Problem: [Clear problem statement]"
+  - Follow with: "Solution: [High-level approach]"
+
+- **Document the "Why," not just the "How":** Explain the design decisions
+  - Decision context
+  - Alternatives considered
+  - Trade-offs
+
+## 2. VISUAL STRUCTURE
+
+- **Include a "High-Level Architecture" diagram:** Visuals before text
+  - Use Mermaid diagrams or ASCII art
+  - Show component relationships
+
+- **Use "Context Diagrams":** Show where this feature sits in the ecosystem
+  - System boundaries
+  - External dependencies
+  - Data flow
+
+- **Optimize for "Skimmability":** Use heavy headers and bullet points
+  - Clear hierarchy
+  - Bullet lists for multiple items
+  - Tables for structured data
+
+- **Add a "Table of Contents":** Essential for specs over 5 pages
+  - Auto-generate from headers
+  - Include anchor links
+
+## 3. CODE AND API DOCUMENTATION
+
+- **Include "Code Snippets":** Show, don't just tell, the API structure
+  - TypeScript interfaces
+  - Example requests/responses
+  - Error responses
+
+- **Define "API Contracts" early:** Request/Response bodies are vital
+  - Include example payloads
+  - Document all fields
+  - Specify required vs optional
+
+- **Use "Callouts":** Highlight "Warnings" or "Notes" visually
+  - ⚠️ **Warning:** Critical information
+  - 📝 **Note:** Additional context
+  - ✅ **Best Practice:** Recommended approach
+
+- **Document "Breaking Changes":** Be loud about what will break
+  - Clear breaking change sections
+  - Migration guides
+  - Version compatibility
+
+## 4. MAINTENANCE AND LIFECYCLE
+
+- **Keep it "Dry" (Don't Repeat Yourself):** Link to other docs instead of copying
+  - Reference other sections
+  - Link to related specs
+  - Avoid duplication
+
+- **Update docs with code:** If the code changes, the spec must follow
+  - Include doc updates in PR checklist
+  - Link specs to code changes
+
+- **Keep "Internal" and "External" docs separate:**
+  - External: Public API docs, user guides
+  - Internal: Implementation details, architecture decisions
+
+- **Maintain "Readability":** Use Markdown for easy versioning in Git
+  - Standard Markdown syntax
+  - Consistent formatting
+  - Version control friendly
+
+## 5. OPERATIONAL DOCUMENTATION
+
+- **Include "Deployment Steps":** How does this get to production?
+  - Step-by-step deployment
+  - Environment-specific notes
+  - Rollback procedures
+
+- **Create "Troubleshooting" sections:** Predict common failure points
+  - Common errors and solutions
+  - Debugging steps
+  - Diagnostic commands
+
+- **Specify "Logging/Monitoring":** How will we track this in the logs?
+  - Log levels and messages
+  - Metrics to track
+  - Alerting thresholds
+
+- **Include "Rollback Plans":** How do we undo this if it fails?
+  - Rollback procedures
+  - Data migration rollback
+  - Feature flag toggles
+
+## 6. DOCUMENTATION QUALITY
+
+- **Use "Active Voice":** "The system sends..." not "A message is sent..."
+  - ✅ "The system validates input before processing"
+  - ❌ "Input validation is performed by the system"
+
+- **Document "Dependencies":** What libraries or APIs do we need?
+  - External services
+  - NPM packages
+  - Platform capabilities
+
+- **Define "Performance Benchmarks":** What are the expected loads?
+  - "Expected load: 1000 requests/second"
+  - "Peak load: 5000 requests/second"
+
+- **Standardize your "Style Guide":** Use the same tone across all specs
+  - Consistent terminology
+  - Standard formatting
+  - Unified voice
+
+- **Solicit "Peer Reviews":** Have another engineer "break" your logic
+  - Get feedback from peers
+  - Test with new team members
+  - Validate clarity
+
+---
+
+**Key Principle:** Documentation should be audience-aware, visually structured, code-aligned, and maintainable. Focus on the "why" and make it easy to skim and update.

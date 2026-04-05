@@ -1,0 +1,30 @@
+---
+description: Rules from Continuous Delivery (Jez Humble & David Farley) - integration tests for deployable code
+globs: **/*.test.js,**/*.test.ts,**/*.spec.js,**/*.spec.ts,**/bamboo*.yml,**/builds/**,**/scripts/**
+alwaysApply: false
+---
+
+# Continuous Delivery (Jez Humble & David Farley)
+
+Focus on how integration tests ensure code is "deployable". Applicable to pipeline (Bamboo, scripts) and Forge deployment.
+
+- **Deployment Pipeline**: check-all.sh should be guardian of main branch.
+- **Automated Acceptance Tests**: Verify Product Owner acceptance criteria are met.
+- **Ephemeral Environments**: Try to make integration tests create and destroy their own "universe".
+- **Smoke Testing**: A fast integration test verifying Forge app "turns on".
+- **Build Once, Deploy Many**: Tested code should be exactly the same as deployed.
+- **Configuration Management**: Test how app behaves with different Forge variables.
+- **Zero Downtime**: Plan tests verifying compatibility between app versions.
+- **Versioned Database**: (Storage schema).
+- **Feedback Loop**: Test result should reach developer in seconds.
+- **Stop the Line**: If integration test fails, nobody pushes code until fixed.
+- **Test Security**: Integration to verify unauthorized user receives 403.
+- **Load and Performance**: Integration tests measuring memory consumption in Forge runtime.
+- **Rollback Testing**: Verify you can go back if data change goes wrong.
+- **Use Blue-Green Deployments** (in Forge environments context).
+- **Centralize Test Logs.**
+- **Test Error Recovery.**
+- **Automate EVERYTHING.**
+- **Use "Binary Artifacts".**
+- **Responsibility Segregation in Pipeline.**
+- **Measure "Test Debt".**

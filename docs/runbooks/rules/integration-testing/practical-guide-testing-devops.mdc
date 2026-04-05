@@ -1,0 +1,30 @@
+---
+description: Rules from The Practical Guide to Testing in DevOps (Katrina Clokie) - testing in Cloud environments
+globs: **/*.test.js,**/*.test.ts,**/*.spec.js,**/*.spec.ts,**/cloud/**,**/aws/**
+alwaysApply: false
+---
+
+# The Practical Guide to Testing in DevOps (Katrina Clokie)
+
+Focus on collaboration and testing in dynamic Cloud environments. Applicable to cloud, batch-processes and Forge.
+
+- **Testing in Production**: Use logs and monitoring in Forge to verify what tests don't see.
+- **Exploratory Testing**: Not everything is automatable; leave room for human exploration.
+- **Observability as Test**: If you have good logs, integration test is easier to debug.
+- **Test "Resilience"**: What if Atlassian API is slow?
+- **Collaboration over Isolation**: Developers and QA should design integration tests together.
+- **User Feedback**: Use feedback to create new integration tests.
+- **Test "Onboarding"**: The app installation flow in a new Site.
+- **Product Variation Handling**: Jira Service Management vs Jira Software.
+- **Use "Synthetics"**: Tests running in production every 5 minutes.
+- **Business Alignment.**
+- **Continuous Security.**
+- **Test API Quota consumption.**
+- **Monitor "Flaky Tests" and eliminate or fix them.**
+- **Use "Shift-Left"**: Test integration from minute 1.
+- **Shift-Right**: Monitor real behavior post-deploy.
+- **Risk Documentation**: Which integration parts are most critical?
+- **Use "Visual Regression" in Custom UI.**
+- **Test Accessibility (A11y).**
+- **Verify Multi-language Support.**
+- **Evolve your testing strategy with the product.**

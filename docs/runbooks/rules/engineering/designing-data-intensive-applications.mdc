@@ -1,0 +1,30 @@
+---
+description: Rules based on Designing Data-Intensive Applications (Martin Kleppmann)
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Designing Data-Intensive Applications (Martin Kleppmann)
+
+The definitive "Data Book". Applicable to how Forge handles storage and events.
+
+- **Reliability**: System should keep working even with hardware/Atlassian API failures.
+- **Scalability**: What if you go from 100 to 1,000,000 records in storage.query?
+- **Maintainability**: Design so others can understand the data model.
+- **Data Models vs Storage Engines**: Understand that Forge Storage is a Key-Value store.
+- **Log-Structured Structures**: Understand how data is written to optimize reads.
+- **Indexes**: Use composite keys intelligently in Forge.
+- **Schema-on-Read**: Useful for handling legacy data in JS/TS.
+- **Data Encoding**: JSON is standard, but understand its parsing cost.
+- **Replication**: Atlassian handles it, but you must handle eventual consistency.
+- **Partitioning**: Split client data to avoid "Hot Keys".
+- **Transactions**: Forge doesn't have multi-object ACID transactions; implement logically.
+- **Read-Write Consistency**: User should see what they just saved.
+- **Linearizability**: System should appear to have a single copy of data.
+- **Consensus Algorithms**: Useful to understand how Forge syncs states.
+- **Batch vs Stream Processing**: Use Forge Events API for streaming.
+- **Data Derivation**: Don't store what you can calculate quickly.
+- **Event Idempotency**: A Jira event processed twice shouldn't break state.
+- **Schema Evolution**: Use Zod to validate data versions at runtime.
+- **Log Systems**: Treat database as a sequence of changes.
+- **Data Ethics**: Full respect for Data Residency.

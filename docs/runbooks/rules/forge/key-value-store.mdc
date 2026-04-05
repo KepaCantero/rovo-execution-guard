@@ -1,0 +1,65 @@
+# Key-Value Store - 25 Rules
+
+Rules derived from: https://developer.atlassian.com/platform/forge/runtime-reference/storage-api-basic/
+
+## Storage Basics
+
+1. **Simple Key-Value Storage**: Key-Value Store provides simple storage for key/value pairs. Use for persistent data storage retrievable through Query tool.
+
+2. **Package Import**: Import `kvs` and `WhereConditions` from `@forge/kvs` package. Use `@forge/kvs` instead of legacy `@forge/api` storage module.
+
+3. **Scope Requirement**: Using `@forge/kvs` requires `storage:app` scope in manifest file. Add to `permissions.scopes` section.
+
+4. **Legacy Module Deprecation**: Legacy `storage` module from `@forge/api` still supported but no new features. Migrate to `@forge/kvs` for new features like transactions.
+
+5. **Data Migration**: Migrating to `@forge/kvs` only changes interface, not data. All existing data remains intact after migration.
+
+## Data Storage
+
+6. **Set Operations**: Use `kvs.set(key, value)` to store key-value pairs. Values can be any JSON-serializable data except `null`.
+
+7. **Get Operations**: Use `kvs.get(key)` for strictly consistent reads. Always returns current data, unlike query which is eventually consistent.
+
+8. **Delete Operations**: Use `kvs.delete(key)` to remove keys. Atomic operation - key either deleted or not.
+
+9. **Supported Values**: Store arrays, booleans, numbers, objects, and strings. Cannot store `null` or functions (removed by JSON.stringify).
+
+10. **Undefined Handling**: JavaScript `undefined` values removed during JSON serialization. Don't rely on `undefined` in stored data.
+
+## Query Operations
+
+11. **Query Builder**: Use `kvs.query()` to build queries. Returns eventually consistent results - may be slightly out of date.
+
+12. **Where Conditions**: Use `WhereConditions` for filtering. Supports `beginsWith`, `equals`, `greaterThan`, `lessThan`, etc.
+
+13. **Limit Results**: Use `.limit(n)` to restrict number of results. Helps manage memory and response sizes.
+
+14. **Cursor Pagination**: Use cursors for paginated data access. Cursors returned in query results for subsequent pagination.
+
+15. **Cursor Stability**: Cursors are not stable and should not be persisted. Derived from underlying storage identifiers and subject to change.
+
+## Data Consistency
+
+16. **Strict Consistency**: `kvs.get()` provides strictly consistent reads. Always returns current data, suitable for critical reads.
+
+17. **Eventual Consistency**: `kvs.query()` provides eventually consistent reads. May return slightly outdated data, suitable for listing operations.
+
+18. **Consistency Choice**: Choose appropriate method based on consistency requirements. Use `get` for critical reads, `query` for listings.
+
+## Key Design
+
+19. **Lexicographic Ordering**: Keys are lexicographically ordered. Use this property to group related entities or build ad-hoc indexes.
+
+20. **Hierarchical Keys**: Construct hierarchical keys for nested entities. Allows fetching related entities in single list operation.
+
+21. **Key Patterns**: Design key patterns to support query patterns. Use prefixes and separators to enable efficient queries.
+
+22. **Key Uniqueness**: Keys only need to be unique per installation. Different installations can use same keys without conflict.
+
+## Security and Encryption
+
+23. **Secret Store**: Use Secret store (`kvs.setSecret`) for sensitive data. Provides encrypted storage for credentials and secrets.
+
+24. **Encryption Best Practice**: Only use encrypted environment variables and `kvs.setSecret` for secrets. Don't store secrets in plain KVS.
+
+25. **Data Residency**: KVS data inherits data residency features from Atlassian cloud. Admins can control where data is stored.

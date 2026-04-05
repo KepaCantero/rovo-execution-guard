@@ -1,0 +1,30 @@
+---
+description: Rules from GraphQL in Action (Samer Buna) - data graphs and flexibility applied to REST/JSON APIs
+globs: **/routes/**/*.js,**/controllers/**/*.js,**/*.ts
+alwaysApply: false
+---
+
+# GraphQL in Action (Samer Buna)
+
+Even if you use REST, GraphQL's principles about data graphs and flexibility are vital today. Applicable to payload design and resolvers.
+
+- **Think in Graphs**: Data in Jira/Confluence is connected; your API should reflect those connections.
+- **Single Endpoint**: Consider centralizing your queries in a single powerful resolver.
+- **Strong Typing**: Use TypeScript types to define exactly what can be requested.
+- **Avoid Over-fetching**: Don't send data the frontend hasn't explicitly requested.
+- **Avoid Under-fetching**: Don't force frontend to make 10 calls to fill a table.
+- **Efficient Resolvers**: Use "Data Loader" techniques to avoid N+1 query problems to storage.
+- **Clear Mutations**: Define state change operations explicitly.
+- **Subscriptions**: Use events to keep UI updated without refreshing.
+- **Evolvable Schemas**: GraphQL allows adding fields without versioning; apply that philosophy to your JSONs.
+- **Introspection**: Make your API easy to explore via tools like GraphiQL.
+- **Query Validation**: Reject requests too deep or complex that could bring down the system.
+- **Partial Error Handling**: If part of response fails, return the rest with an error array.
+- **Client Caching**: Use resource unique IDs to cache intelligently in frontend.
+- **Middleware**: Use interceptors to add auth or logging to all your queries.
+- **Data Normalization**: Ensure same resource is represented equally everywhere.
+- **Aliases and Fragments**: Allow client to rename fields or reuse query parts.
+- **Request Batching**: Group multiple queries into a single network trip.
+- **Directives**: Use metadata to condition API behavior (e.g. @deprecated).
+- **Field-Level Security**: Control who can see which specific field of an object.
+- **Graph-Centric Design**: Focus on relationships between objects, not just isolated objects.

@@ -1,0 +1,28 @@
+---
+description: Rules based on JavaScript Allongé (Reginald Braithwaite)
+globs: **/*.js,**/*.jsx
+alwaysApply: false
+---
+
+# JavaScript Allongé (Reginald Braithwaite)
+
+- **Functions as Building Blocks**: Everything emanates from functions.
+- **Purity and Simplicity**: Seek the essence of each operation.
+- **Function Decorators**: Transform function behavior.
+- **Combinators**: Create functions from other functions.
+- **Partial Application**: Specialize generic functions.
+- **Currying**: Facilitates composition.
+- **Closures as Data**: Functions can "remember" state.
+- **Immutability**: Treat data as constants.
+- **Recursion**: The natural way to iterate in functional programming.
+- **Trampolines**: To handle recursion without overflowing the stack.
+- **Lazy Sequences**: Work with infinite or large data sets.
+- **Functional Mixins**: Add behavior without inheritance.
+- **Monads and Functors**: Advanced concepts for handling context.
+- **Point-free Style**: Reduce visual noise.
+- **High-order Functions**: The ultimate tool.
+- **Lexical Context**: Understand where your functions are defined.
+- **Transduction**: Optimization of data pipelines.
+- **Function Semantics**: The name should reflect mathematical logic.
+- **Control Abstraction**: Create your own control structures.
+- **Elegance**: Well-written code is beautiful and predictable.

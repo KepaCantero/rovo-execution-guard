@@ -1,0 +1,30 @@
+---
+description: Rules from Release It! (Michael Nygard) - resilience and survival of systems in production
+globs: **/*.js,**/*.ts,**/cloud/**/*.js,**/aws/**/*.ts
+alwaysApply: false
+---
+
+# Release It! (Michael Nygard)
+
+The definitive book on how systems survive real world (network failures, slow APIs, etc.). In Forge backend is serverless: error handling and logging are your only eyes when something fails in client instance.
+
+- **Circuit Breaker Pattern**: If Jira API fails repeatedly, stop calling it for a while to avoid exhausting Forge timeout.
+- **Fail Fast**: Validate Confluence macro inputs at start; if missing something, throw error immediately before spending resources.
+- **Bulkhead Pattern**: Isolate failures. Logging system failure shouldn't prevent Workflow execution.
+- **Timeouts**: Never do fetch without explicit timeout. In Forge, limit is 25s, but you should cut at 10s to handle error gracefully.
+- **Let it Crash (but controlled)**: Design Forge functions to be idempotent, so if they fail, can be retried without duplicating data.
+- **Steady State**: Clean temporary data in storage to prevent system degradation over time.
+- **SLA Awareness**: Know Forge platform limits and program to not exceed them.
+- **Cascading Failures**: Prevent error in Jira trigger from bringing down other dependent processes.
+- **Backpressure**: Handle excess Atlassian events so they don't saturate your business logic.
+- **Test Failures**: Use failure injection (Chaos Engineering) to see how your App reacts when Jira returns 503.
+- **Boundary Logging**: Record every data entry and exit at App boundaries.
+- **Health Monitoring**: Create "Heartbeat" if App has critical background processes.
+- **Anticipate the Impossible**: What if storage.get returns something that doesn't match your TS type? (Use Zod).
+- **Graceful Degradation**: If reporting service fails, allow user to keep using basic functions.
+- **Error Contextualization**: An error without issueId is useless for debugging.
+- **Pressure Handling**: If you receive 429 (Rate Limit), respect Retry-After header.
+- **Avoid "Silent Error"**: Empty catch {} is crime against engineering.
+- **Use Correlation IDs**: Pass unique ID through entire call chain to track failure.
+- **Trend Analysis**: Don't look at isolated errors, search patterns (do they all fail on Mondays?).
+- **Resilience Architecture**: Confidence system will recover on its own.

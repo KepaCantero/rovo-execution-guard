@@ -1,0 +1,30 @@
+---
+description: Rules from Clean Code (Ch. 7 - Robert C. Martin) - graceful error handling
+globs: **/*.js,**/*.ts,**/*.tsx,**/cloud/**/*.js,**/controllers/**/*.js,**/services/**/*.js
+alwaysApply: false
+---
+
+# Clean Code - Chapter 7: Error Handling (Robert C. Martin)
+
+The aesthetic and organizational basis of writing code that fails gracefully. Applicable to resolvers, controllers and services.
+
+- **Use Exceptions Instead of Return Codes.**
+- **Write Try-Catch-Finally First**: Define error scope before writing logic.
+- **Use Unchecked Exceptions**: In JS/TS all are, so be disciplined.
+- **Define Exception Classes per Caller Needs.**
+- **Don't Return Null.** (Repeated, but vital to avoid errors).
+- **Don't Pass Null.**
+- **Separate business logic from error handling**: Use wrappers so main function reads clean.
+- **Catch block should leave system in consistent state.**
+- **Use "Special Case Pattern"** to avoid excessive error conditionals.
+- **Error messages should be informative**: Include failed operation and reason.
+- **Isolate code using third-party APIs (Atlassian)** to capture their specific errors in one place.
+- **Keep exception abstraction level aligned with function throwing it.**
+- **Avoid catching base Error** if you can catch something more specific.
+- **Refactor giant try blocks into small functions.**
+- **Use clear names for exceptions.**
+- **Error handling code should also be "Clean Code".**
+- **Test error path** (Unit Testing of exceptions).
+- **Ensure resource release** (like locks or connections) in finally block.
+- **Avoid "nested try-catch"** (one inside another); signals need to extract functions.
+- **Error handling is a "cross-cutting concern"**.

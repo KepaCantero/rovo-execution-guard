@@ -1,0 +1,112 @@
+---
+description: Mandatory flow for implementing audit suggestions – requirements, plan, implement, code review, audit, tests
+globs:
+alwaysApply: false
+---
+
+# Audit task implementation flow
+
+**DEPRECATED:** This workflow is now integrated into the task-based system. When implementing **suggestions or GAPs** from an audit, use the following approach:
+
+1. **Audit flow** (`workflows/datacenter-migration-flows.mdc` - Audit) detects violations
+2. **Audit and Fix flow** (`workflows/datacenter-migration-flows.mdc` - Audit and Fix) generates tasks for each violation
+3. **Task-based workflow** (`workflows/task-workflow.mdc`) executes each task
+
+**For direct implementation requests** (e.g., "implement [description]"), activate **workflows/task-workflow.mdc** directly.
+
+---
+
+## Legacy Flow (for reference)
+
+When implementing **suggestions or GAPs** from an audit (e.g. `docs/AUDIT-DATACENTER-MIGRATION-ALL-RULES.md`), you must **always** follow this flow. Apply it to **all** audit tasks.
+
+## 1. Extract and Update Requirements
+
+- **Before touching code:** Find requirements document in `.requirements/` for **file or scope** you'll modify (e.g. `CurrentStateOperation.md` for `CurrentStateOperation.ts`). See `.requirements/README.md` for naming convention.
+- **If exists:** Read completely. It contains Requirements, Acceptance criteria, Rules to respect and Required Tests. **Don't break** what already complies; doc is source of truth to avoid regression.
+- **If doesn't exist or needs update:**
+  1. **Extract requirements from legacy code:**
+     - Read code of file (and associated tests) you'll modify.
+     - Identify current behavior, inputs, outputs, and dependencies.
+     - Analyze which audit rules apply to this file.
+  2. **Create or update requirements document:**
+     - Create file in `.requirements/` with **same name** as file to implement (e.g. `ProducerMigrationService.md`).
+     - Fill with complete structure:
+       - **Requirements:** Each requirement must clearly specify:
+         - **Inputs:** What parameters, data or context requirement needs.
+         - **Outputs:** What result, behavior or change requirement produces.
+         - **Applicable Rule:** Which `.cursor/rules/` rule is being followed.
+       - **Acceptance criteria:** Closable checklist with `[ ]` or `[x]`.
+       - **Rules to respect:** Table with: Rule | Source | Current state | Action.
+       - **Required Tests:** What tests must exist or pass to validate compliance.
+  3. Optional: add path to index in `.requirements/README.md` if applicable.
+- **Important:** Requirements document is **source of truth** before implementing. Ensure all requirements are clearly defined with inputs and outputs before moving to Plan phase.
+
+## 2. Plan
+
+- **Role:** Planner (`roles/planner.mdc`).
+- Define **plan** for task: file(s) to touch, concrete steps, applicable rules (from `.cursor/rules/` and requirements doc), implementation order.
+- If task touches multiple files, indicate dependencies and sequence (e.g. first shared types, then consumers).
+- Output: clear plan; user can approve or adjust before implementing.
+
+## 3. Implement
+
+- **Roles:** Implementer (`roles/implementer.mdc`) + specialists per change type (Resilience & Logging, API & Contracts, TypeScript & Code Quality).
+- **Use requirements document as main guide:** Before implementing, consult requirements document in `.requirements/` to ensure you implement with correct parameters:
+  - Review **Inputs** and **Outputs** of each requirement to understand what code should do.
+  - Verify you meet all **Acceptance criteria** marked `[ ]`.
+  - Respect **Rules to respect** and their current state (GAP/PARTIAL/OK).
+  - Ensure **Required Tests** are covered.
+- Implement **following** plan, requirements doc and applicable `.cursor/rules/` rules.
+- Don't introduce `any` or `unknown` if project rules prohibit; don't remove timeouts, validations, or behaviors already required in requirements doc.
+- **Requirements document is source of truth:** If conflict between legacy code and requirements doc, follow requirements doc (reflecting what should be per audit).
+
+## 4. Code review (Verify)
+
+- **Role:** Verifier (`roles/verifier.mdc`). Optional: specialists in review mode.
+- Review **modified code** against applicable rules and requirements doc.
+- Deliver OK/GAP/PARTIAL report per relevant rule; if critical GAPs, return to Implement and Test.
+
+## 5. Audit
+
+- **Role:** Auditor (`roles/auditor.mdc`).
+- Update audit matrix in touched scope (e.g. `docs/AUDIT-DATACENTER-MIGRATION-ALL-RULES.md`, `docs/AUDIT-DATACENTER-MIGRATION-RULES.md`).
+- Mark OK for GAPs/PARTIALs that were closed; add Evidence (file, line or pattern).
+
+## 6. Update Requirements
+
+- **After completing implementation and audit:** Update corresponding requirements document in `.requirements/` to reflect progress.
+- **Actions:**
+  1. Open requirements file for modified file/area (e.g. `CurrentStateOperation.md` for `CurrentStateOperation.ts`).
+  2. Mark completed **Acceptance criteria** with `[x]` instead of `[ ]`.
+  3. Add "Implementation Status" section (if doesn't exist) with:
+     - Last update date
+     - List of completed changes with date and details
+     - Test results (e.g. "Tests: 32/32 passing")
+     - Pending items clearly marked
+  4. Update **"Rules to respect"** table if any rule changed state (GAP → PARTIAL → OK).
+- **Important:** Keep requirements updated to serve as implementation status source of truth.
+
+## 7. Execute tests
+
+- **Role:** Test Engineer (`roles/test-engineer.mdc`).
+- **Execute** tests in affected area (e.g. `pnpm test` in `aws/batch-processes`, or `pnpm --filter <package> test`).
+- If failing: return to Implement, then Verify, Audit and Test again until passing.
+- Output: all tests passing (or documented exception).
+
+## Order summary
+
+```
+Extract Requirements from legacy code → Update Requirements (inputs/outputs/rules) → Plan → Implement (using requirements as guide) → Code review (Verify) → Audit → Update Requirements (progress) → Execute tests
+                                                                                              ↑
+                    If tests fail or critical GAPs ______________________________┘
+```
+
+## Invocation
+
+- This flow applies when user requests **implementing audit suggestions**, **closing GAPs**, **fixing code to not violate rules** or equivalent tasks.
+- Also when saying **"use the agents"** in audit task context.
+- Save this rule as reference for **all** audit tasks:
+  - **First** extract and update legacy code requirements with complete structure (inputs, outputs, applicable rules).
+  - **Then** implement following requirements document as source of truth.
+  - Don't implement without updated requirements or plan, and always do code review, audit and test execution.

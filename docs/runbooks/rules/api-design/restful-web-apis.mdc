@@ -1,0 +1,30 @@
+---
+description: Rules from RESTful Web APIs (Richardson & Ruby) - Maturity Model and REST resources
+globs: **/routes/**/*.js,**/apiRoutes/**/*.js,**/controllers/**/*.js,**/dc-bps-migration/**/*.js
+alwaysApply: false
+---
+
+# RESTful Web APIs (Leonard Richardson & Sam Ruby)
+
+The book that introduced Richardson Maturity Model. Applicable to project REST endpoints (dc-bps-migration, metadata, currentState, etc.).
+
+- **Maturity Model**: Aim for Level 3 (HATEOAS) only if necessary, but never drop below Level 2 (Correct HTTP verbs).
+- **Resource Identification**: Use noun URIs (/pages, not /getPages).
+- **HTTP Verbs**: GET for reading, POST for creation, PUT for replacement, PATCH for partial modification.
+- **Idempotency**: Ensure repeating a PUT or DELETE doesn't change state more than once.
+- **Status Codes**: Use 201 Created after POST and 204 No Content after successful DELETE.
+- **Content Negotiation**: Use Accept header to handle data versions (JSON, XML, etc.).
+- **Representations**: A resource can have multiple views (e.g. summary vs detail).
+- **Stateless**: Each request from Forge frontend to resolver should contain all necessary info.
+- **Cacheability**: Use cache headers to avoid redundant backend calls.
+- **HATEOAS**: Include links to related actions so API is self-discoverable.
+- **Collection Handling**: Use standard filtering, sorting, and pagination (?limit=10&offset=20).
+- **Standard Errors**: Return error objects with code, message, and documentation link.
+- **Security**: Never pass tokens in URL; use authorization headers.
+- **Living Documentation**: Your API is as good as its documentation.
+- **Consistency**: If you use camelCase in one endpoint, use it in entire API.
+- **Granularity**: Don't create "chatty" APIs (many small calls); batch data if frontend needs them together.
+- **Method Overloading**: Don't use POST for everything; respect web semantics.
+- **Versioning**: Prefer versions in header or URL (/v1/).
+- **Null Handling**: Don't send fields with null; if no data, omit key to save bandwidth.
+- **Date Formats**: Always use ISO 8601 (YYYY-MM-DDTHH:mm:ssZ).

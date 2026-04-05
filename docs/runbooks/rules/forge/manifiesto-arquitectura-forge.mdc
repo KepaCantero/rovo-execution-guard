@@ -1,0 +1,72 @@
+---
+description: The Forge Architecture Manifest - 50 Golden Rules
+globs: **/manifest.yml,**/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# The Forge Architecture Manifest (50 Golden Rules)
+
+## I. The Security Perimeter (Manifest & Scopes)
+
+- **Least Privilege**: Never request a scope you don't use. If you only read pages, use read:confluence-content, not write.
+- **Permission Granularity**: Prefer granular scopes over "classic" ones to reduce attack surface.
+- **Egress Control**: Explicitly define external domains in external.fetch.backend. If not there, Forge blocks it.
+- **Manifest Validation**: Treat manifest.yml as source code; an error here breaks production deployment.
+- **Environment Secrets**: Never hardcode credentials. Use forge variables set to inject secrets at runtime.
+- **Function Mapping**: Each manifest function entry should correspond to single purpose (SRP).
+- **Content Security Policy (CSP)**: Configure script and style policies to avoid XSS attacks in your Custom UI.
+- **App Ownership**: Define appId correctly and ensure team has access to developer dashboard.
+- **Rotate Credentials**: If you use third-party OAuth2, implement secret rotation strategy.
+- **Manifest Audit Log**: Document in repo why each new permission was added.
+
+## II. The Bridge Pattern (Frontend-Backend Communication)
+
+- **End-to-End Typing**: Define BridgeContract interface shared by frontend (Custom UI) and resolver (Backend).
+- **Light Payloads**: Don't send complete Jira/Confluence objects over bridge; filter only necessary data.
+- **Timeout Handling**: Bridge has limits. If backend call takes >25s, frontend should handle error.
+- **Bridge Debouncing**: Avoid excessive resolver calls from user inputs.
+- **Loading States**: Frontend should be reactive; show skeletons while bridge resolves promise.
+- **Error Mapping**: Transform internal backend errors into user-friendly messages before crossing.
+- **Optimistic UI**: Update interface before bridge confirms, but have rollback ready.
+- **Security in Resolvers**: Don't trust arguments sent from frontend; validate permissions again in backend.
+- **Invoke Versatility**: Use descriptive function names in invoke('actionName').
+- **Serialization Check**: Ensure all data crossing is serializable (JSON compatible).
+
+## III. Data Management and Residency (Storage & Compliance)
+
+- **Key-Value Limits**: Remember storage.set has size limit per value. Don't save binary files.
+- **Data Locality**: Use Forge Storage API so Atlassian automatically manages where data lives (EU/US).
+- **Query Strategy**: Design keys to allow efficient searches (e.g. project:ID:status).
+- **Partitioning**: If you have thousands of records, use prefixes to simulate tables or collections.
+- **Encryption at Rest**: Trust Forge for encryption, but encrypt ultra-sensitive data yourself before storage.set.
+- **TTL (Time to Live)**: Implement cleanup logic for temporary data to avoid unnecessary storage costs.
+- **Backup Awareness**: Remember Forge storage has no easy manual "rollback" button; implement transaction logs.
+- **Concurrency Control**: Use storage.query carefully and handle possible collisions if two users edit same record.
+- **Schema Evolution**: Plan how to migrate saved data if you change your TS interface structure.
+- **Privacy by Design**: Don't store PII (Personal Identifiable Information) unless strictly necessary for Workflow.
+
+## IV. Serverless Thinking (Cloud Strategy)
+
+- **Stateless Functions**: Each Forge function execution should be independent; don't keep state in global variables.
+- **Cold Start Optimization**: Keep backend bundle small so function wakes faster.
+- **Async Events**: Use Events API for long processes (like generating reports) to avoid blocking user.
+- **Idempotency**: All write functions should be executable twice without causing duplicates (critical in distributed systems).
+- **Retry Logic**: Implement exponential retries for external API calls that may fail temporarily.
+- **Circuit Breaker**: If external API fails repeatedly, stop trying for a while to avoid exhausting resources.
+- **Resource Quotas**: Monitor CPU and memory usage in Atlassian Developer Console.
+- **Log Aggregation**: Use console.log, console.error structurally to facilitate production debugging.
+- **Dependency Audit**: Review that node_modules libraries aren't too heavy for Forge runtime.
+- **Shadow Deployments**: Use staging environments to test critical changes before affecting all users.
+
+## V. Integration with Confluence/Jira (Atlassian Context)
+
+- **Context Awareness**: Use useProductContext in frontend to get spaceKey or contentId without asking user.
+- **Macro Patterns**: If Confluence Macro, ensure correct handling of "Preview" mode vs "View" mode.
+- **User Impersonation**: Decide when to use asUser() (user permissions) vs asApp() (system permissions).
+- **UI Kit vs Custom UI**: Use UI Kit for quick forms and Custom UI when you need branded experience.
+- **Atlassian Design Tokens**: Always use official design tokens so your app changes theme (Dark/Light) with Jira.
+- **API Versioning**: Always use stable version of Confluence REST APIs (v2 when possible).
+- **Rate Limit Handling**: Implement intelligent waits if you receive 429 error (Too Many Requests).
+- **Deep Linking**: Generate URLs leading user directly to app configuration within instance.
+- **Lifecycle Hooks**: Implement logic when app installs or uninstalls (data cleanup).
+- **Zero Friction**: App should work with minimum possible configuration to reduce entry barrier.

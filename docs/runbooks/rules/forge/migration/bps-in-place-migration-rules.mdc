@@ -1,0 +1,441 @@
+# BPS In-Place Migration Rules - Extracted from GitHub Analysis
+
+**Source:** GitHub README `migration/cof/README.md` - In-Place Migration Approach with Automatic Updates
+
+**Context:** Rules extracted from analysis of the BPS-based in-place migration strategy for CoF → RoA migration.
+
+## Migration Strategy Rules
+
+### MIG-BPS-001: In-Place Migration Approach
+**Rule:** The migration SHALL be implemented in the CoF application using minor version upgrades (5.x.x), ensuring:
+- All data structures remain compatible
+- All changes are backward compatible (minor version requirement)
+- Existing customers automatically receive updates without manual intervention
+- When customers upgrade to RoA (6.0.0), data is immediately available
+- No separate data migration process required
+- No breaking changes allowed (semantic versioning constraint)
+
+### MIG-BPS-002: Zero Data Migration Requirement
+**Rule:** When customers upgrade from CoF (5.x.x) to RoA (6.0.0), SHALL require zero data migration because:
+- Data is migrated to Forge Storage while customers are still on CoF
+- Data structures are already compatible when upgrade occurs
+- All data is immediately available in RoA after upgrade
+- No additional migration steps required from customer
+
+### MIG-BPS-003: Versioning Strategy
+**Rule:** The versioning strategy SHALL follow:
+- **CoF Application:** Current version 5.x.x (e.g., 5.1.0, 5.2.0)
+  - Receives minor version bumps (e.g., 5.2.0 → 5.3.0)
+  - Minor versions are automatically applied to customer installations
+  - All changes must maintain backward compatibility
+  - RoA-compliant changes gradually introduced in minor versions
+- **RoA Application:** Released as major version (e.g., 6.0.0)
+  - Major version requires manual customer upgrade
+  - Gives customers time to prepare for transition
+  - All data from CoF is compatible and immediately available
+  - Customers can upgrade at their own pace
+
+### MIG-BPS-004: Parallel Support Period
+**Rule:** Both CoF and RoA applications SHALL be maintained simultaneously during transition period:
+- Some customers remain on CoF while others upgrade to RoA
+- Both versions must be supported, maintained, and receive updates
+- Data compatibility ensures customers can upgrade at any time
+- Requires careful coordination of updates and bug fixes for both versions
+
+### MIG-BPS-005: New Installations Policy
+**Rule:** Once RoA is released, new installations SHALL:
+- Automatically use RoA version
+- CoF version no longer available for new installations
+- Existing CoF customers continue on CoF until they manually upgrade
+- New customers automatically start on RoA from day one
+
+## Idempotency Rules
+
+### MIG-BPS-006: Idempotency Requirement (CRITICAL)
+**Rule:** All migration steps SHALL be idempotent - they can be run multiple times without duplicating data.
+
+**Rationale:**
+- Critical for RoA application when customers upgrade - migrations may run multiple times
+- Prevents data corruption and ensures reliable migration execution
+- Follows existing pattern: SQL migrations use IF EXISTS/IF NOT EXISTS clauses
+
+**Implementation Requirements:**
+- SQL Migrations: Use IF EXISTS/IF NOT EXISTS clauses
+- Data Transformations: Check for existing state before applying changes
+- Data Migrations: Verify data doesn't already exist before inserting/updating
+- Schema Changes: Use conditional DDL statements that are safe to run multiple times
+- Validation: Test that running migrations multiple times produces the same result
+
+## Batch Migration Rules
+
+### MIG-BPS-007: Batch Migration Prerequisites
+**Rule:** Batch migration SHALL require:
+- Spaces and contents must be migrated to Fireflow first
+- Ensures that all existing content is migrated
+- Must iterate through every space of the instance
+- Must iterate through every content item in each space
+
+### MIG-BPS-008: Batch Migration Iteration Strategy
+**Rule:** Batch migration SHALL iterate exhaustively:
+- **No reliable pre-filtering:** Cannot determine if content has migration data without querying each one individually
+- **Space-by-Space Processing:** System processes spaces sequentially, one at a time
+- **Content-by-Content Processing:** For each space, iterate through all content items
+- **Prerequisite Check:** Ensure content is already in Fireflow (if required)
+- **Conditional Migration:** Migrate content-related data only if present
+- **Query each content item individually** to check for migration data
+
+**Performance Characteristics:**
+- Lengthy process due to exhaustive checking
+- Most spaces/contents don't have CDM-related data (in most instances)
+- Iteration overhead is high, but migration data volume is relatively low
+- Long processing time due to exhaustive checking, but manageable data volume
+
+### MIG-BPS-009: BPS for Batch Migration
+**Rule:** Batch migration SHALL use BPS (Batch Processing System):
+- BPS supports long-running collectors - can run for hours to collect pages in big instances
+- BPS handles the lengthy collection process required for batch migration
+- Provides infrastructure needed to iterate through all spaces and content items
+- BPS Backoffice provides interface with detailed information about migration
+- Migration progress, status, and details visible through BPS backoffice
+
+### MIG-BPS-010: Manual Control and Retry
+**Rule:** Batch migration SHALL support:
+- BPS Backoffice provides interface to trigger and monitor batch migration
+- Can be triggered manually for selected instances through BPS backoffice
+- Allows reattempting batch migration on specific instances
+- Useful for retrying failed migrations or running migration on-demand
+- Provides operational control over migration process
+- Migration details, progress, and status available in BPS backoffice
+
+## On-Change Migration Rules
+
+### MIG-BPS-011: On-Change Migration Strategy
+**Rule:** On-change migration SHALL ensure:
+- Data modified after initial migration is also migrated
+- Captures changes made during and after batch migration period
+- Prevents data loss for changes made after batch migration
+
+### MIG-BPS-012: Change Capture Process
+**Rule:** When data is changed in CoF application:
+- Change is applied to data storage (normal operation)
+- Additionally, changed entity is added to AWS Queue for migration
+- Dual-write approach ensures both immediate data persistence and migration queuing
+- No performance impact - queue addition is asynchronous and non-blocking
+- Handles updates, inserts, and modifications
+- Changes are queued automatically without affecting CoF application performance
+
+### MIG-BPS-013: Migration Queue Architecture
+**Rule:** AWS Queue SHALL be used to queue entities to be migrated:
+- Migration does not need to happen in real-time
+- Queue-based approach provides:
+  - Avoids overwhelming SQL database - controlled rate of migration operations
+  - Easier log reading - better visibility and debugging of migration process
+  - Better error handling - failed migrations can be retried from the queue
+  - Scalability - can handle large volumes of entities without database overload
+- Entities are queued and processed asynchronously
+- Queue provides natural throttling and backpressure mechanisms
+
+## Web Trigger Rules
+
+### MIG-BPS-014: Hourly Scheduled Trigger (URL Registration)
+**Rule:** Hourly scheduled trigger SHALL:
+- Run on an hourly schedule
+- Generate webtrigger URLs for each instance
+- **Application Detection:** Must detect which application is running (CDM, CDC, or CDA)
+- **Webhook Selection:** Use the appropriate webhook based on detected application
+- Call the selected webhook in the CoF backend to register the URLs
+- **URL Persistence:** CoF backend must persist these URLs
+  - Options: Redis or user properties of the addon user
+- Used to maintain a registry of webtrigger URLs per instance
+- Ensures URLs are available for migration processes
+
+### MIG-BPS-015: Static Webtrigger (No Data Egress)
+**Rule:** Static Webtrigger SHALL:
+- Receive migration items from external systems
+- Accept migration entities in batches - designed to process multiple entities per request
+- Insert or update data in the database
+- **No data egress** - compliant with RoA requirements
+- Available in both CoF and RoA applications
+- Used for both batch migration and on-change migration
+- URLs are registered via the hourly scheduled trigger
+- Must handle both batch and incremental updates
+- Batch processing improves efficiency and reduces overhead
+
+**Status Response Limitations:**
+- Can return a status from a predefined list
+- Can indicate if entities have been correctly upserted
+- Can indicate if there is some problem in some of them
+- **Cannot identify which specific problem occurred**
+- **Cannot identify which specific entity has the problem**
+- Limited error reporting due to static webtrigger constraints
+
+### MIG-BPS-016: Dynamic Webtrigger (With Data Egress)
+**Rule:** Dynamic Webtrigger SHALL:
+- Accept any SQL query for execution
+- Used to validate migrated data
+- **Has data egress** - allows querying and viewing data
+- **Only available in CoF** - will NOT be available in RoA
+- Critical for validation during migration period
+- Provides the only way to view/query data in Forge during migration
+- URLs are registered via the hourly scheduled trigger
+
+### MIG-BPS-017: URL Registration Flow
+**Rule:** URL registration SHALL follow:
+1. Hourly scheduled trigger runs and generates webtrigger URLs for each instance
+2. Scheduled trigger calls CoF backend webhook to register URLs
+3. CoF backend persists URLs (Redis or user properties)
+4. Registered URLs are used by external systems for migration
+
+## Migration Architecture Rules
+
+### MIG-BPS-018: CoF Application Database Writes
+**Rule:** CoF application SHALL NOT write directly to the database:
+- All database writes go through the Static Webtrigger
+- Static Webtrigger processes items from the AWS Queue
+- Ensures controlled and validated data insertion/updates
+
+### MIG-BPS-019: Batch Migration Flow
+**Rule:** Batch migration flow SHALL be:
+1. Batch Migration Process iterates through every space and every content item
+2. For each content:
+   - Queries Fireflow (workflows, parameters, metadata, links)
+   - Queries Versions Custom Content (document activities)
+   - Retrieves OTP Tokens from Redis
+3. Data is transformed (Fireflow → RoA format) and queued to AWS Queue
+4. AWS Queue processes migration items and sends them to Static Webtrigger
+5. Static Webtrigger inserts/updates data in Forge SQL Database
+
+### MIG-BPS-020: On-Change Migration Flow
+**Rule:** On-change migration flow SHALL be:
+1. CoF Application generates events when data changes
+2. Changed entities are queued to AWS Queue
+3. AWS Queue processes migration items and sends them to Static Webtrigger
+4. Static Webtrigger inserts/updates data in Forge SQL Database
+
+### MIG-BPS-021: Validation Flow
+**Rule:** Validation SHALL use:
+- Dynamic Webtrigger (CoF only) allows validation queries against the database
+- Provides the only way to view/query data in Forge during migration period
+- Critical for validating migration success
+
+## Entity Migration Rules
+
+### MIG-BPS-022: Entities to be Migrated
+**Rule:** The following entities SHALL be migrated from source system to CoF/RoA:
+- Global Workflows - Workflow definitions at the global level
+- Global Workflow Versions - Version history of global workflows
+- Space Workflows - Workflow definitions at the space level
+- Space Workflow Versions - Version history of space workflows
+- Workflows Enabled or Linked for Space - Space-level workflow associations
+- Space Workflow Parameters - Parameters configured for space workflows
+- Content Current State - Current workflow state for each content item
+- Content Document Activities - Activity history for content items
+- Content Linked Workflow - Workflow associations for content items
+- Content Parameters, Metadata or Linked Workflow Parameters - Content-level parameters and metadata
+- OTP Tokens - One-time password tokens
+
+### MIG-BPS-023: Data Sources for Migration
+**Rule:** Different entities SHALL be retrieved from different sources:
+- **OTP Tokens:** Retrieved from Redis
+- **Document Activities:** Retrieved from versions custom content attached to every page or blogpost
+- **Parameters, Metadata, Workflows, and Links:** Retrieved from Fireflow
+  - This includes:
+    - Content parameters
+    - Content metadata
+    - Workflow associations
+    - Workflow links
+
+### MIG-BPS-024: Data Transformations Required
+**Rule:** Migration process SHALL require several data transformations:
+
+**Fireflow Definitions → RoA Workflows:**
+- Fireflow workflow definitions must be transformed to RoA workflow format
+- Transformation logic needed to map Fireflow structure to RoA structure
+- Must preserve all workflow configuration and logic
+
+**Fireflow Resource Status → RoA Content State:**
+- Fireflow resource status must be converted to RoA content state format
+- State mappings and conversions required
+- Must maintain state history and relationships
+
+**Document Activity Entries Conversion:**
+- Document activity entries from versions custom content must be converted to RoA Document Activity entries
+- Format transformation required
+- Must preserve activity history and metadata
+
+**Content Parameters Consolidation:**
+- Content workflow parameters and Page parameters are stored in different entities in Fireflow
+- Both will be stored in the same table in RoA
+- Consolidation and merging logic required
+- Must ensure no data loss during consolidation
+
+## SQL Table Provisioning Rules
+
+### MIG-BPS-025: SQL Table Provisioning in CoF
+**Rule:** CoF Application SHALL provision SQL tables:
+- CoF application will create and manage all necessary SQL tables for the migration
+- Tables will be provisioned using existing Forge SQL migration system
+- All tables must be idempotent (use IF EXISTS/IF NOT EXISTS clauses)
+- **MUST Reference:** `docs/database-schema.md` for complete schema definitions:
+  - Table structures: Workflow, WorkflowLink, WorkflowLabel, WorkflowVersion, WorkflowParameter
+  - Table structures: ContentState, ContentStateLabel, ContentApproval, ContentApprovalDecision
+  - Table structures: ContentParameterAndMetadata, ContentParameterHistory, Messages, DocumentActivity, DocumentActivityUsers
+  - Column types, constraints, primary keys, indexes
+  - Foreign key relationships (only DocumentActivityUsers.activityId has explicit FK)
+  - Logical relationships (all other relationships are logical, not enforced by FK constraints)
+
+## Migration Monitoring Rules
+
+### MIG-BPS-026: Migration Monitoring & Iteration
+**Rule:** Migration SHALL support monitoring and iteration:
+- Can monitor migration logs in real-time across all CoF customer installations
+- Iterate on migration implementation based on real-world data and issues
+- Retry and refine migrations until they are reliable and stable
+- Validate migration success before RoA release
+
+### MIG-BPS-027: Logging and Monitoring Setup
+**Rule:** Logging and monitoring SHALL be configured:
+- **Log Routing to Sumologic:**
+  - Logs from CoF application must be routed to Sumologic
+  - Logs from migration queue consumer must be routed to Sumologic
+  - Centralized logging for migration visibility and debugging
+- **Saved Searches:**
+  - Create saved searches in Sumologic to monitor migration progress
+  - Track migration success rates, failures, and retries
+  - Monitor queue processing and webtrigger performance
+- **Dashboards:**
+  - Create dashboards in Sumologic to visualize migration metrics
+  - Real-time monitoring of migration status across instances
+  - Track batch migration progress and on-change migration activity
+  - Monitor error rates and identify patterns
+
+## Testing Rules
+
+### MIG-BPS-028: Idempotency Testing
+**Rule:** Idempotency SHALL be tested:
+- Test that migrations are idempotent
+- Test strategy for running migrations multiple times
+- Verify no data duplication occurs on repeated execution
+- Validation checks ensure migrations produce consistent results
+
+## Strategy Coordination Rules
+
+### MIG-BPS-029: Batch and On-Change Strategy Coordination
+**Rule:** Both migration strategies SHALL work together:
+- Batch migration establishes the baseline
+- On-change migration captures ongoing modifications
+- Both must be idempotent to allow safe retries
+- Migration can run continuously during the CoF period
+
+## Web Trigger Constraints (Inferred from Analysis)
+
+### MIG-BPS-030: Static Webtrigger Constraints
+**Rule:** Static Webtrigger batches SHALL respect:
+- **Timeout:** 5 seconds (NOT 900s like Async Events)
+- **Payload size:** ~1MB maximum
+- **Rate limits:** Strict per tenant
+- **Processing time:** Must complete within 5s
+- **Batch validation:** Each batch must validate before sending:
+  - `estimatedPayloadSize < 1MB`
+  - `estimatedProcessingTime < 5s`
+  - `batchSize <= maxBatchSize` where `maxBatchSize = min(chunkSize, floor(1MB / averageItemSize), itemsProcessableIn5s)`
+
+**Note:** While the GitHub document doesn't explicitly state these constraints, they are critical Forge Web Trigger limits that must be respected.
+
+## Versioning Constraints
+
+### MIG-BPS-031: Minor Version Constraints
+**Rule:** Since using minor version upgrades:
+- Breaking changes are NOT allowed - all changes must be backward compatible
+- API compatibility - all existing APIs and data structures must continue to work
+- Gradual rollout - changes can be introduced incrementally across multiple minor versions
+
+## Migration Phases
+
+### MIG-BPS-032: Migration Phase Requirements
+**Rule:** Migration SHALL follow these phases:
+
+**Phase 1: Assessment and Planning**
+- Assess current state
+- Plan migration strategy
+
+**Phase 2: Infrastructure Changes**
+- Remove external dependencies
+- Ensure all compute uses Forge runtime
+- Ensure all storage uses Forge Storage/Forge SQL
+- Provision SQL tables in CoF application
+- Add migration triggers:
+  - Hourly scheduled trigger for URL generation and registration
+  - Static webtrigger (no data egress) for receiving migration data
+  - Dynamic webtrigger (with data egress) for validation (CoF only)
+- Implement URL persistence (Redis or user properties)
+- Implement webhook endpoint for URL registration
+
+**Phase 3: Code Refactoring**
+- Refactor external API calls (must be backward compatible)
+- Update analytics/logging to be customer-controllable
+- Ensure data residency compliance
+- All changes must maintain backward compatibility (minor version constraint)
+- Implement migration strategies:
+  - Batch migration for comprehensive data coverage
+  - On-change migration for real-time synchronization
+
+**Phase 4: Testing and Validation**
+- Test in CoF environment
+- Monitor migration logs across customer installations
+- Iterate on migration implementation based on real-world data
+- Retry and refine migrations until reliable
+- Validate RoA compliance
+- Test data compatibility
+- Verify migration success before RoA release
+
+**Phase 5: Deployment**
+- Deploy RoA-compliant changes to CoF application (minor versions)
+- Validate customer installations continue working
+- Prepare RoA major version release
+- Provide migration documentation for customers upgrading to RoA
+
+**Phase 6: Parallel Support Period**
+- Maintain both CoF and RoA applications simultaneously
+- Support customers on both versions
+- Coordinate bug fixes and updates for both versions
+- Monitor customer upgrade patterns
+- Plan deprecation timeline for CoF
+
+## Risk Mitigation Rules
+
+### MIG-BPS-033: Technical Risk Mitigation
+**Rule:** Technical risks SHALL be mitigated:
+- Maintaining two codebases/versions simultaneously
+- Ensuring data compatibility between CoF and RoA
+- Coordinating updates and bug fixes across both versions
+- Risk of divergence between CoF and RoA implementations
+
+### MIG-BPS-034: Business Risk Mitigation
+**Rule:** Business risks SHALL be mitigated:
+- Customer confusion during transition period
+- Support burden of maintaining two versions
+- Extended support period for CoF after RoA release
+- Customer adoption rate of RoA version
+- Risk of new customers installing CoF if not properly restricted
+- Ensuring all new installations use RoA after release
+
+## Data Residency Rules
+
+### MIG-BPS-035: Data Residency Support
+**Rule:** Application SHALL support data residency:
+- App must support data residency that matches the host Atlassian app
+- Data must remain in the same region as the Confluence instance
+
+## Data Egress Control Rules
+
+### MIG-BPS-036: Data Egress Control
+**Rule:** Customers SHALL have full control over data egress:
+- Analytics and logs must be configurable/blockable by customers
+- No external API calls that bypass customer control
+
+## References
+
+- GitHub README: `migration/cof/README.md` - In-Place Migration Approach with Automatic Updates
+- BPS Codebase: `/Users/kepa.cantero/cdm/comalatech-workflows/aws/batch-processes`
+- Analysis Document: `.cursor/ANALYSIS-migration-approaches.md`

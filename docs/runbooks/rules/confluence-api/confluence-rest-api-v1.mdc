@@ -1,0 +1,62 @@
+# CONFLUENCE REST API V1 RULES
+
+Reglas exhaustivas para usar Confluence REST API v1 durante migraciones y desarrollo, basadas en la documentación oficial y uso en el proyecto.
+
+## AUDITORÍA
+
+1. **Verificar versión de API**: Siempre usar `/wiki/rest/api` para Confluence Cloud REST API v1, nunca mezclar con v2 en la misma operación
+2. **Validar autenticación**: Verificar que las llamadas usan `api.asApp()` o `api.asUser()` según corresponda para autenticación Forge
+3. **Revisar scopes requeridos**: Cada endpoint requiere scopes específicos (READ, WRITE, etc.) - verificar que el manifest los incluye
+4. **Auditar paginación**: Endpoints que retornan múltiples objetos usan `start` y `limit` - verificar manejo correcto de paginación
+5. **Validar expansión de recursos**: Usar parámetro `expand` para obtener datos anidados solo cuando sea necesario para minimizar tráfico
+6. **Revisar manejo de errores**: Verificar que se manejan correctamente códigos 400, 401, 403, 404 según documentación
+7. **Auditar uso de X-Atlassian-Token**: Métodos protegidos de CSRF requieren header `X-Atlassian-Token: no-check` - verificar su uso
+8. **Validar representaciones de body**: Para bulk endpoints con `body.export_view` o `body.styled_view`, límite máximo de 25 resultados
+9. **Revisar Data Security Policy**: Algunos endpoints están exentos de app access rules, otros no - verificar comportamiento esperado
+10. **Auditar uso de CQL**: Búsquedas con CQL deben validar sintaxis antes de ejecutar para evitar errores 400
+
+## DISEÑO
+
+11. **Diseñar paginación eficiente**: Usar `limit` apropiado (típicamente 25-250) y `start` para iterar sobre resultados grandes
+12. **Minimizar expansiones**: Solo expandir campos necesarios usando notación punto para anidados (ej: `expand=space,metadata.labels`)
+13. **Diseñar manejo de rate limits**: Implementar retry logic con backoff exponencial para respuestas 429
+14. **Estructurar búsquedas CQL**: Usar CQL para búsquedas complejas en lugar de múltiples llamadas individuales
+15. **Diseñar bulk operations**: Preferir endpoints bulk cuando estén disponibles (ej: `/user/email/bulk`) sobre múltiples llamadas individuales
+16. **Estructurar manejo de versiones**: Para actualizaciones de contenido, siempre incluir número de versión correcto para evitar conflictos 409
+17. **Diseñar fallbacks**: Implementar fallback a llamadas individuales cuando bulk API falle (ej: email bulk → individual)
+18. **Estructurar validación de usuarios**: Filtrar usuarios inactivos, desactivados o eliminados usando CQL o validación post-request
+19. **Diseñar manejo de permisos**: Verificar permisos antes de operaciones que requieren permisos específicos (ej: Archive requiere 'Archive' permission)
+20. **Estructurar manejo de estados**: Validar estados de contenido (current, trashed, archived, draft) antes de operaciones que dependen de estado
+
+## IMPLEMENTACIÓN
+
+21. **Usar route template literal**: Siempre usar `route` template literal de `@forge/api` para URLs: `route`/wiki/rest/api/content/${id}``
+22. **Implementar validación de entrada**: Validar que IDs no estén vacíos o sean null antes de hacer requests
+23. **Usar asApp() para operaciones de app**: Usar `api.asApp()` cuando la operación es del contexto de la app, no del usuario
+24. **Implementar manejo de 404**: Retornar null o lanzar ContentNotFoundError cuando contenido no existe (404)
+25. **Usar asUser() para operaciones de usuario**: Usar `api.asUser(accountId)` cuando se necesita contexto de usuario específico (ej: permisos)
+26. **Implementar sanitización de labels**: Sanitizar labels (trim, lowercase, reemplazar espacios) antes de agregarlos a contenido
+27. **Usar expand apropiadamente**: Para contenido, expandir `space,version` por defecto, agregar más solo si se necesita
+28. **Implementar manejo de versiones**: Para PUT de propiedades, obtener versión actual primero, incrementar en 1 para actualización
+29. **Usar Content-Type header**: Incluir `Content-Type: application/json` en requests POST/PUT que envían JSON
+30. **Implementar logging de errores**: Registrar todos los errores de API con contexto (endpoint, payload, status) usando Logger
+31. **Usar Accept header**: Incluir `Accept: application/json` en requests GET para asegurar respuesta JSON
+32. **Implementar validación de respuestas**: Verificar `response.ok` antes de parsear JSON, manejar errores apropiadamente
+33. **Usar query parameters correctamente**: Para búsquedas CQL, usar `encodeURIComponent` para valores de query string
+34. **Implementar manejo de grupos**: Para obtener miembros de grupo, usar `/group/{groupId}/membersByGroupId` con paginación
+35. **Usar bulk email API primero**: Intentar `/user/email/bulk` primero, fallback a individual si falla
+36. **Implementar validación de usuarios activos**: Filtrar usuarios con displayName que contenga "(Unlicensed)", "(Deactivated)", "(Deleted)"
+37. **Usar copy endpoint correctamente**: Para copiar contenido, usar `/content/{id}/copy` con opciones en body, incluir `expand` en query
+38. **Implementar manejo de watchers**: Para obtener watchers de contenido, usar `/content/{id}/notification/child-created`
+39. **Usar state endpoint**: Para obtener estado de contenido, usar `/content/{id}/state` que retorna ContentStateResponse
+40. **Implementar manejo de propiedades**: Para propiedades, usar GET para leer, POST para crear, PUT para actualizar con versión incrementada
+41. **Usar purge parameter**: Para DELETE de contenido, incluir `purge=true` en query string para eliminación permanente
+42. **Implementar manejo de espacios**: Para obtener espacio por key, usar `/space/{key}` con expand apropiado
+43. **Usar memberof endpoint**: Para obtener grupos de usuario, usar `/user/memberof?accountId={accountId}`
+44. **Implementar manejo de operaciones**: Para verificar permisos, usar `/user?accountId={id}&expand=operations` para obtener operaciones disponibles
+45. **Usar search endpoint**: Para búsquedas de usuarios, usar `/search/user?cql={cql}` con CQL apropiado
+46. **Implementar manejo de errores específicos**: Manejar 410 (Gone) para recursos eliminados, 409 (Conflict) para versiones incorrectas
+47. **Usar headers apropiados**: Incluir headers `Accept` y `Content-Type` según método HTTP y tipo de contenido esperado
+48. **Implementar validación de tipos**: Validar que contentType sea 'page' o 'blogpost' antes de construir endpoints específicos
+49. **Usar expand para nested data**: Para expandir datos anidados, usar notación punto: `expand=metadata.labels,body.storage`
+50. **Implementar manejo de respuestas vacías**: Manejar casos donde respuestas pueden estar vacías (ej: sin resultados en búsqueda)

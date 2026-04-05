@@ -1,0 +1,41 @@
+---
+alwaysApply: true
+---
+
+# ATLASSIAN FORGE PROJECT CONTEXT
+
+This is an **Atlassian Forge** project for Confluence workflows automation. The project provides workflow management capabilities for Confluence spaces and content.
+
+## PROJECT STRUCTURE
+
+- **Forge App**: Native Forge application with multiple modules
+- **Workflow Engine**: Custom workflow execution engine (`packages/workflow-engine/`)
+- **UI Components**: React-based builder interface (`builderui/`)
+- **Modules**: Feature-specific modules in `src/modules/`
+- **Events**: Confluence event handlers in `src/events/`
+
+## KEY TECHNOLOGIES
+
+- **Atlassian Forge**: Cloud development platform
+- **TypeScript**: Primary language with strict typing
+- **React**: UI framework for builder interface
+- **Vitest**: Testing framework
+- **Confluence API**: Integration with Confluence REST API using Forge SDK
+- **Forge Knowledge**: MCP server for Forge knowledge
+
+## DEVELOPMENT GUIDELINES
+
+- Follow Atlassian Forge best practices and conventions from https://valiantys-training.com/forge-style-guide
+- Use TypeScript with strict typing (avoid `any`, no non-null assertions)
+- Implement comprehensive error handling for Confluence API interactions, we use Logger in the backend and console.error in the frontend.
+- Write all tests using Vitest as the testing framework.
+- Use test.each for parameterized test cases.
+- Use single quotes for strings and template literals for concatenation
+
+## CONFLUENCE INTEGRATION
+
+- Workflows operate on Confluence spaces, pages, and content[page|blogpost]
+- Event-driven architecture responding to Confluence events
+- Custom macros for workflow state and approval processes
+- Storage and state management for workflow persistence using Forge Sql (which is based on TiDB)
+- we use Forge SDK to interact with the Confluence API, have installed the forge-sdk-docs-server mcp server for you to use.

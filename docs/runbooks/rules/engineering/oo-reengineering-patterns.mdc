@@ -1,0 +1,30 @@
+---
+description: Rules based on Object-Oriented Reengineering Patterns (Demeyer, Ducasse, Nierstrasz)
+globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Object-Oriented Reengineering Patterns (Demeyer, Ducasse, Nierstrasz)
+
+Advanced patterns for restructuring complex systems.
+
+- **Read all the Code in One Hour**: Not to understand everything, but to capture the "shape" and style.
+- **Skim the Regression Tests**: If they exist, they're your best guide to original design.
+- **Interview the Experts**: Legacy code has a reason for being; find it in the people.
+- **Stepwise Capacity Expansion**: Improve performance only where there are real bottlenecks.
+- **Visualize the Structure**: Use tools to see circular dependencies.
+- **Look for the "Lava Flow"**: Code chunks no one touches out of fear; first candidates for isolation.
+- **Identify Data Clumps**: Groups of variables that always travel together; convert to an object.
+- **Expose State**: Make internal state visible to facilitate testing.
+- **Move Behavior Close to Data**: The core of OO refactoring.
+- **Eliminate Unnecessary Navigation**: Avoid a.getB().getC().getD().
+- **Refactor for Reuse**: Only if you'll really use it in another plugin.
+- **Transform "Data Containers" into Business Objects.**
+- **Use "Method Objects"**: Convert a giant function into its own class where parameters are properties.
+- **Detect "Inappropriate Intimacy"**: Classes that know too much about others' internals.
+- **Consolidate Duplicate Fragments**: If the same if is in 5 places, move it to a policy.
+- **Use "Bridge" for Changing APIs**: Protect your code from Confluence API changes.
+- **Simplify the Hierarchy**: If a class only has one child, join them.
+- **Create "Test Benches"**: Small scripts that run parts of legacy in isolation.
+- **Accept the "Draft"**: The first refactor won't be perfect; the second will.
+- **Document the "Hot Spots"**: Where code is most fragile and changes most.

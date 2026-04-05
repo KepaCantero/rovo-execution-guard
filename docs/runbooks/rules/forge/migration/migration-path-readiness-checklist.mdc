@@ -1,0 +1,67 @@
+# Migration Path Readiness Checklist - 25 Rules
+
+Rules derived from: https://developer.atlassian.com/platform/app-migration/readiness-checklist/
+
+## Migration Path Types
+
+1. **Fully Automated Path**: Integrated with CMA using server listeners, doesn't require manual post-migration actions. Implement complete automation.
+
+2. **Partially Automated Path**: Integrated with CMA using server listeners, requires manual post-migration steps. Document manual steps clearly.
+
+3. **Install-Only Path**: Doesn't require server listeners or manual steps. Common for Confluence macro-based apps. Use `INSTALL_ONLY` migration path.
+
+## Progress Reporting Implementation
+
+4. **Status API Usage**: Use Status API to implement progress reporting feature in cloud app. Required for fully and partially automated paths.
+
+5. **IN_PROGRESS Status**: Send `IN_PROGRESS` status at regular intervals (every 10-15 minutes) to inform customers migration is running. Keep customers informed.
+
+6. **SUCCESS Status**: Send `SUCCESS` status when app migration completes successfully. Indicates migration is ready for use.
+
+7. **FAILED Status**: Send `FAILED` status if migration encounters errors and can't be completed. Provide clear error messages.
+
+8. **CMA Testing**: Test progress reporting in CMA. Use dev mode if migration path not published yet. Verify status updates appear correctly.
+
+## Server App Publishing
+
+9. **Marketplace Publishing**: After testing migration path, build app and publish to Marketplace. Migration path availability won't display until next step.
+
+10. **Version Compatibility**: Ensure published server app version includes migration listener implementation. Customers need compatible version.
+
+11. **Migration Path Availability**: Publishing server app doesn't automatically publish migration path availability. Complete next step for customer visibility.
+
+## Migration Path Publishing
+
+12. **Marketplace Migrations API**: Use Marketplace Migrations API to publish migration path availability. Required for customers to see path in Assess your apps screen.
+
+13. **migrationPath Field**: Provide `migrationPath` field with value `AUTOMATED` for fully/partially automated paths, or `INSTALL_ONLY` for install-only paths.
+
+14. **cloudMigrationAssistantCompatibilityRanges**: Provide version ranges indicating server app versions with automated migration path. CMA prompts customers to upgrade if needed.
+
+15. **featureDifferenceDocumentation**: Optionally provide link to page explaining differences between server and cloud versions. Helps customers understand changes.
+
+16. **migrationDocumentation**: Optionally provide link to app's migration guide. Helps customers understand migration process and requirements.
+
+## Install-Only Path Specifics
+
+17. **INSTALL_ONLY Path**: Use `INSTALL_ONLY` migration path for apps that don't require server listeners or manual steps. Common for macro-based apps.
+
+18. **Version Ranges**: Provide `cloudMigrationAssistantCompatibilityRanges` indicating server app versions. Helps CMA guide customers appropriately.
+
+19. **Documentation Links**: Provide migration documentation and feature difference documentation links. Helps customers understand app differences.
+
+## Migration Path Verification
+
+20. **App Assessment Screen**: Verify app assessment screen reflects automated path if applicable. Check that path is marked correctly.
+
+21. **Dev Mode Testing**: Test with dev mode off to verify customer experience. Ensure app assessment and migration flow work correctly.
+
+22. **Listener Execution**: Verify `onStartAppMigration()` runs with dev mode off. If not, app may be on install-only list requiring support contact.
+
+23. **Install-Only List Check**: If `onStartAppMigration()` doesn't run, app may be on install-only list. Contact support to request removal if needed.
+
+24. **COMPLETE Status**: Apps on install-only list are always marked `COMPLETE` in app migration. Understand this behavior for your app type.
+
+## Support and Communication
+
+25. **Support Contact**: Contact Ecosystem Support if you need help with migration path implementation or have questions about install-only list status.

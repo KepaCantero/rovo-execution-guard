@@ -1,0 +1,138 @@
+# Data Model Scorecard (Steve Hoberman)
+
+**Source:** "Data Model Scorecard" by Steve Hoberman  
+**Focus:** Reglas para gráficos de bases de datos y modelos de entidad-relación.
+
+## 1. ENTITY-RELATIONSHIP NOTATION
+
+- **Usa Notación Estándar:** (IE/Crow's Foot) para que cualquier DBA lo entienda
+  - ✅ Standard ERD notation
+  - ✅ Consistent symbols
+  - ❌ Custom notation
+
+- **Las Entidades deben ser Sustantivos:** "Factura", no "Facturando"
+  - ✅ "Customer", "Order", "Product"
+  - ❌ "Processing", "Managing", "Handling"
+
+- **Atributos en PascalCase o snake_case:** Mantén la consistencia técnica
+  - ✅ Consistent naming convention
+  - ✅ Follow project standards
+  - ❌ Mixed conventions
+
+- **Identifica Claves Primarias (PK) Claramente:**
+  - ✅ PK clearly marked
+  - ✅ Composite PKs shown
+  - ❌ Unclear primary keys
+
+- **Muestra la Cardinalidad:** (1:1, 1:N, N:N) sin ambigüedad
+  - ✅ Clear cardinality notation
+  - ✅ Crow's foot notation
+  - ❌ Ambiguous relationships
+
+- **Evita las Relaciones Muchos-a-Muchos:** Descomponlas con una tabla asociativa
+  - ✅ Junction/associative tables
+  - ✅ Explicit intermediate entities
+  - ❌ Direct M:N relationships
+
+- **Indica la Opcionalidad:** ¿La relación es obligatoria (línea sólida) o nula (línea punteada)?
+  - ✅ Solid: Required relationship
+  - ✅ Dashed: Optional relationship
+  - ❌ Unclear optionality
+
+- **Usa Nombres de Relación Verbales:** "Cliente realiza Pedido"
+  - ✅ Verb phrases on relationships
+  - ✅ Clear relationship meaning
+  - ❌ Unlabeled relationships
+
+## 2. MODEL ORGANIZATION
+
+- **Organiza por Jerarquía:** Pon las tablas maestras arriba y las de detalle abajo
+  - ✅ Hierarchical layout
+  - ✅ Parent-child relationships clear
+  - ❌ Random arrangement
+
+- **Usa "Layout" de Ángulo Recto:** Las líneas de relación deben ser rectas, no diagonales
+  - ✅ Orthogonal lines
+  - ✅ Clean layout
+  - ❌ Diagonal spaghetti
+
+- **Diferencia Entidades Lógicas de Físicas:**
+  - ✅ Logical model: Business concepts
+  - ✅ Physical model: Implementation tables
+  - ❌ Mixing levels
+
+- **Normaliza hasta la 3NF:** Al menos en el diagrama lógico inicial
+  - ✅ Normalized logical model
+  - ✅ Denormalization documented in physical
+  - ❌ Unnormalized logical model
+
+- **Usa Colores para Áreas Temáticas:** (ej. Verde para Ventas, Amarillo para Inventario)
+  - ✅ Color coding by domain
+  - ✅ Consistent color scheme
+  - ❌ Random colors
+
+- **Agrupa Entidades Relacionadas:** Mantén las tablas que siempre "van juntas" en proximidad
+  - ✅ Related entities grouped
+  - ✅ Visual clustering
+  - ❌ Scattered related entities
+
+- **Evita el "Entity Soup":** Demasiadas tablas en una hoja; usa vistas parciales
+  - ✅ Maximum 15-20 entities per diagram
+  - ✅ Split large models
+  - ❌ 50+ entities in one diagram
+
+- **Resalta las Foreign Keys (FK):**
+  - ✅ FK clearly marked
+  - ✅ Relationship lines show FKs
+  - ❌ Unclear foreign keys
+
+## 3. DATA MODEL DETAILS
+
+- **Anota las Restricciones (Constraints):** Como valores únicos o rangos
+  - ✅ Unique constraints shown
+  - ✅ Check constraints documented
+  - ❌ Missing constraints
+
+- **Define los Tipos de Datos:** (VARCHAR, INT) en el modelo físico
+  - ✅ Data types specified
+  - ✅ Lengths/precision shown
+  - ❌ No data types
+
+- **Documenta los Metadatos:** Descripciones de columnas directamente en el gráfico
+  - ✅ Descriptions in entities
+  - ✅ Business meaning explained
+  - ❌ No descriptions
+
+- **Usa Sub-tipos y Super-tipos:** Para manejar herencia de datos
+  - ✅ Inheritance shown clearly
+  - ✅ Generalization/specialization
+  - ❌ Flat model when hierarchy exists
+
+- **Elimina Atributos Derivados:** No grafiques lo que se puede calcular
+  - ✅ Only stored attributes
+  - ✅ Calculated fields noted separately
+  - ❌ Derived attributes in model
+
+- **Usa Nombres de Tabla en Singular:**
+  - ✅ "Customer" not "Customers"
+  - ✅ "Order" not "Orders"
+  - ❌ Plural table names
+
+- **Diferencia tablas de Configuración de tablas de Transacción:**
+  - ✅ Visual distinction
+  - ✅ Different symbols/colors
+  - ❌ Same treatment
+
+- **Revisa la Densidad de Información:** No amontones texto dentro de las cajas
+  - ✅ Readable text size
+  - ✅ Adequate spacing
+  - ❌ Cramped text
+
+- **Valida el Modelo con Datos Reales:**
+  - ✅ Test with sample data
+  - ✅ Verify relationships work
+  - ❌ Theoretical-only models
+
+---
+
+**Key Principle:** Use standard ERD notation, organize hierarchically, normalize to 3NF, and validate with real data. Keep models readable and avoid entity soup.
