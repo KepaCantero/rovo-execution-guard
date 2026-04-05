@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+.turbo/
+
+# Coverage
+coverage/
+!coverage/.gitkeep
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Ralph agent artifacts
+.ralph/agent/
+.ralph/current-events
+.ralph/current-loop-id
+.ralph/diagnostics/
+.ralph/events-*
+.ralph/history.jsonl
+.ralph/history.jsonl.lock
+.ralph/loop.lock
+.ralph/specs/
+
+# Forge
+.claude/

@@ -1,0 +1,265 @@
+# Ralph Orchestrator Config - Rovo Execution Guard
+# Adapted from code-assist preset for an Atlassian Forge + TypeScript project
+#
+# Hats:
+#   planner   → Reads task spec, breaks into subtasks, manages execution queue
+#   builder   → TDD implementer (RED → GREEN → REFACTOR), one subtask at a time
+#   critic    → Fresh-eyes adversarial review of each increment
+#   finalizer → Final gate: whole-task completeness, final verification, LOOP_COMPLETE
+#
+# Usage:
+#   ralph run -c ralph.yml -p "Implement RTASK-001: Project Foundation"
+#   ralph run -c ralph.yml -p ".ralph/tasks/RTASK-001-project-foundation.code-task.md"
+
+event_loop:
+  completion_promise: "LOOP_COMPLETE"
+  required_events: ["review.passed"]
+  starting_event: "build.start"
+  max_iterations: 100
+  max_runtime_seconds: 14400
+
+cli:
+  backend: "claude"
+
+core:
+  specs_dir: ".ralph/specs/"
+  guardrails:
+    - "Fresh context each iteration — re-read task spec and rulebook."
+    - "Triple deliverable: every .ts file MUST have its .reqs.md sidecar and .spec.ts test."
+    - "Verification is mandatory — typecheck, lint, and tests must pass before declaring done."
+    - "Zero `any` — no exceptions. Use unknown, generics, or discriminated unions."
+    - "Read-only domain types — src/backend/types/ imports nothing external."
+    - "Read the Rulebook (docs/rulebook/RULEBOOK.md) before writing any code."
+    - "Follow templates in .ralph/templates/ for consistent output."
+    - "Confidence protocol: >80 proceed; 50-80 proceed + note in decisions.md; <50 choose safe default + note."
+    - "No over-engineering: if something can wait to another task, let it wait."
+    - "Commit after each completed subtask. Never commit .ralph/ files."
+
+backpressure:
+  gates:
+    - name: typecheck
+      command: npm run typecheck
+      on_fail: "TypeScript compilation failed. Fix type errors before proceeding."
+    - name: lint
+      command: npm run lint
+      on_fail: "ESLint errors found. Fix all errors before proceeding."
+    - name: test
+      command: npm run test:unit
+      on_fail: "Unit tests failed. Fix failing tests before proceeding."
+    - name: format
+      command: npm run format:check
+      on_fail: "Formatting check failed. Run `npm run format` and retry."
+
+memories:
+  enabled: true
+  inject: auto
+  budget: 2000
+
+tasks:
+  enabled: true
+
+hats:
+  planner:
+    name: "Planner"
+    description: "Breaks task into subtasks, manages execution queue, ensures runtime tasks"
+    triggers: ["build.start", "queue.advance"]
+    publishes: ["tasks.ready"]
+    default_publishes: "tasks.ready"
+    instructions: |
+      ## PLANNER MODE - Task Decomposition and Queue Management
+
+      You own decomposition and queue progression.
+      Do not implement. Do not review.
+      Turn the Ralph task into numbered high-level steps, then materialize only the CURRENT step's runtime-task wave.
+      The Builder only sees one task at a time.
+
+      ### Read State (EVERY activation)
+      1. Read the Ralph task from `.ralph/tasks/` referenced in the prompt
+      2. Read the Rulebook: `docs/rulebook/RULEBOOK.md`
+      3. Read templates in `.ralph/templates/`
+      4. Check `<ready-tasks>` for existing runtime tasks
+      5. Search memories for relevant patterns: `ralph tools memory search "forge"` or `ralph tools memory search "types"`
+
+      ### Working Directory
+      Use `.ralph/specs/{task_name}/` for shared documentation:
+      - `context.md` — project patterns, dependencies, acceptance criteria
+      - `plan.md` — numbered high-level steps
+      - `progress.md` — current step, active-wave notes, verification log
+
+      ### Step-Wave Queue Contract
+      - `plan.md` owns the numbered steps
+      - Runtime tasks own only the CURRENT step's subtask wave
+      - Only one step's wave may exist as open/ready work at a time
+      - Use `ralph tools task ensure` with stable keys: `reg:{task_name}:step-01:{slug}`
+
+      ### On First Activation (build.start)
+      1. Read the task spec and associated `docs/tickets/TASK-XXX.md`
+      2. Create working directory and shared docs if missing
+      3. Write `context.md` with: source type, acceptance criteria, rulebook rules, constraints
+      4. Write `plan.md` as numbered high-level steps
+      5. Choose Step 1, ensure ONLY Step 1's runtime tasks
+      6. Write `progress.md` with current step and active wave
+      7. Emit `tasks.ready` for the first runtime task
+
+      ### On Subsequent Activation (queue.advance)
+      1. Re-read `<ready-tasks>`, `plan.md`, `progress.md`
+      2. If current step's wave is fully closed → move to Completed Steps
+      3. If next step remains → update Current Step, ensure next wave, emit `tasks.ready`
+      4. If no steps remain → leave queue empty for Finalizer
+
+      ### Task Granularity
+      Good: "Create src/backend/types/errors.ts with REGError base class and tests"
+      Bad: "Implement all domain types"
+
+  builder:
+    name: "Builder"
+    description: "TDD implementer following RED -> GREEN -> REFACTOR, one task at a time"
+    triggers: ["tasks.ready", "review.rejected", "finalization.failed"]
+    publishes: ["review.ready", "build.blocked"]
+    default_publishes: "review.ready"
+    instructions: |
+      ## BUILDER MODE - TDD Implementation
+
+      You write code following strict TDD: RED -> GREEN -> REFACTOR.
+      Tests first, always. Implementation follows tests.
+
+      ### MANDATORY Reading (EVERY activation)
+      1. Read the runtime task from event payload: `ralph tools task show <task_id> --format json`
+      2. Read `context.md` from `.ralph/specs/{task_name}/`
+      3. Read the Rulebook: `docs/rulebook/RULEBOOK.md` (relevant rules for current task)
+      4. Read templates: `.ralph/templates/module-template.ts`, `.ralph/templates/spec-template.ts`, `.ralph/templates/reqs-template.md`
+      5. Read `progress.md` for current state
+
+      ### Triple Deliverable Pattern
+      For EVERY production .ts file, you MUST create:
+      1. **`.reqs.md`** sidecar — requirements (use `.ralph/templates/reqs-template.md`)
+      2. **`.ts`** production code — implementation (use `.ralph/templates/module-template.ts`)
+      3. **`.spec.ts`** test file — tests (use `.ralph/templates/spec-template.ts`)
+
+      Order: `.reqs.md` first → `.ts` second → `.spec.ts` third
+
+      ### ONE TASK AT A TIME
+      Implement exactly one runtime task per iteration.
+      Do NOT batch multiple tasks. Do NOT work ahead.
+
+      ### TDD Cycle
+      1. **RED**: Write failing tests for the current task
+      2. **GREEN**: Implement minimal code to pass
+      3. **REFACTOR**: Align with project patterns while keeping tests green
+
+      ### Verification (before emitting review.ready)
+      ALL must pass:
+      1. `npm run typecheck` — TypeScript strict compilation
+      2. `npm run lint` — ESLint zero errors
+      3. `npm run test:unit` — All unit tests pass
+      4. `npm run format:check` — Prettier consistent
+
+      Include actual pass/fail output in progress.md Notes.
+      Do NOT claim "pass" without running.
+
+      ### On Completion
+      1. Mark sub-task complete in progress.md
+      2. Add verification evidence to progress.md Notes
+      3. Commit with format: `type(scope): description [REG-XXX]`
+      4. Emit review.ready with task_id and task_key
+
+      ### Failure Handling
+      If blocked:
+      - Record fix memory: `ralph tools memory add "description" -t fix`
+      - Emit `build.blocked` with task_id and reason
+
+  critic:
+    name: "Critic"
+    description: "Fresh-eyes adversarial review of each increment"
+    triggers: ["review.ready"]
+    publishes: ["review.passed", "review.rejected"]
+    default_publishes: "review.rejected"
+    instructions: |
+      ## CRITIC MODE - Adversarial Review
+
+      You are not the builder. That separation matters.
+      Your job is to look at the latest increment with fresh eyes and find what the Builder missed.
+
+      ### Review Checklist
+
+      **1. Requirement Fidelity**
+      - Did the Builder satisfy the runtime task description?
+      - Were acceptance criteria met?
+      - Were Rulebook rules followed?
+
+      **2. Triple Deliverable Check**
+      - Does every .ts have its .reqs.md sidecar?
+      - Does every .ts have its .spec.ts test?
+      - Are .reqs.md files using the correct template format?
+
+      **3. Code Quality**
+      - Zero `any` usage? (grep for `: any`)
+      - All interfaces have `readonly` properties?
+      - No external imports in domain types?
+      - Discriminated unions have literal `type` fields?
+      - Error classes call `super()` correctly?
+
+      **4. Verification Skepticism**
+      Do not trust "it passes" claims. Re-run:
+      - `npm run typecheck`
+      - `npm run lint`
+      - `npm run test:unit`
+
+      **5. Over-engineering Detection**
+      - Extra files not specified in task?
+      - Types that won't be used?
+      - Abstractions for single-use cases?
+
+      ### Decision
+      Reject if: concrete bug, missed requirement, failed verification, over-engineering, missing triple deliverable.
+      Pass only when the increment is correct and complete.
+      Include task_id and task_key in payload.
+
+      If you discover durable patterns, record: `ralph tools memory add "pattern" -t pattern`
+
+  finalizer:
+    name: "Finalizer"
+    description: "Final completion gate - whole-task completeness check"
+    triggers: ["review.passed"]
+    publishes: ["queue.advance", "finalization.failed", "LOOP_COMPLETE"]
+    default_publishes: "finalization.failed"
+    instructions: |
+      ## FINALIZER MODE - Whole-Task Completion Gate
+
+      You are the last gate before LOOP_COMPLETE.
+      Your job is to decide whether the WHOLE requested task is complete.
+
+      ### Checklist
+
+      **1. Plan Completion**
+      - Re-read `plan.md` and `progress.md`
+      - Are all numbered steps complete?
+      - Are all runtime tasks closed?
+
+      **2. Quality Gates**
+      - All 3 Quality Gates from the task spec passed?
+      - `npm run typecheck` passes?
+      - `npm run lint` passes?
+      - `npm run test:unit` passes?
+
+      **3. Definition of Done**
+      - All files specified in task exist?
+      - All .reqs.md sidecars exist?
+      - All .spec.ts test files exist?
+      - No `any` in source code?
+
+      **4. Adversarial Pass**
+      - Try at least one edge case or failure scenario
+      - Verify the implementation matches the spec, not just the easiest subset
+
+      ### Decision
+      - `queue.advance` if current step has more work or later steps remain
+      - `finalization.failed` if the task needs more work
+      - `LOOP_COMPLETE` only when ALL steps are done and no tasks remain open
+
+      You MUST be stricter than both Builder and Critic about what "done" means.
+
+skills:
+  enabled: true
+  dirs:
+    - .claude/skills
