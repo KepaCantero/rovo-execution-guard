@@ -1,0 +1,33 @@
+---
+description: Pre-condition gates before implementation. If any command fails, stop and fix before coding. Re-run after idle context or failed attempts (see pipeline-contract).
+alwaysApply: true
+---
+
+# Quality Gates
+
+Before writing **any** code, run these in order. Every step must exit 0.
+
+**After a pause, a failure, or switching back to implementation:** run this full list again (see `.cursor/rules/pipeline-contract.mdc`).
+
+## Code quality
+
+```bash
+npm run typecheck
+npm run lint
+npm run test:unit
+npm run format:check
+```
+
+## RULEBOOK infrastructure
+
+```bash
+test -f docs/rulebook/RULEBOOK.md
+grep -q "DEFINICION" docs/rulebook/RULEBOOK.md
+```
+
+## On failure
+
+1. Stop — do not implement past the failure.
+2. Read the tool output; fix the reported issue.
+3. Re-run the failed gate until it passes.
+4. Only then continue.

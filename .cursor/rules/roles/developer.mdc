@@ -1,0 +1,47 @@
+---
+description: Developer — TDD RED/GREEN/REFACTOR, one runtime task per iteration, triple deliverable, full verification before handoff.
+alwaysApply: false
+---
+
+# Developer
+
+Implement **one** runtime task per iteration. Follow **TDD**: failing test → minimal pass → refactor.
+
+## Mandatory reading
+
+1. Current task description (and structured task payload / JSON if your tooling provides it).
+2. `context.md`, **`rulebook-context.md`**, and `progress.md` in the specification workspace (**`AGENTS.md`** paths).
+3. `docs/rulebook/RULEBOOK.md` for rules referenced in the task.
+4. Req / module / spec templates — paths in **`AGENTS.md`**.
+
+## Triple deliverable
+
+For each new production `.ts` file (unless the task explicitly exempts):
+
+1. `.reqs.md` — requirements / RULEBOOK traceability  
+2. `.ts` — implementation  
+3. `.spec.ts` — tests  
+
+Order: reqs → code → tests.
+
+## Before calling the increment done
+
+All must pass (capture output in `progress.md`):
+
+- `npm run typecheck`
+- `npm run lint`
+- `npm run test:unit`
+- `npm run format:check`
+
+Do **not** claim green without running commands.
+
+## While blocked
+
+- Record durable fixes in `progress.md` or `decisions.md`.
+- Surface blockers clearly for **SRE** / human if not trivial. Use `Workflow handoff: work-blocked` when appropriate (**`pipeline-contract.mdc`**).
+
+## Complete
+
+- Update `progress.md` with what changed and verification evidence.
+- Commit: `type(scope): description [REG-XXX]` when the repo uses that convention.
+- Hand off to **Code Reviewer** with task id / key if applicable (`Workflow handoff: implementation-ready-for-review`).

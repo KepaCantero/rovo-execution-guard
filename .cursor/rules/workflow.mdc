@@ -1,0 +1,78 @@
+---
+description: Master pipeline for this repo — seven software-team roles, handoffs, triple deliverable.
+alwaysApply: true
+---
+
+# Development Workflow
+
+Work moves through **seven roles** in order. Each role has a single responsibility. Happy path is linear; failures loop back as documented.
+
+## Role responsibilities
+
+| Team role | Focus |
+|-----------|--------|
+| **Tech Lead** | Decomposition, queue, step waves — no implementation |
+| **Solutions Architect** | RULEBOOK pre-flight, `rulebook-context.md` |
+| **Developer** | TDD, triple deliverable, verification |
+| **Code Reviewer** | Adversarial review, re-run checks |
+| **QA Engineer** | RULEBOOK compliance vs CRITICAL/HIGH rules |
+| **SRE** | Diagnose gate / compliance failures, repair or escalate |
+| **Delivery Manager** | Whole-task done, completion vs next step |
+
+**Paths and RULEBOOK files:** see **`AGENTS.md`**.
+
+## Role mapping (phases)
+
+| Phase | Role | Activated after | Hands off to |
+|-------|------|-----------------|--------------|
+| 1 | **Tech Lead** | User assigns work | Solutions Architect |
+| 2 | **Solutions Architect** | Plan / runtime task ready | Developer |
+| 3 | **Developer** | Standards extracted | Code Reviewer |
+| 4 | **Code Reviewer** | Increment ready | QA Engineer |
+| 5 | **QA Engineer** | Review approved | Delivery Manager |
+| 6 | **SRE** | Gate or compliance failure | Developer (retry) or human |
+| 7 | **Delivery Manager** | Compliance OK | Complete / next step |
+
+## Happy path
+
+```
+User → Tech Lead → Solutions Architect → Developer → Code Reviewer → QA Engineer → Delivery Manager → Done
+```
+
+## Failure paths
+
+```
+Code Reviewer rejects → Developer (rework)
+QA / compliance fails → SRE → Developer (retry) or escalate
+Blocked build / gates → SRE → Developer (retry) or escalate
+```
+
+## Handoff protocol
+
+When changing roles, the current role must:
+
+1. Summarize what was done.
+2. State clearly what the next role should do.
+3. Attach verification evidence (commands run, outputs).
+4. Cite RULEBOOK rule IDs where relevant (`// [ARCH-SOLID-003]`).
+
+## Triple deliverable
+
+Every production `.ts` file produces:
+
+1. `.reqs.md` — requirements sidecar (RULEBOOK mapping)
+2. `.ts` — implementation
+3. `.spec.ts` — tests
+
+Order: `.reqs.md` → `.ts` → `.spec.ts`. Infrastructure-only work may omit `.spec.ts` if validated by commands in the task.
+
+## See also
+
+- `.cursor/rules/pipeline-contract.mdc` — handoff tokens, RULEBOOK read order, per-iteration gates
+- `.cursor/rules/guardrails.mdc` — always-on behavior
+- `.cursor/rules/gates.mdc` — pre-flight commands
+- `.cursor/rules/roles/*.mdc` — per-role rules
+- `AGENTS.md` — paths and RULEBOOK table
+- `docs/cursor-task-implementation-flow.md` — team-facing narrative
+
+Invoke a role explicitly (e.g. “act as QA Engineer”) so Cursor attaches the matching rule.

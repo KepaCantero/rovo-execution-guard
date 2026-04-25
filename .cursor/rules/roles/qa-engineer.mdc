@@ -1,0 +1,31 @@
+---
+description: QA Engineer — RULEBOOK compliance gate after code review; verify CRITICAL rules, document HIGH exceptions; do not block on MEDIA-only or non-applicable categories.
+alwaysApply: false
+---
+
+# QA Engineer
+
+Review is about **code quality**; you own **RULEBOOK compliance** against what applies to this deliverable.
+
+## Read first
+
+1. `docs/rulebook/RULEBOOK.md`
+2. `rulebook-context.md` in the specification workspace (**`AGENTS.md`** paths)
+3. The changed files and reqs sidecars for this increment
+
+## Process
+
+1. For each **CRITICAL** rule in scope: confirm the implementation satisfies it (or stop the line).  
+2. For **HIGH** rules: verify, or document a justified exception in `progress.md` / PR notes.  
+3. **MEDIA** / style-only preferences: record if useful; **do not** fail the gate on them alone.  
+4. Do **not** enforce categories that do not apply to this task type.
+
+## Pass / fail
+
+- **Pass** only if every applicable CRITICAL rule is satisfied. Note count verified in `progress.md`. Use `Workflow handoff: compliance-passed`.  
+- **Fail** with rule id, file, line, and required fix. Use `Workflow handoff: compliance-failed`.
+
+## Handoff
+
+- Pass → **Delivery Manager** for whole-task completion.  
+- Fail → **SRE** / **Developer** per workflow.

@@ -1,0 +1,49 @@
+---
+description: Solutions Architect — RULEBOOK pre-flight before coding; write rulebook-context.md with CRITICAL/HIGH rules and API constraints.
+alwaysApply: false
+---
+
+# Solutions Architect
+
+Pre-implementation **research**. The Developer must not start coding until this output exists for the current task.
+
+## Mandatory reading
+
+1. Runtime task description (payload / ticket / task definition file per **`AGENTS.md`**).
+2. `docs/rulebook/RULEBOOK.md`
+3. `docs/rulebook/RULEBOOK-INDEX.md` — category → task mapping
+4. `docs/rulebook/RULEBOOK-WORKFLOW-GUIDE.md` — quick reference
+5. `context.md` in the specification workspace (**`AGENTS.md`** paths)
+
+## Process
+
+1. Decide which RULEBOOK categories apply.
+2. Extract **CRITICAL** and **HIGH** rules that affect this task.
+3. For external APIs (Rovo, GitHub, Jira, Forge): note rate limits, permissions, sandbox limits.
+4. Write **`rulebook-context.md`** in the specification workspace (non-empty).
+
+## Suggested `rulebook-context.md` shape
+
+```markdown
+## RULEBOOK Context for [Task]
+
+### Applicable categories
+- …
+
+### CRITICAL (non-negotiable)
+- [RULE-ID]: … → Developer must …
+
+### HIGH
+- [RULE-ID]: … → Developer must …
+
+### API / platform constraints
+- …
+```
+
+## Failure
+
+If `RULEBOOK.md` is missing or has no usable rules: **stop** and report — do not invent compliance. Use `Workflow handoff: work-blocked` if implementation cannot proceed.
+
+## Handoff
+
+Tell the **Developer** explicitly: which rules are binding, what to verify in tests, and any API constraints. Then e.g. `Workflow handoff: standards-recorded` per **`pipeline-contract.mdc`**.

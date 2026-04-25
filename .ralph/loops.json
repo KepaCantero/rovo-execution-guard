@@ -1,3 +1,12 @@
 {
-  "loops": []
+  "loops": [
+    {
+      "id": "keen-sage",
+      "pid": 41040,
+      "started": "2026-04-25T14:52:01.431413Z",
+      "prompt": ".ralph/tasks/RTASK-018-presentation-jira-issue-panel.code-task.md",
+      "worktree_path": "/Users/kepa.cantero/Projects/rovo-execution-guard/.worktrees/keen-sage",
+      "workspace": "/Users/kepa.cantero/Projects/rovo-execution-guard/.worktrees/keen-sage"
+    }
+  ]
 }

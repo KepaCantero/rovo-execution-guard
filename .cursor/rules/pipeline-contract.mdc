@@ -1,0 +1,110 @@
+---
+description: Pipeline handoffs, RULEBOOK reading order, per-iteration quality gates, work-blocked semantics — vendor-neutral contract for multi-role delivery.
+alwaysApply: true
+---
+
+# Delivery pipeline contract
+
+Rules for running the **seven-role workflow** in Cursor with explicit **handoffs**, **repeatable gates**, and **documentation paths** under `docs/rulebook/`.
+
+---
+
+## 1. RULEBOOK inputs (read before standards / implementation work)
+
+**Before** Solutions Architect–style extraction or **before** the first code edit on a new task wave, read:
+
+1. **`docs/rulebook/RULEBOOK-WORKFLOW-GUIDE.md`** — quick reference and categories.
+2. **`docs/rulebook/RULEBOOK-INDEX.md`** — category → task mapping.
+3. **`docs/rulebook/RULEBOOK.md`** — full rules when extracting CRITICAL/HIGH.
+
+If `RULEBOOK.md` is missing or has no usable rules, **stop** and report (same as failing RULEBOOK infrastructure gates).
+
+---
+
+## 2. Specification workspace
+
+Use the **specification workspace** paths in **`AGENTS.md`** (Repository paths). Typical files:
+
+- `context.md`, `plan.md`, `progress.md`
+- `rulebook-context.md` (Solutions Architect output)
+
+`{task_name}` should match the task slug (ticket id or task file stem).
+
+---
+
+## 3. Happy path — order and handoff lines
+
+When running the **full** pipeline, follow this order. End each phase with **one line**:
+
+```text
+Workflow handoff: <token>
+```
+
+| Step | Team role | Token after successful phase |
+|------|-----------|--------------------------------|
+| 1 | Tech Lead | `planning-complete` |
+| 2 | Solutions Architect | `standards-recorded` |
+| 3 | Developer | `implementation-ready-for-review` |
+| 4 | Code Reviewer | `review-approved` |
+| 5 | QA Engineer | `compliance-passed` |
+| 6 | Delivery Manager | `task-complete` **or** `next-planning-step` |
+
+**Blocked implementation (Developer):** `Workflow handoff: work-blocked` (then involve SRE / human).
+
+**Review requests changes:** `Workflow handoff: review-changes-requested` → return to Developer.
+
+**Compliance failure:** `Workflow handoff: compliance-failed` → SRE / Developer per workflow.
+
+**Delivery Manager — more work on same task:** `Workflow handoff: more-work-needed` → Developer.
+
+---
+
+## 4. Failure and retry
+
+| Situation | Next step |
+|-----------|-----------|
+| Gates fail before / during work | Fix; re-run gates; document in `progress.md` |
+| Same gate fails **3 times** in a row | Escalate to a **human**; do not loop silently |
+| `work-blocked` | SRE-style diagnosis (see `roles/sre.mdc`) |
+
+---
+
+## 5. Gates on every implementation iteration
+
+**Before** starting or **resuming** substantive code edits on a task wave, and **after** a failed attempt, run **in order** (exit 0 only):
+
+```bash
+npm run typecheck
+npm run lint
+npm run test:unit
+npm run format:check
+test -f docs/rulebook/RULEBOOK.md
+grep -q "DEFINICION" docs/rulebook/RULEBOOK.md
+```
+
+Aligns with `.cursor/rules/gates.mdc` — repeat when context was idle or after fixes, not only on the first message.
+
+---
+
+## 6. Non-negotiable engineering rules
+
+Must stay consistent with **`guardrails.mdc`**:
+
+- Triple deliverable: `.reqs.md` → `.ts` → `.spec.ts`; use templates from the path in **`AGENTS.md`** (Code / reqs templates).
+- Verification before “done”: typecheck, lint, tests (and format when touching formatted files).
+- Zero `any`; read-only domain types under `src/backend/types/`.
+- Cite rule IDs in code `// [ARCH-SOLID-003]`; gaps in `decisions.md`.
+- CRITICAL violations → stop and ask the human.
+- Commit after subtasks; **do not commit** ephemeral automation state (logs, locks, local loop files) — see **`AGENTS.md`** for which directories hold task automation output.
+
+---
+
+## 7. Durable notes
+
+Persist patterns and fixes in **`progress.md`**, **`decisions.md`**, or team docs — not only in chat.
+
+---
+
+## 8. Invoking roles
+
+Use **`.cursor/rules/roles/*.mdc`** by asking the agent to act as that role. Global rules (`workflow`, `guardrails`, `gates`, **this file**) stay always on.

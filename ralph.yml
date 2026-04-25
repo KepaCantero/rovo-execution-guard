@@ -37,7 +37,7 @@ core:
     - "Confidence protocol: >80 proceed; 50-80 proceed + note in decisions.md; <50 choose safe default + note."
     - "No over-engineering: if something can wait to another task, let it wait."
     - "Commit after each completed subtask. Never commit .ralph/ files."
-    - "Read the RULEBOOK (docs/rulebook/RULEBOOK.md) at the start of each iteration before acting — use .claude/skills/RULEBOOK-INDEX.md to identify applicable categories."
+    - "Read the RULEBOOK (docs/rulebook/RULEBOOK.md) at the start of each iteration before acting — use docs/rulebook/RULEBOOK-INDEX.md to identify applicable categories."
     - "Every design decision must cite the RULEBOOK rule ID that supports it: // [ARCH-SOLID-003]. If no rule applies, note it in decisions.md."
     - "If an action violates a CRITICAL RULEBOOK rule, stop and emit build.blocked instead of proceeding. CRITICAL rules are non-negotiable."
 
@@ -138,7 +138,7 @@ hats:
       ### MANDATORY Reading (EVERY activation)
       1. Read the runtime task from event payload
       2. Read `docs/rulebook/RULEBOOK.md`
-      3. Read `.claude/skills/RULEBOOK-INDEX.md` for category mapping
+      3. Read `docs/rulebook/RULEBOOK-INDEX.md` for category mapping
       4. Read `context.md` from `.ralph/specs/{task_name}/`
 
       ### Process

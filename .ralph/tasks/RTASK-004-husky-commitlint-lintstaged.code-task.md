@@ -1,6 +1,6 @@
 ---
 id: RTASK-004
-title: "Husky, Commitlint, lint-staged"
+title: 'Husky, Commitlint, lint-staged'
 status: pending
 priority: 2
 type: infrastructure
@@ -22,12 +22,14 @@ RTASK-001 set up package.json, RTASK-003 configured ESLint and Prettier. Now we 
 ## Technical Specification
 
 ### 1. Husky Setup
+
 ```bash
 npm install -D husky
 npx husky init
 ```
 
 ### 2. `.husky/pre-commit`
+
 ```bash
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
@@ -36,6 +38,7 @@ npx lint-staged
 ```
 
 ### 3. `.husky/commit-msg`
+
 ```bash
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
@@ -44,6 +47,7 @@ npx commitlint --edit "$1"
 ```
 
 ### 4. `.husky/pre-push`
+
 ```bash
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
@@ -55,30 +59,29 @@ npm run test:unit -- --findRelatedTests
 ```
 
 ### 5. `commitlint.config.js`
+
 - Extends: `@commitlint/config-conventional`
 - Custom parser with regex: `^(\w*)(?:\(([\w\$\.\-\* ]*)\))?\!?\:\s(.+)\s\[(REG-\d+)\]$`
 - Enforces: type(scope): description [REG-XXX] format
 - Rules: references always required, subject max 100 chars
 
 ### 6. `.lintstagedrc.json`
+
 ```json
 {
-  "*.{ts,tsx}": [
-    "eslint --fix",
-    "prettier --write"
-  ],
-  "*.{json,md}": [
-    "prettier --write"
-  ]
+  "*.{ts,tsx}": ["eslint --fix", "prettier --write"],
+  "*.{json,md}": ["prettier --write"]
 }
 ```
 
 ### 7. npm scripts (add to package.json)
+
 - `prepare`: `husky`
 - `test:unit`: `jest --coverage`
 - `test:staged`: `jest --findRelatedTests`
 
 ### 8. Additional dependencies
+
 - `@commitlint/cli`
 - `@commitlint/config-conventional`
 
@@ -100,33 +103,36 @@ npm run test:unit -- --findRelatedTests
 
 Config files with sidecar:
 
-| File | Sidecar |
-|------|---------|
-| `.husky/*` hooks | `hooks.reqs.md` |
+| File                   | Sidecar              |
+| ---------------------- | -------------------- |
+| `.husky/*` hooks       | `hooks.reqs.md`      |
 | `commitlint.config.js` | `commitlint.reqs.md` |
-| `.lintstagedrc.json` | `lintstaged.reqs.md` |
+| `.lintstagedrc.json`   | `lintstaged.reqs.md` |
 
 ## Risks
 
-| Risk | Mitigation |
-|------|------------|
+| Risk                | Mitigation                                  |
+| ------------------- | ------------------------------------------- |
 | Hooks don't install | Verify with `npm run prepare` + manual test |
-| Regex too strict | Test with multiple commit formats |
-| lint-staged slow | Only processes staged files, not full suite |
+| Regex too strict    | Test with multiple commit formats           |
+| lint-staged slow    | Only processes staged files, not full suite |
 
 ## QA Gates
 
 ### Pre-Implementation Gates
+
 - [ ] **GATE-READY**: All dependencies (RTASK-001, RTASK-003) are completed
 - [ ] **GATE-SPEC**: Rulebook sections GIT-CI-001, GIT-CI-002, GIT-CI-003 have been read and understood
 - [ ] **GATE-DESIGN**: Implementation approach documented before coding
 
 ### Implementation Gates (per file/function)
+
 - [ ] **GATE-RED**: Write failing test FIRST for each function/component
 - [ ] **GATE-GREEN**: Write minimum code to make test pass
 - [ ] **GATE-REFACTOR**: Clean up code while keeping tests green
 
 ### Post-Implementation Gates
+
 - [ ] **GATE-TYPECHECK**: `npm run typecheck` passes with zero errors
 - [ ] **GATE-LINT**: `npm run lint` passes with zero warnings
 - [ ] **GATE-FORMAT**: `npm run format:check` passes
@@ -147,23 +153,27 @@ For each production file, the builder MUST create a `.reqs.md` sidecar:
 ## Implementation Protocol
 
 ### Step 1: Preparation
+
 1. Read the full task spec (`docs/tickets/TASK-004-husky-commitlint-lintstaged.md`)
-2. Read referenced rulebook sections (`docs/rulebook/RULEBOOK.md` → GIT-CI-001, GIT-CI-002, GIT-CI-003)
+2. Read referenced rulebook sections (`/RULEBOOK.md` → GIT-CI-001, GIT-CI-002, GIT-CI-003)
 3. Read all dependency task outputs to understand available interfaces
 4. Create `.reqs.md` sidecar files with requirements traceability
 
 ### Step 2: TDD Cycle (per function/component)
+
 1. **RED**: Write a failing test that defines expected behavior
 2. **GREEN**: Write the minimum code to make the test pass
 3. **REFACTOR**: Clean up while keeping all tests green
 4. Repeat for next function/component
 
 ### Step 3: Integration
+
 1. Wire components together
 2. Add integration-level tests if applicable
 3. Verify all exports are accessible from barrel files
 
 ### Step 4: Validation
+
 1. Run `npm run typecheck` — must pass
 2. Run `npm run lint` — must pass with zero warnings
 3. Run `npm run format:check` — must pass
@@ -173,6 +183,7 @@ For each production file, the builder MUST create a `.reqs.md` sidecar:
 ## Auditing Protocol
 
 ### Critic Review Checklist
+
 - [ ] All acceptance criteria verified as implemented
 - [ ] No `any` types anywhere in new code
 - [ ] All interfaces use `readonly` properties
@@ -186,7 +197,9 @@ For each production file, the builder MUST create a `.reqs.md` sidecar:
 - [ ] Rulebook rules GIT-CI-001, GIT-CI-002, GIT-CI-003 are satisfied
 
 ### Rejection Criteria
+
 The critic MUST reject if:
+
 - Any `any` type is present
 - Coverage is below the required threshold (N/A — git hooks config)
 - A `.reqs.md` sidecar is missing
@@ -198,12 +211,14 @@ The critic MUST reject if:
 ## Testing Protocol
 
 ### Config Validation
-- Config files: .husky/*, commitlint.config.js, .lintstagedrc.json
+
+- Config files: .husky/\*, commitlint.config.js, .lintstagedrc.json
 - Validated by: `npm run prepare`, manual commit tests
 - Task type: infrastructure (git hooks)
 - No unit tests required — validation is tool-based
 
 ### Validation Checklist
+
 - [ ] `npm run prepare` installs hooks without error
 - [ ] `.husky/pre-commit` exists and runs `lint-staged`
 - [ ] `.husky/commit-msg` exists and runs `commitlint`

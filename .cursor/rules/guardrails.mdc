@@ -1,0 +1,47 @@
+---
+description: Always-on project guardrails — types, verification, triple deliverable, RULEBOOK, templates, commits.
+alwaysApply: true
+---
+
+# Project Guardrails
+
+These apply to **every** interaction unless a human overrides for a narrow exception.
+
+## Code quality
+
+- Re-read the active task spec and RULEBOOK when starting substantive work.
+- Zero `any` — use `unknown`, generics, or discriminated unions.
+- Before claiming done: `npm run typecheck`, `npm run lint`, and `npm run test:unit` must pass (plus `format:check` when touching formatted files).
+- Domain types under `src/backend/types/` stay read-only relative to external imports.
+
+## Process
+
+- **Triple deliverable**: each production `.ts` has `.reqs.md` and `.spec.ts` (template path: **`AGENTS.md`**).
+- **Confidence**: &gt;80% proceed; 50–80% proceed and note in `decisions.md`; &lt;50% use the safe default and note.
+- Avoid scope creep; defer work that belongs in another task.
+- Commit after each completed subtask. **Do not commit** ephemeral automation state listed in **`AGENTS.md`**.
+
+## RULEBOOK
+
+- Canonical file: `docs/rulebook/RULEBOOK.md`. Category map: `docs/rulebook/RULEBOOK-INDEX.md`. Quick reference: `docs/rulebook/RULEBOOK-WORKFLOW-GUIDE.md`.
+- Cite supporting rules in code: `// [ARCH-SOLID-003]`. If none apply, record in `decisions.md`.
+- If an action would violate a **CRITICAL** rule, stop and ask the human before proceeding.
+
+## Categories (summary)
+
+| Category | Applies to |
+|----------|------------|
+| FORGE-OPS | Forge runtime, manifest, storage, limits |
+| SEC-PRIV | Data, auth, scopes, secrets |
+| ARCH-SOLID | Types, models, adapters, orchestration |
+| TEST-QA | Anything shipping `.spec.ts` |
+| GIT-CI | Tooling, CI/CD tasks |
+| UI-ADS | Custom UI / ADS |
+| ROVO-INTEG | Rovo adapter, resilience, triggers |
+| GH-INTEG | GitHub integration, webhooks |
+
+**Priority when rules conflict:** FORGE-OPS → SEC-PRIV → GH-INTEG → ARCH-SOLID → TEST-QA → GIT-CI → UI-ADS → ROVO-INTEG.
+
+## Pipeline alignment
+
+Handoff tokens, repeated gates, and RULEBOOK read order: **`.cursor/rules/pipeline-contract.mdc`**. Repository paths: **`AGENTS.md`**.

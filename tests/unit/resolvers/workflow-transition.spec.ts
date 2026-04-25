@@ -695,6 +695,55 @@ describe('workflow-transition', () => {
 
     // ─── FORGE-OPS-0105: Stateless ──
 
+    // ─── writeAuditLog error handling ──
+
+    it('should handle writeAuditLog error when storageError is an Error instance', async () => {
+      const event = makeTransitionEvent();
+      mockGetProjectConfig.mockResolvedValue(makeProjectConfig());
+      mockEvaluateTicketForGate.mockResolvedValue(makePassingResult());
+
+      // Execution order: log("start") -> log("writeAuditLog") -> log("passed")
+      // Make the 2nd call (inside writeAuditLog's try block) throw an Error,
+      // then allow subsequent calls (inside the catch block) to succeed.
+      const consoleSpy = jest.spyOn(console, 'log');
+      consoleSpy
+        .mockImplementationOnce(() => {}) // "start" log (line 299)
+        .mockImplementationOnce(() => {
+          // "writeAuditLog" log (line 254) — this throws
+          throw new Error('Storage write failed');
+        });
+
+      const result = await onJiraWorkflowTransition(event);
+
+      // The handler should still succeed — the audit log failure is caught internally
+      expect(result.allowed).toBe(true);
+      expect(result.executionId).toBeDefined();
+      expect(result.score).toBeDefined();
+    });
+
+    it('should handle writeAuditLog error when storageError is not an Error instance', async () => {
+      const event = makeTransitionEvent();
+      mockGetProjectConfig.mockResolvedValue(makeProjectConfig());
+      mockEvaluateTicketForGate.mockResolvedValue(makePassingResult());
+
+      // Make the 2nd call throw a non-Error value to exercise the else branch
+      // of the ternary `storageError instanceof Error ? ... : 'Unknown storage error'`
+      const consoleSpy = jest.spyOn(console, 'log');
+      consoleSpy
+        .mockImplementationOnce(() => {}) // "start" log (line 299)
+        .mockImplementationOnce(() => {
+          // "writeAuditLog" log (line 254) — throws non-Error
+          throw 'some non-error value'; // eslint-disable-line no-throw-literal
+        });
+
+      const result = await onJiraWorkflowTransition(event);
+
+      // The handler should still succeed — the audit log failure is caught internally
+      expect(result.allowed).toBe(true);
+      expect(result.executionId).toBeDefined();
+      expect(result.score).toBeDefined();
+    });
+
     it('should not retain state between invocations (FORGE-OPS-0105)', async () => {
       const event1 = makeTransitionEvent({ issueKey: 'PROJ-001' });
       const event2 = makeTransitionEvent({ issueKey: 'PROJ-002' });

@@ -1,0 +1,38 @@
+---
+description: SRE — diagnose failed gates, failed compliance, or blocked work; apply trivial fixes or escalate; avoid infinite retry loops.
+alwaysApply: false
+---
+
+# SRE
+
+Triggered when quality gates fail, compliance fails, or work is explicitly blocked.
+
+## Process
+
+1. Read the **exact** error message and failing command.  
+2. Locate file / line if applicable.  
+3. Cross-check `docs/rulebook/RULEBOOK.md` and `rulebook-context.md` for violated rules.  
+4. Classify the fix:  
+   - **Trivial** (small, localized) → fix and re-run the failing check.  
+   - **Complex** (design change) → document and escalate to a human.  
+   - **False positive** (tooling / rule wrong) → document and escalate.
+
+## Anti-loop
+
+If the **same** gate fails **three** times in a row, **escalate** instead of retrying blindly.
+
+## Log in `progress.md`
+
+```markdown
+## Debug session [timestamp]
+- Failed gate: …
+- Root cause: …
+- Fix: … (or ESCALATED)
+- RULEBOOK rule: …
+- Attempt N of 3
+```
+
+## Handoff
+
+- After trivial repair → return flow to **Developer** / normal pipeline.  
+- After escalation → wait for human decision; do not silently weaken gates.

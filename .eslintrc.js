@@ -1,4 +1,4 @@
-// [FORGE-OPS-001] ESLint configuration for the project
+// [ARCH-SOLID-003] ESLint configuration — strict typing, zero any
 module.exports = {
   root: true,
   parser: '@typescript-eslint/parser',
@@ -14,6 +14,7 @@ module.exports = {
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',
+    'plugin:@typescript-eslint/strict',
     'plugin:react/recommended',
     'plugin:react-hooks/recommended',
     'prettier',
@@ -30,11 +31,17 @@ module.exports = {
     },
   },
   rules: {
-    // Prevent any usage (GUARDRAIL-1002: Zero any)
+    // [GUARDRAIL-1002] Zero any — no exceptions
     '@typescript-eslint/no-explicit-any': 'error',
     '@typescript-eslint/no-unused-vars': [
       'error',
       { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+    ],
+    complexity: ['error', 10],
+    'no-console': 'warn',
+    '@typescript-eslint/explicit-function-return-type': [
+      'warn',
+      { allowExpressions: true },
     ],
   },
   env: {
