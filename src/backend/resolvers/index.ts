@@ -668,14 +668,20 @@ export const registerResolvers = (): void => {
 
 /**
  * Forge-compatible handler for Custom UI resolver functions.
- * Creates the resolver instance and returns the getDefinitions() handler.
+ * Lazily creates the resolver instance on first invocation to avoid
+ * side effects at module import time (breaks Jest mocks otherwise).
  * Forge calls this handler when Custom UI invokes a resolver via @forge/bridge.
  */
-const resolverInstance = new Resolver();
-const rateLimiter = createRateLimiter(DEFAULT_RATE_LIMIT);
+let _cachedHandler: ReturnType<Resolver['getDefinitions']> | undefined;
 
-for (const definition of RESOLVER_DEFINITIONS) {
-  resolverInstance.define(definition.name, wrapHandler(definition, rateLimiter));
-}
-
-export const handler = resolverInstance.getDefinitions();
+export const handler: ReturnType<Resolver['getDefinitions']> = (...args) => {
+  if (!_cachedHandler) {
+    const resolverInstance = new Resolver();
+    const rl = createRateLimiter(DEFAULT_RATE_LIMIT);
+    for (const definition of RESOLVER_DEFINITIONS) {
+      resolverInstance.define(definition.name, wrapHandler(definition, rl));
+    }
+    _cachedHandler = resolverInstance.getDefinitions();
+  }
+  return _cachedHandler(...args);
+};

@@ -1,0 +1,154 @@
+# rollback.yml — Automated Rollback Workflow
+# [GIT-CI-051] Part of full sequential pipeline: deploy → health check → rollback on failure
+# [GIT-CI-053] Smoke test after Forge deploy to verify rollback succeeded
+# [SEC-PRIV-002] No secrets in logs or code
+# [FORGE-OPS-018] forge deploy — never tunnel
+
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment to rollback'
+        required: true
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+  repository_dispatch:
+    types: [deploy-failed]
+
+concurrency:
+  group: rollback-${{ github.event.client_payload.environment || inputs.environment }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  FORGE_APP_ID: ${{ secrets.FORGE_APP_ID }}
+  SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+
+jobs:
+  # [AC-07] Rollback to lastStable version from .forge-versions.json
+  # [REQ-ROLLBACK-001] Triggered manually or automatically on deploy failure
+  rollback:
+    name: Rollback to last stable version
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine target environment
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            ENV="${{ github.event.client_payload.environment }}"
+            FAILED_SHA="${{ github.event.client_payload.sha }}"
+            FAILED_REF="${{ github.event.client_payload.ref }}"
+          else
+            ENV="${{ inputs.environment }}"
+            FAILED_SHA=""
+            FAILED_REF=""
+          fi
+          echo "environment=$ENV" >> "$GITHUB_OUTPUT"
+          echo "failed_sha=$FAILED_SHA" >> "$GITHUB_OUTPUT"
+          echo "failed_ref=$FAILED_REF" >> "$GITHUB_OUTPUT"
+          echo "Rolling back environment: $ENV"
+
+      # [REQ-ROLLBACK-002] Read lastStable from .forge-versions.json
+      - name: Read last stable version
+        id: version
+        run: |
+          if [ ! -f .forge-versions.json ]; then
+            echo "::error::.forge-versions.json not found. Cannot determine last stable version."
+            exit 1
+          fi
+          LAST_STABLE=$(node -e "const v=JSON.parse(require('fs').readFileSync('.forge-versions.json','utf8')); process.stdout.write(v.lastStable || '')")
+          if [ -z "$LAST_STABLE" ]; then
+            echo "::error::No lastStable version found in .forge-versions.json."
+            exit 1
+          fi
+          echo "last_stable=$LAST_STABLE" >> "$GITHUB_OUTPUT"
+          echo "Last stable version: $LAST_STABLE"
+
+      # [REQ-ROLLBACK-003] Checkout lastStable version
+      - name: Checkout last stable version
+        run: |
+          git fetch origin
+          git checkout ${{ steps.version.outputs.last_stable }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Forge CLI
+        run: npm install -g @forge/cli
+
+      # [FORGE-OPS-018] forge deploy — never tunnel
+      - name: Deploy stable version to Forge
+        run: forge deploy --environment ${{ steps.env.outputs.environment }}
+        env:
+          FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
+
+      # [GIT-CI-053] Smoke test after every Forge deploy
+      - name: Wait for Forge warm-up
+        run: sleep 30
+
+      - name: Run health check
+        id: health-check
+        run: npx tsx scripts/health-check.ts ${{ steps.env.outputs.environment }}
+        continue-on-error: true
+
+      # [REQ-ROLLBACK-004] If still unhealthy, alert via Sentry and GitHub issue
+      - name: Alert on rollback failure
+        if: steps.health-check.outcome == 'failure'
+        run: |
+          echo "::error::Rollback health check FAILED. The stable version is also unhealthy."
+          # Create GitHub issue to alert the team
+          ISSUE_TITLE="Rollback failed for ${{ steps.env.outputs.environment }}"
+          ISSUE_BODY="## Rollback Failure Report%n%n**Environment:** ${{ steps.env.outputs.environment }}%n**Rolled back to:** ${{ steps.version.outputs.last_stable }}%n**Failed deploy SHA:** ${{ steps.env.outputs.failed_sha }}%n**Failed deploy ref:** ${{ steps.env.outputs.failed_ref }}%n%nThe rollback health check also failed. Immediate investigation required.%n%n---%nTriggered by: ${{ github.event_name }}"
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "${{ github.api_url }}/repos/${{ github.repository }}/issues" \
+            -d "$(jq -n --arg title "$ISSUE_TITLE" --arg body "$(printf "$ISSUE_BODY")" '{title: $title, body: $body, labels: ["rollback-failure","critical"]}')"
+
+      - name: Fail if rollback health check failed
+        if: steps.health-check.outcome == 'failure'
+        run: exit 1
+
+      # [REQ-ROLLBACK-005] Update version tracking with rollback info
+      - name: Update version tracking
+        if: steps.health-check.outcome == 'success'
+        run: |
+          node -e "
+            const fs = require('fs');
+            const v = JSON.parse(fs.readFileSync('.forge-versions.json', 'utf8'));
+            const env = '${{ steps.env.outputs.environment }}';
+            v.environments[env] = {
+              sha: '${{ steps.version.outputs.last_stable }}',
+              ref: 'rollback',
+              rolledBackFrom: '${{ steps.env.outputs.failed_sha }}',
+              deployedAt: new Date().toISOString()
+            };
+            fs.writeFileSync('.forge-versions.json', JSON.stringify(v, null, 2) + '\n');
+          "
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .forge-versions.json
+          git commit -m "chore: update .forge-versions.json for ${{ steps.env.outputs.environment }} rollback [skip ci]" || true
+          git push

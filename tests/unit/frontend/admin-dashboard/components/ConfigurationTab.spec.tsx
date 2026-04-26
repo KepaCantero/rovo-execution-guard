@@ -22,6 +22,14 @@ import { ConfigurationTab } from '../../../../../src/frontend/custom-ui/admin-da
 import type { ConfigurationTabProps } from '../../../../../src/frontend/custom-ui/admin-dashboard/types';
 import type { ProjectConfig } from '../../../../../src/backend/types/project-config';
 
+// Mock @atlaskit feature gates — required by SectionMessage internals
+jest.mock('@atlaskit/feature-gate-js-client', () => ({
+  FeatureGates: { checkGate: jest.fn().mockReturnValue(false) },
+}));
+jest.mock('@atlaskit/platform-feature-flags', () => ({
+  fg: jest.fn().mockReturnValue(false),
+}));
+
 // ═══════════════════════════════════════════
 // FIXTURES
 // ═══════════════════════════════════════════
