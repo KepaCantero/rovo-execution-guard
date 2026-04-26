@@ -452,3 +452,17 @@ const buildBlockReason = (result: EvaluationPipelineResult): string => {
 
   return lines.join('\n');
 };
+
+// ═══════════════════════════════════════════
+// FORGE TRIGGER HANDLER EXPORT
+// ═══════════════════════════════════════════
+
+/**
+ * Forge-compatible handler for Jira workflow transition triggers.
+ * Forge passes the event payload directly to this exported function.
+ * [FORGE-OPS-005] Trigger handler — invoked by Forge on jira event
+ */
+export const handler = async (event: unknown): Promise<JiraWorkflowTransitionResult> => {
+  const typedEvent = event as JiraWorkflowTransitionEvent;
+  return onJiraWorkflowTransition(typedEvent);
+};

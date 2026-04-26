@@ -1071,3 +1071,32 @@ const handleGatedPREvent = async (
     return createFailOpenResult(executionId, msg);
   }
 };
+
+// ═══════════════════════════════════════════
+// FORGE WEBTRIGGER HANDLER EXPORT
+// ═══════════════════════════════════════════
+
+/**
+ * Forge-compatible handler for GitHub webtrigger.
+ * Forge passes the webtrigger request to this exported function.
+ * Returns a Forge-compatible webtrigger response.
+ * [FORGE-OPS-005] Webtrigger handler — invoked by Forge on HTTP request
+ */
+export const handler = async (
+  request: { readonly body: string; readonly headers: Readonly<Record<string, string>> },
+  _context: unknown,
+): Promise<{
+  readonly body: string;
+  readonly statusCode: number;
+  readonly headers: Record<string, string>;
+}> => {
+  const webhookSecret = process.env['GITHUB_WEBHOOK_SECRET'] ?? '';
+  const githubToken = process.env['GITHUB_TOKEN'] ?? '';
+  const result = await onGitHubWebhook(request, webhookSecret, githubToken || undefined);
+
+  return {
+    body: JSON.stringify(result),
+    statusCode: result.error ? (result.statusCode ?? 500) : 200,
+    headers: { 'Content-Type': 'application/json' },
+  };
+};

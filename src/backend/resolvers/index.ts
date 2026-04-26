@@ -661,3 +661,21 @@ export const registerResolvers = (): void => {
     resolverCount: RESOLVER_DEFINITIONS.length,
   });
 };
+
+// ═══════════════════════════════════════════
+// FORGE HANDLER EXPORT
+// ═══════════════════════════════════════════
+
+/**
+ * Forge-compatible handler for Custom UI resolver functions.
+ * Creates the resolver instance and returns the getDefinitions() handler.
+ * Forge calls this handler when Custom UI invokes a resolver via @forge/bridge.
+ */
+const resolverInstance = new Resolver();
+const rateLimiter = createRateLimiter(DEFAULT_RATE_LIMIT);
+
+for (const definition of RESOLVER_DEFINITIONS) {
+  resolverInstance.define(definition.name, wrapHandler(definition, rateLimiter));
+}
+
+export const handler = resolverInstance.getDefinitions();

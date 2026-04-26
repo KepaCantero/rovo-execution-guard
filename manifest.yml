@@ -3,53 +3,61 @@
 # [ARCH-SOLID-001] runtime.name specifies explicit LTS Node.js version
 
 app:
-  id: ari:cloud:ecosystem::app/00000000-0000-0000-0000-000000000000
-  name: rovo-execution-guard
+  id: ari:cloud:ecosystem::app/51b53283-caf2-4636-9e4b-5a6e1d048260
+  runtime:
+    name: nodejs22.x
 
 modules:
   jira:issuePanel:
     - key: reg-issue-panel
-      function: issue-panel-fn
+      resource: issue-panel-resource
+      resolver:
+        function: resolver-fn
       title: Rovo Execution Guard
       icon: https://developer.atlassian.com/platform/forge/images/icons/issue-panel-icon.svg
 
   jira:adminPage:
     - key: reg-admin-page
-      function: admin-page-fn
+      resource: admin-dash-resource
+      resolver:
+        function: resolver-fn
       title: Rovo Execution Guard Admin
       icon: https://developer.atlassian.com/platform/forge/images/icons/issue-panel-icon.svg
 
   trigger:
-    - key: on-jira-workflow-transition
-      function: workflow-transition-fn
-      type: jira:issue_updated
+    - key: on-jira-transition
+      function: transition-fn
+      events:
+        - avi:jira/updated:issue
 
   webtrigger:
     - key: github-webhook
-      function: github-webhook-fn
+      function: webhook-fn
       responseMessage: Webhook received
 
   function:
-    - key: issue-panel-fn
-      handler: src/frontend/custom-ui/issue-panel/index.handler
-      # [ARCH-SOLID-001] Explicit Node.js 22.x LTS runtime
-    - key: admin-page-fn
-      handler: src/frontend/custom-ui/admin-dashboard/index.handler
-    - key: workflow-transition-fn
-      handler: src/backend/resolvers/workflow-transition.handler
-    - key: github-webhook-fn
-      handler: src/backend/resolvers/github-webhook.handler
+    - key: resolver-fn
+      handler: resolver-handler.handler
+    - key: transition-fn
+      handler: transition-handler.handler
+    - key: webhook-fn
+      handler: webhook-handler.handler
+
+resources:
+  - key: issue-panel-resource
+    path: src/frontend/custom-ui/issue-panel
+  - key: admin-dash-resource
+    path: src/frontend/custom-ui/admin-dashboard
 
 permissions:
   scopes:
     - read:jira-work
     - write:jira-work
-    - read:confluence-content
+    - read:confluence-content.all
     - write:confluence-content
     - storage:app
   external:
     fetch:
-      # [FORGE-OPS-004] Only domains the app actually needs
-      api.github.com:
-        actions:
-          - read
+      backend:
+        - address: atlassian:external
+        - address: "*.github.com"
