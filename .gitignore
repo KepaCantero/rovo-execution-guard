@@ -8,6 +8,7 @@ dist/
 # Coverage
 coverage/
 !coverage/.gitkeep
+.coverage-*/
 
 # Environment
 .env
@@ -39,3 +40,6 @@ Thumbs.db
 # Forge
 .claude/
 .worktrees/
+
+# Serena
+.serena/
