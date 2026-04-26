@@ -43,6 +43,9 @@ module.exports = {
       'warn',
       { allowExpressions: true },
     ],
+    // React 17+ new JSX transform — no need to import React
+    'react/react-in-jsx-scope': 'off',
+    'react/prop-types': 'off',
   },
   env: {
     node: true,

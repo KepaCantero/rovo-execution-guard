@@ -79,9 +79,11 @@ export interface OverviewTabProps {
 
 /** Props for ConfigurationTab presentational component */
 export interface ConfigurationTabProps {
-  readonly projectKey: string;
+  readonly config: import('../../../backend/types/project-config').ProjectConfig | null;
   readonly loading: boolean;
   readonly error: string | null;
+  readonly saving: boolean;
+  readonly onSave: (config: import('../../../backend/types/project-config').ProjectConfig) => void;
 }
 
 /** Props for AuditLogTab presentational component */

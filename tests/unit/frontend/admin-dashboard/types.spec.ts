@@ -76,9 +76,11 @@ const validOverviewTabProps: OverviewTabProps = {
 };
 
 const validConfigurationTabProps: ConfigurationTabProps = {
-  projectKey: 'PROJ',
+  config: null,
   loading: false,
   error: null,
+  saving: false,
+  onSave: (_config: import('../../../../src/backend/types/project-config').ProjectConfig) => {},
 };
 
 const validAuditLogTabProps: AuditLogTabProps = {
@@ -92,7 +94,6 @@ const validAuditLogTabProps: AuditLogTabProps = {
 // ═══════════════════════════════════════════
 
 describe('admin-dashboard/types', () => {
-
   describe('DateRange', () => {
     it('should accept valid date range objects', () => {
       const range: DateRange = validDateRange;
@@ -213,7 +214,9 @@ describe('admin-dashboard/types', () => {
 
     it('should accept valid ConfigurationTabProps', () => {
       const props: ConfigurationTabProps = validConfigurationTabProps;
-      expect(props.projectKey).toBe('PROJ');
+      expect(props.config).toBeNull();
+      expect(props.saving).toBe(false);
+      expect(typeof props.onSave).toBe('function');
     });
 
     it('should accept valid AuditLogTabProps', () => {
@@ -247,7 +250,12 @@ describe('admin-dashboard/types', () => {
     });
 
     it('should accept all sortable fields', () => {
-      const fields: readonly AuditLogSort['field'][] = ['timestamp', 'action', 'ticketKey', 'userId'];
+      const fields: readonly AuditLogSort['field'][] = [
+        'timestamp',
+        'action',
+        'ticketKey',
+        'userId',
+      ];
       expect(fields).toHaveLength(4);
     });
   });
@@ -261,5 +269,4 @@ describe('admin-dashboard/types', () => {
       expect(metrics.totalEvaluated).toBe(150);
     });
   });
-
 });
