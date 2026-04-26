@@ -1,0 +1,56 @@
+{
+  "results": [
+    {
+      "id": "1234567890",
+      "title": "Authentication Architecture Decision Record",
+      "space": {
+        "key": "ENG"
+      },
+      "_links": {
+        "webui": "/display/ENG/Authentication+Architecture+Decision+Record"
+      },
+      "version": {
+        "when": "2024-11-20T10:15:00.000+0000"
+      }
+    },
+    {
+      "id": "1234567891",
+      "title": "Security Standards and Compliance Guide",
+      "space": {
+        "key": "SEC"
+      },
+      "_links": {
+        "webui": "/display/SEC/Security+Standards+and+Compliance+Guide"
+      },
+      "version": {
+        "when": "2024-12-05T14:30:00.000+0000"
+      }
+    },
+    {
+      "id": "1234567892",
+      "title": "OAuth 2.0 Integration Runbook",
+      "space": {
+        "key": "ENG"
+      },
+      "_links": {
+        "webui": "/display/ENG/OAuth+2.0+Integration+Runbook"
+      },
+      "version": {
+        "when": "2025-01-08T16:00:00.000+0000"
+      }
+    },
+    {
+      "id": "1234567893",
+      "title": "Incident Post-Mortem: Token Refresh Failure 2024-12",
+      "space": {
+        "key": "OPS"
+      },
+      "_links": {
+        "webui": "/display/OPS/Incident+Post-Mortem+Token+Refresh+Failure+2024-12"
+      },
+      "version": {
+        "when": "2024-12-15T09:00:00.000+0000"
+      }
+    }
+  ]
+}

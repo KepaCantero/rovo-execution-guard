@@ -28,6 +28,7 @@ import {
 } from '../services/evaluation/evaluation-pipeline';
 import { getTicketData, getProjectConfig, saveProjectConfig } from '../services/jira/jira-adapter';
 import { getContext } from '../services/rovo/rovo-adapter';
+import { writeAuditEntry, readAuditEntries } from '../services/audit/audit-service';
 
 // ═══════════════════════════════════════════
 // TYPES
@@ -441,6 +442,15 @@ const handleUpdateProjectConfig = async (
     accountId,
   });
 
+  await writeAuditEntry({
+    id: `audit-${executionId}-config`,
+    action: 'config_updated',
+    timestamp: new Date().toISOString(),
+    executionId,
+    projectKey,
+    details: { accountId },
+  });
+
   return success(undefined, executionId);
 };
 
@@ -467,11 +477,9 @@ const handleGetAuditLog = async (
     limit,
   });
 
-  // Audit log storage is deferred — return empty array as placeholder
-  // Actual implementation in RTASK-024/RTASK-031
-  const entries: AuditLogEntry[] = [];
+  const entries = await readAuditEntries({ projectKey, limit, offset: 0 });
 
-  return success(limit !== undefined ? entries.slice(0, limit) : entries, executionId);
+  return success([...entries], executionId);
 };
 
 /**
@@ -522,6 +530,16 @@ const handleEnrichTicket = async (
     accountId,
   });
 
+  await writeAuditEntry({
+    id: `audit-${executionId}-enrich`,
+    action: 'gate_evaluated',
+    timestamp: new Date().toISOString(),
+    executionId,
+    projectKey: issueKey.split('-')[0] ?? '',
+    ticketKey: issueKey,
+    details: { action: 'enrichTicket', accountId },
+  });
+
   return success(undefined, executionId);
 };
 
@@ -549,18 +567,24 @@ const handleRevalidateTicket = async (
   const projectKey = issueKey.split('-')[0] ?? '';
   const config = await getProjectConfig(projectKey, executionId, RESOLVER_TIMEOUT_MS);
 
+  // Fetch actual ticket to determine current status for gate evaluation
+  const ticket = await getTicketData(issueKey, executionId, RESOLVER_TIMEOUT_MS);
+
   const result: EvaluationPipelineResult = await evaluateTicketForGate(
     issueKey,
-    'In Progress',
+    ticket.status,
     config,
     executionId,
   );
+
+  // [SEC-PRIV-010] Audit log
+  await writeAuditEntry(result.auditEntry);
 
   return success(result.score, executionId);
 };
 
 // ═══════════════════════════════════════════
-// RESOLVER REGISTRATION
+// RESOLVER REGISTRATION (lazy via handler export)
 // ═══════════════════════════════════════════
 
 /**
@@ -638,28 +662,6 @@ const wrapHandler = (
       return failure(message, executionId);
     }
   };
-};
-
-/**
- * Registers all Custom UI resolvers via @forge/resolver.
- * [AC-01] All resolvers work via @forge/resolver
- * [AC-02] Invocable from Custom UI
- * [FORGE-OPS-003] 8 resolvers count against 100 module limit
- */
-export const registerResolvers = (): void => {
-  const resolverInstance = new Resolver();
-  const rateLimiter = createRateLimiter(DEFAULT_RATE_LIMIT);
-
-  for (const definition of RESOLVER_DEFINITIONS) {
-    resolverInstance.define(definition.name, wrapHandler(definition, rateLimiter));
-  }
-
-  log({
-    timestamp: new Date().toISOString(),
-    level: 'info',
-    operation: 'registerResolvers.complete',
-    resolverCount: RESOLVER_DEFINITIONS.length,
-  });
 };
 
 // ═══════════════════════════════════════════

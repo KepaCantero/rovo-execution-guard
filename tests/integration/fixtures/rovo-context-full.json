@@ -1,0 +1,42 @@
+{
+  "documents": [
+    {
+      "id": "doc-001-confluence",
+      "title": "Authentication Architecture Decision Record",
+      "content": "We decided to use OAuth 2.0 with PKCE for all public-facing clients. Refresh tokens are stored encrypted in the platform secure storage. Token rotation happens every 24 hours.",
+      "source": "confluence",
+      "relevance": 0.92
+    },
+    {
+      "id": "doc-002-confluence",
+      "title": "Security Standards and Compliance Guide",
+      "content": "All authentication flows must comply with OWASP Top 10 recommendations. Session tokens must be invalidated after 30 minutes of inactivity. CSRF tokens are mandatory for all state-changing operations.",
+      "source": "confluence",
+      "relevance": 0.78
+    },
+    {
+      "id": "doc-003-jira",
+      "title": "PROJ-987: Token refresh logic fails for expired sessions",
+      "content": "Bug report: When a user's session has been inactive for more than 48 hours, the token refresh endpoint returns a 401 instead of prompting re-authentication. This affects the mobile client specifically.",
+      "source": "jira",
+      "relevance": 0.65
+    }
+  ],
+  "relatedTickets": ["PROJ-987", "PROJ-654", "PROJ-321"],
+  "decisions": [
+    {
+      "id": "dec-001",
+      "title": "Use OAuth 2.0 PKCE for browser-based apps",
+      "description": "Decided to implement OAuth 2.0 with PKCE (Proof Key for Code Exchange) instead of the implicit grant flow. This provides better security against authorization code interception attacks and is recommended by OAuth 2.0 Security Best Current Practice (BCP-212).",
+      "date": "2024-11-20T10:00:00.000+0000",
+      "source": "confluence"
+    },
+    {
+      "id": "dec-002",
+      "title": "Session timeout set to 30 minutes",
+      "description": "Based on the security audit findings, session inactivity timeout is set to 30 minutes for standard users and 15 minutes for admin users. Refresh tokens remain valid for 7 days.",
+      "date": "2024-12-05T14:30:00.000+0000",
+      "source": "confluence"
+    }
+  ]
+}

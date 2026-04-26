@@ -1,0 +1,28 @@
+{
+  "key": "PROJ-1234",
+  "fields": {
+    "summary": "Implement user authentication flow with OAuth 2.0",
+    "description": "As a user, I want to log in via OAuth 2.0 so that my credentials are managed securely.\n\nh3. Acceptance Criteria\n* Given the login page, when I click \"Sign in with Google\", then I am redirected to the OAuth consent screen.\n* Given valid OAuth credentials, when the callback is received, then a session token is created.\n\nh3. Technical Notes\n* Use PKCE flow for public clients\n* Store refresh tokens encrypted in secure storage",
+    "status": {
+      "name": "In Progress"
+    },
+    "assignee": {
+      "displayName": "Maria Garcia"
+    },
+    "reporter": {
+      "displayName": "John Smith"
+    },
+    "priority": {
+      "name": "High"
+    },
+    "issuetype": {
+      "name": "Story"
+    },
+    "labels": ["authentication", "oauth", "security"],
+    "project": {
+      "key": "PROJ"
+    },
+    "created": "2025-01-15T09:30:00.000+0000",
+    "updated": "2025-02-20T14:45:22.000+0000"
+  }
+}

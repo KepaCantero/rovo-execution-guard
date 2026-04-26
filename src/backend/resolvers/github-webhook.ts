@@ -14,7 +14,7 @@
 // [GH-INTEG-307] Filter by X-GitHub-Event header
 // [GH-INTEG-305] Status checks via POST /repos/{owner}/{repo}/statuses/{sha}
 
-import { createHmac, timingSafeEqual } from 'crypto';
+// Forge runtime does not provide Node.js crypto module — use Web Crypto API
 import type { GateType } from '../types/quality-gate';
 import type { ConsistencyScore } from '../types/consistency-score';
 import type { AuditLogEntry } from '../types/audit-log';
@@ -36,6 +36,8 @@ import {
 } from '../services/github/github-adapter';
 
 import { getProjectConfig } from '../services/jira/jira-adapter';
+
+import { writeAuditEntry } from '../services/audit/audit-service';
 
 // ═══════════════════════════════════════════
 // TYPES
@@ -149,21 +151,41 @@ const generateExecutionId = (): string => {
  * [SEC-PRIV-051] HMAC first, before parsing body.
  * [SEC-PRIV-002] Never logs the webhook secret or raw signature.
  */
-export const verifyHMACSignature = (body: string, signature: string, secret: string): boolean => {
+export const verifyHMACSignature = async (
+  body: string,
+  signature: string,
+  secret: string,
+): Promise<boolean> => {
   if (!signature || !signature.startsWith('sha256=')) {
     return false;
   }
 
   const expectedSig = signature.substring(7); // Remove 'sha256=' prefix
-  const expected = Buffer.from(expectedSig, 'hex');
-  const computed = createHmac('sha256', secret).update(body).digest();
+
+  // Use Web Crypto API (available in Forge runtime)
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const signatureBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(body));
+  const computedHex = Array.from(new Uint8Array(signatureBuffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 
   // Constant-time comparison to prevent timing attacks
-  if (expected.length !== computed.length) {
+  if (computedHex.length !== expectedSig.length) {
     return false;
   }
 
-  return timingSafeEqual(expected, computed);
+  let mismatch = 0;
+  for (let i = 0; i < computedHex.length; i++) {
+    mismatch |= computedHex.charCodeAt(i) ^ expectedSig.charCodeAt(i);
+  }
+  return mismatch === 0;
 };
 
 // ═══════════════════════════════════════════
@@ -410,12 +432,12 @@ const postFailOpenComment = async (
 // ═══════════════════════════════════════════
 
 /**
- * Writes the audit log entry.
+ * Writes the audit log entry to Forge Storage via audit-service.
  * [SEC-PRIV-010] Audit log: who, what, when, resource.
  * [SEC-PRIV-008] Data minimization — only metadata.
  * [FORGE-OPS-054] Graceful degradation — audit failure is logged, not re-thrown.
  */
-const writeAuditLog = (auditEntry: AuditLogEntry, executionId: string): void => {
+const writeAuditLog = async (auditEntry: AuditLogEntry, executionId: string): Promise<void> => {
   try {
     log({
       timestamp: new Date().toISOString(),
@@ -425,7 +447,7 @@ const writeAuditLog = (auditEntry: AuditLogEntry, executionId: string): void => 
       auditId: auditEntry.id,
       action: auditEntry.action,
     });
-    // Forge Storage write deferred to RTASK-024
+    await writeAuditEntry(auditEntry);
   } catch (storageError: unknown) {
     const msg = storageError instanceof Error ? storageError.message : 'Unknown storage error';
     log({
@@ -661,8 +683,8 @@ const handleEditedEvent = async (
  * [ARCH-SOLID-052] Extracted helper.
  */
 const getToken = (): string => {
-  // Token retrieval from Forge Storage deferred to RTASK-024
-  return '';
+  // Retrieve from Forge environment variable (set via forge variables:set)
+  return process.env['GITHUB_TOKEN'] ?? '';
 };
 
 /**
@@ -887,7 +909,7 @@ const validateAndRoute = async (
   // [SEC-PRIV-004] [SEC-PRIV-051] HMAC validation FIRST
   const signature =
     request.headers['x-hub-signature-256'] ?? request.headers['X-Hub-Signature-256'];
-  if (!verifyHMACSignature(request.body, signature ?? '', webhookSecret)) {
+  if (!(await verifyHMACSignature(request.body, signature ?? '', webhookSecret))) {
     log({
       timestamp: new Date().toISOString(),
       level: 'error',

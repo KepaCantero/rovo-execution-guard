@@ -1,0 +1,45 @@
+{
+  "number": 42,
+  "title": "feat: implement OAuth 2.0 PKCE authentication flow",
+  "body": "## Summary\nImplements the OAuth 2.0 authorization code flow with PKCE for browser-based authentication.\n\n## Changes\n- Add OAuth 2.0 PKCE client implementation\n- Add token refresh logic with encrypted storage\n- Add session management middleware\n\n## Related\n- PROJ-1234\n\n## Test Plan\n- [x] Unit tests for PKCE verifier/challenge generation\n- [x] Integration tests for token exchange\n- [x] Manual test of full login flow",
+  "state": "open",
+  "head": {
+    "ref": "feature/oauth2-pkce"
+  },
+  "base": {
+    "ref": "main"
+  },
+  "html_url": "https://github.com/acme-org/rovo-execution-guard/pull/42",
+  "files": [
+    {
+      "filename": "src/backend/services/auth/oauth-client.ts",
+      "status": "added",
+      "additions": 145,
+      "deletions": 0
+    },
+    {
+      "filename": "src/backend/services/auth/token-manager.ts",
+      "status": "added",
+      "additions": 89,
+      "deletions": 0
+    },
+    {
+      "filename": "src/backend/middleware/session.ts",
+      "status": "added",
+      "additions": 62,
+      "deletions": 0
+    },
+    {
+      "filename": "src/backend/types/auth.ts",
+      "status": "modified",
+      "additions": 23,
+      "deletions": 4
+    },
+    {
+      "filename": "src/backend/services/auth/legacy-auth.ts",
+      "status": "removed",
+      "additions": 0,
+      "deletions": 78
+    }
+  ]
+}

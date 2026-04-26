@@ -1,12 +1,3 @@
 {
-  "loops": [
-    {
-      "id": "savvy-cork",
-      "pid": 35647,
-      "started": "2026-04-26T09:00:17.287144Z",
-      "prompt": ".ralph/tasks/RTASK-026-cicd-semantic-release.code-task.md",
-      "worktree_path": "/Users/kepa.cantero/Projects/rovo-execution-guard/.worktrees/savvy-cork",
-      "workspace": "/Users/kepa.cantero/Projects/rovo-execution-guard/.worktrees/savvy-cork"
-    }
-  ]
+  "loops": []
 }

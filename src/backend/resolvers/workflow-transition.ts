@@ -27,6 +27,8 @@ import { blockTransition } from '../services/enforcement/enforcement-actions';
 
 import { getProjectConfig, addComment } from '../services/jira/jira-adapter';
 
+import { writeAuditEntry } from '../services/audit/audit-service';
+
 // ═══════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════
@@ -243,7 +245,7 @@ const dispatchEnforcement = async (
 };
 
 /**
- * Writes the audit log entry to Forge Storage.
+ * Writes the audit log entry to Forge Storage via audit-service.
  * [SEC-PRIV-010] Audit log: who, what, when, resource.
  * [SEC-PRIV-008] Data minimization — only metadata.
  * [FORGE-OPS-054] Graceful degradation — audit failure is logged, not re-thrown.
@@ -259,9 +261,7 @@ const writeAuditLog = async (auditEntry: AuditLogEntry, executionId: string): Pr
       auditId: auditEntry.id,
       action: auditEntry.action,
     });
-    // Forge Storage write would go here via @forge/api storage
-    // Currently logged as structured entry for observability
-    // Actual storage implementation deferred to RTASK-024 (Project Settings)
+    await writeAuditEntry(auditEntry);
   } catch (storageError: unknown) {
     const msg = storageError instanceof Error ? storageError.message : 'Unknown storage error';
     log({
@@ -458,11 +458,48 @@ const buildBlockReason = (result: EvaluationPipelineResult): string => {
 // ═══════════════════════════════════════════
 
 /**
+ * Adapts the Forge `avi:jira/updated:issue` event payload to
+ * the internal JiraWorkflowTransitionEvent interface.
+ * Forge event body: { issue: { id, key }, changelog: { items: [{ field, from, fromString, to, toString }] } }
+ */
+const adaptForgeEvent = (event: Record<string, unknown>): JiraWorkflowTransitionEvent | null => {
+  const body = event['body'] as Record<string, unknown> | undefined;
+  if (!body) return null;
+
+  const issue = body['issue'] as Record<string, string> | undefined;
+  if (!issue?.['key']) return null;
+
+  const changelog = body['changelog'] as Record<string, unknown> | undefined;
+  const items = changelog?.['items'] as Array<Record<string, string>> | undefined;
+
+  // Find the status change in the changelog
+  const statusChange = items?.find((item) => item['field'] === 'status');
+  if (!statusChange) return null; // Not a status transition — ignore
+
+  const projectKey = issue['key'].split('-')[0] ?? '';
+
+  return {
+    issueKey: issue['key'],
+    transitionId: statusChange['to'] ?? '',
+    fromStatus: statusChange['fromString'] ?? '',
+    toStatus: statusChange['toString'] ?? '',
+    projectKey,
+  };
+};
+
+/**
  * Forge-compatible handler for Jira workflow transition triggers.
- * Forge passes the event payload directly to this exported function.
+ * Forge passes the avi:jira/updated:issue event payload.
+ * Filters for status changes only; ignores other field updates.
  * [FORGE-OPS-005] Trigger handler — invoked by Forge on jira event
  */
-export const handler = async (event: unknown): Promise<JiraWorkflowTransitionResult> => {
-  const typedEvent = event as JiraWorkflowTransitionEvent;
-  return onJiraWorkflowTransition(typedEvent);
+export const handler = async (
+  event: unknown,
+): Promise<JiraWorkflowTransitionResult | undefined> => {
+  const adapted = adaptForgeEvent(event as Record<string, unknown>);
+  if (!adapted) {
+    // Not a status transition — allow silently
+    return;
+  }
+  return onJiraWorkflowTransition(adapted);
 };

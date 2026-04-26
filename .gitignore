@@ -4,6 +4,7 @@ node_modules/
 # Build
 dist/
 .turbo/
+**/custom-ui/*/bundle.js
 
 # Coverage
 coverage/

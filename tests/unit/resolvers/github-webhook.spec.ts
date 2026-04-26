@@ -208,34 +208,36 @@ describe('github-webhook', () => {
   // ─── verifyHMACSignature() ────────────────
 
   describe('verifyHMACSignature()', () => {
-    it('should return true for valid HMAC signature (AC-01)', () => {
+    it('should return true for valid HMAC signature (AC-01)', async () => {
       const body = '{"test": "payload"}';
       const signature = createSignature(body, WEBHOOK_SECRET);
 
-      expect(verifyHMACSignature(body, signature, WEBHOOK_SECRET)).toBe(true);
+      await expect(verifyHMACSignature(body, signature, WEBHOOK_SECRET)).resolves.toBe(true);
     });
 
-    it('should reject invalid HMAC signature (AC-01, SEC-PRIV-004)', () => {
+    it('should reject invalid HMAC signature (AC-01, SEC-PRIV-004)', async () => {
       const body = '{"test": "payload"}';
       const wrongSig = 'sha256=0000000000000000000000000000000000000000000000000000000000000000';
 
-      expect(verifyHMACSignature(body, wrongSig, WEBHOOK_SECRET)).toBe(false);
+      await expect(verifyHMACSignature(body, wrongSig, WEBHOOK_SECRET)).resolves.toBe(false);
     });
 
-    it('should reject missing signature (AC-01, SEC-PRIV-004)', () => {
-      expect(verifyHMACSignature('body', '', WEBHOOK_SECRET)).toBe(false);
+    it('should reject missing signature (AC-01, SEC-PRIV-004)', async () => {
+      await expect(verifyHMACSignature('body', '', WEBHOOK_SECRET)).resolves.toBe(false);
     });
 
-    it('should reject signature without sha256 prefix (AC-01)', () => {
-      expect(verifyHMACSignature('body', 'invalid-format', WEBHOOK_SECRET)).toBe(false);
+    it('should reject signature without sha256 prefix (AC-01)', async () => {
+      await expect(verifyHMACSignature('body', 'invalid-format', WEBHOOK_SECRET)).resolves.toBe(
+        false,
+      );
     });
 
-    it('should use constant-time comparison (AC-01, SEC-PRIV-051)', () => {
-      // This test verifies the function uses timingSafeEqual
+    it('should use constant-time comparison (AC-01, SEC-PRIV-051)', async () => {
+      // This test verifies the function uses constant-time comparison
       // by checking that it correctly validates various signatures
       const body = 'test-body';
       const validSig = createSignature(body, WEBHOOK_SECRET);
-      expect(verifyHMACSignature(body, validSig, WEBHOOK_SECRET)).toBe(true);
+      await expect(verifyHMACSignature(body, validSig, WEBHOOK_SECRET)).resolves.toBe(true);
     });
   });
 

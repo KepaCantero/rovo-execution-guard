@@ -11,7 +11,11 @@
     "format:check": "prettier --check 'src/**/*.{ts,tsx,json,md}'",
     "typecheck": "tsc --noEmit",
     "test:unit": "jest --passWithNoTests --config config/jest.config.js",
+    "test:integration": "jest --passWithNoTests --config config/jest.integration.config.js",
     "test:staged": "jest --bail --findRelatedTests --config config/jest.config.js",
+    "build:ui": "esbuild src/frontend/custom-ui/issue-panel/app.tsx --bundle --outfile=src/frontend/custom-ui/issue-panel/bundle.js --minify --format=iife --target=es2022 --jsx=automatic --external:@forge/bridge && esbuild src/frontend/custom-ui/admin-dashboard/app.tsx --bundle --outfile=src/frontend/custom-ui/admin-dashboard/bundle.js --minify --format=iife --target=es2022 --jsx=automatic --external:@forge/bridge",
+    "predeploy": "pnpm build:ui",
+    "deploy": "forge deploy -e kcantero",
     "prepare": "husky"
   },
   "engines": {
@@ -43,9 +47,11 @@
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "^14.6.1",
     "@types/jest": "^29.5.0",
+    "@types/nock": "^11.1.0",
     "@types/react": "^18.3.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
+    "esbuild": "^0.28.0",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-import-resolver-typescript": "^3.6.0",
@@ -55,6 +61,7 @@
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^30.3.0",
     "lint-staged": "^15.2.0",
+    "nock": "^14.0.13",
     "prettier": "^3.2.0",
     "ts-jest": "^29.1.0",
     "typescript": "^5.5.0"
