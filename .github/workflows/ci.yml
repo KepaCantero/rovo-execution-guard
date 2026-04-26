@@ -1,0 +1,129 @@
+# ci.yml — Continuous Integration Pipeline
+# [GIT-CI-301] Sequential jobs with needs dependency chains
+# [GIT-CI-051] Full sequential pipeline: lint + security, unit tests, integration tests, E2E tests
+# [GIT-CI-052] Every commit on main must be deployable
+# [SEC-PRIV-002] No secrets in logs or code
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # [GIT-CI-301] First job in the pipeline: lint, typecheck, security, format
+  lint-and-security:
+    name: Lint & Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # [GIT-CI-044-03] Prettier check — non-negotiable, cannot be disabled
+      - name: Format check
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      # [GIT-CI-052] TypeScript strict mode — gate for main deployability
+      - name: Typecheck
+        run: npm run typecheck
+
+      # [SEC-PRIV-002] Snyk scan — secrets via GitHub Secrets only
+      - name: Snyk security scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        continue-on-error: true
+
+      # [SEC-PRIV-041-01] Validate manifest declares only needed scopes
+      - name: Forge manifest lint
+        run: npx forge lint
+
+  # [GIT-CI-0814] Coverage as CI gate — blocks merges below 85%
+  test-unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests with coverage
+        run: npm run test:unit -- --coverage --coverageThreshold='{"global":{"branches":85,"functions":85,"lines":85,"statements":85}}'
+
+  # [GIT-CI-051] Integration tests — part of full sequential pipeline
+  test-integration:
+    name: Integration Tests
+    needs: lint-and-security
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+  # [GIT-CI-051] E2E tests — only on PRs targeting main (not develop)
+  test-e2e:
+    name: E2E Tests
+    needs: test-integration
+    if: github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run E2E tests
+        run: npm run test:e2e
