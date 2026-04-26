@@ -1,0 +1,81 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`pr-comment-formatter snapshots (AC-01) should match snapshot for formatContextComment 1`] = `
+"## :information_source: Context — \`PROJ-123\`
+
+### Related Tickets
+
+- PROJ-789
+- PROJ-101
+
+### Documentation
+
+- API Reference Guide
+- Architecture Decisions
+
+### Quick Actions
+
+- Re-validate \`PROJ-123\`
+- View issue panel for \`PROJ-123\`"
+`;
+
+exports[`pr-comment-formatter snapshots (AC-01) should match snapshot for formatFailedComment 1`] = `
+"## :x: Quality Gate Failed — \`PROJ-456\`
+
+**Overall Score: 45** :x:
+
+### Reasons
+
+:red_circle: **[critical]** Description contradicts acceptance criteria
+:warning: **[warning]** Missing documentation for API changes
+
+<details>
+<summary>Actionable Suggestions</summary>
+
+- [ ] Review and align the description with ACs
+- [ ] Add API documentation to the Confluence page
+
+</details>
+
+<details>
+<summary>Score Breakdown</summary>
+
+| Axis | Score | Status |
+|------|-------|--------|
+| **Overall** | **45** | :x: |
+| Clarity | 40 | :x: |
+| Consistency | 50 | :x: |
+| Risk | 30 | :x: |
+| Documentation | 55 | :x: |
+| Technical Debt | 60 | :x: |
+
+</details>
+
+### Next Steps
+
+Resolve the issues above and push new commits to re-trigger the quality gate evaluation.
+
+_Ref: ep-test-failed-001_"
+`;
+
+exports[`pr-comment-formatter snapshots (AC-01) should match snapshot for formatPassedComment 1`] = `
+"## :white_check_mark: Quality Gate Passed — \`PROJ-123\`
+
+**Overall Score: 92** :white_check_mark:
+
+<details>
+<summary>Score Breakdown</summary>
+
+| Axis | Score | Status |
+|------|-------|--------|
+| **Overall** | **92** | :white_check_mark: |
+| Clarity | 90 | :white_check_mark: |
+| Consistency | 95 | :white_check_mark: |
+| Risk | 85 | :white_check_mark: |
+| Documentation | 88 | :white_check_mark: |
+| Technical Debt | 80 | :white_check_mark: |
+
+</details>
+
+_Ref: ep-test-passed-001_"
+`;
