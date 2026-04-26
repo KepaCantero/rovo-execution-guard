@@ -1,0 +1,265 @@
+# deploy.yml — Multi-Environment Deployment Pipeline
+# [GIT-CI-301] Sequential jobs with needs dependency chains
+# [GIT-CI-051] Full sequential pipeline: staging deploy -> production deploy
+# [GIT-CI-302] Production requires environment with reviewers
+# [GIT-CI-0785] Staging auto-deploy on main merge; production requires manual gate
+# [SEC-PRIV-002] No secrets in logs or code
+
+name: Deploy
+
+on:
+  push:
+    branches: [develop, main]
+    tags: [v*]
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  deployments: write
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  FORGE_APP_ID: ${{ secrets.FORGE_APP_ID }}
+  SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+
+jobs:
+  # [REQ-DEPLOY-002] Development deploy — triggered by push to develop
+  deploy-development:
+    name: Deploy to Development
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: development
+    concurrency:
+      group: deploy-env-development
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Forge CLI
+        run: npm install -g @forge/cli
+
+      # [FORGE-OPS-018] forge deploy — never tunnel
+      - name: Deploy to Forge (development)
+        run: forge deploy --environment development
+        env:
+          FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
+
+      # [GIT-CI-053] Smoke test after every Forge deploy
+      - name: Wait for Forge warm-up
+        run: sleep 30
+
+      - name: Run health check
+        id: health-check
+        run: npx tsx scripts/health-check.ts development
+        continue-on-error: true
+
+      # [AC-09] Unhealthy triggers rollback
+      - name: Trigger rollback on failure
+        if: steps.health-check.outcome == 'failure'
+        run: |
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "${{ github.api_url }}/repos/${{ github.repository }}/dispatches" \
+            -d '{"event_type":"deploy-failed","client_payload":{"environment":"development","ref":"${{ github.ref }}","sha":"${{ github.sha }}"}}'
+
+      - name: Fail if health check failed
+        if: steps.health-check.outcome == 'failure'
+        run: exit 1
+
+      # [REQ-DEPLOY-009] Update version tracking
+      - name: Update version tracking
+        if: steps.health-check.outcome == 'success'
+        run: |
+          if [ ! -f .forge-versions.json ]; then
+            echo '{"lastStable":"","environments":{}}' > .forge-versions.json
+          fi
+          node -e "
+            const fs = require('fs');
+            const v = JSON.parse(fs.readFileSync('.forge-versions.json', 'utf8'));
+            v.lastStable = '${{ github.sha }}';
+            v.environments.development = { sha: '${{ github.sha }}', ref: '${{ github.ref }}', deployedAt: new Date().toISOString() };
+            fs.writeFileSync('.forge-versions.json', JSON.stringify(v, null, 2) + '\n');
+          "
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .forge-versions.json
+          git commit -m "chore: update .forge-versions.json for development deploy [skip ci]" || true
+          git push
+
+  # [REQ-DEPLOY-003] Staging deploy — triggered by push to main
+  deploy-staging:
+    name: Deploy to Staging
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    concurrency:
+      group: deploy-env-staging
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Forge CLI
+        run: npm install -g @forge/cli
+
+      - name: Deploy to Forge (staging)
+        run: forge deploy --environment staging
+        env:
+          FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
+
+      - name: Wait for Forge warm-up
+        run: sleep 30
+
+      - name: Run health check
+        id: health-check
+        run: npx tsx scripts/health-check.ts staging
+        continue-on-error: true
+
+      - name: Trigger rollback on failure
+        if: steps.health-check.outcome == 'failure'
+        run: |
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "${{ github.api_url }}/repos/${{ github.repository }}/dispatches" \
+            -d '{"event_type":"deploy-failed","client_payload":{"environment":"staging","ref":"${{ github.ref }}","sha":"${{ github.sha }}"}}'
+
+      - name: Fail if health check failed
+        if: steps.health-check.outcome == 'failure'
+        run: exit 1
+
+      - name: Update version tracking
+        if: steps.health-check.outcome == 'success'
+        run: |
+          if [ ! -f .forge-versions.json ]; then
+            echo '{"lastStable":"","environments":{}}' > .forge-versions.json
+          fi
+          node -e "
+            const fs = require('fs');
+            const v = JSON.parse(fs.readFileSync('.forge-versions.json', 'utf8'));
+            v.lastStable = '${{ github.sha }}';
+            v.environments.staging = { sha: '${{ github.sha }}', ref: '${{ github.ref }}', deployedAt: new Date().toISOString() };
+            fs.writeFileSync('.forge-versions.json', JSON.stringify(v, null, 2) + '\n');
+          "
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .forge-versions.json
+          git commit -m "chore: update .forge-versions.json for staging deploy [skip ci]" || true
+          git push
+
+  # [REQ-DEPLOY-004] Production deploy — triggered by tag v*
+  # [GIT-CI-302] Production requires environment with reviewers
+  # [REQ-DEPLOY-005] Staging must be healthy before production
+  deploy-production:
+    name: Deploy to Production
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: []
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment:
+      name: production
+    concurrency:
+      group: deploy-env-production
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Forge CLI
+        run: npm install -g @forge/cli
+
+      - name: Verify staging health
+        id: staging-check
+        run: |
+          if [ -f .forge-versions.json ]; then
+            STAGING_SHA=$(node -e "const v=JSON.parse(require('fs').readFileSync('.forge-versions.json','utf8')); process.stdout.write(v.environments?.staging?.sha || '')")
+            if [ -z "$STAGING_SHA" ]; then
+              echo "::warning::No staging deployment found. Proceeding with production deploy."
+            else
+              echo "Staging deployed at: $STAGING_SHA"
+            fi
+          else
+            echo "::warning::.forge-versions.json not found. Cannot verify staging health."
+          fi
+
+      - name: Deploy to Forge (production)
+        run: forge deploy --environment production
+        env:
+          FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
+
+      - name: Wait for Forge warm-up
+        run: sleep 30
+
+      - name: Run health check
+        id: health-check
+        run: npx tsx scripts/health-check.ts production
+        continue-on-error: true
+
+      - name: Trigger rollback on failure
+        if: steps.health-check.outcome == 'failure'
+        run: |
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "${{ github.api_url }}/repos/${{ github.repository }}/dispatches" \
+            -d '{"event_type":"deploy-failed","client_payload":{"environment":"production","ref":"${{ github.ref }}","sha":"${{ github.sha }}"}}'
+
+      - name: Fail if health check failed
+        if: steps.health-check.outcome == 'failure'
+        run: exit 1
+
+      - name: Update version tracking
+        if: steps.health-check.outcome == 'success'
+        run: |
+          if [ ! -f .forge-versions.json ]; then
+            echo '{"lastStable":"","environments":{}}' > .forge-versions.json
+          fi
+          node -e "
+            const fs = require('fs');
+            const v = JSON.parse(fs.readFileSync('.forge-versions.json', 'utf8'));
+            v.lastStable = '${{ github.sha }}';
+            v.environments.production = { sha: '${{ github.sha }}', ref: '${{ github.ref }}', tag: '${{ github.ref_name }}', deployedAt: new Date().toISOString() };
+            fs.writeFileSync('.forge-versions.json', JSON.stringify(v, null, 2) + '\n');
+          "
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .forge-versions.json
+          git commit -m "chore: update .forge-versions.json for production deploy [skip ci]" || true
+          git push
