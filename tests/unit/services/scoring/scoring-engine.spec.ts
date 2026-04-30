@@ -6,6 +6,7 @@
 import {
   calculateScore,
   evaluateQualityGate,
+  generateAxisSuggestions,
   DEFAULT_AXIS_WEIGHTS,
   DEFAULT_SCORE_THRESHOLD,
   SCORING_PRECISION,
@@ -17,7 +18,7 @@ import type {
 } from '../../../../src/backend/services/scoring/scoring-engine';
 import type { JiraTicketData } from '../../../../src/backend/types/jira-data';
 import type { Inconsistency } from '../../../../src/backend/types/inconsistency';
-import type { ConsistencyScore } from '../../../../src/backend/types/consistency-score';
+import type { ConsistencyScore, ScoreAxes } from '../../../../src/backend/types/consistency-score';
 import { InsufficientDataError, ScoringError } from '../../../../src/backend/types/errors';
 
 // ---------------------------------------------------------------------------
@@ -901,5 +902,321 @@ describe('Integration: calculateScore -> evaluateQualityGate', () => {
     expect(definition.executionId).toBe(score.executionId);
     expect(execution.executionId).toBe(score.executionId);
     expect(delivery.executionId).toBe(score.executionId);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateAxisSuggestions
+// ---------------------------------------------------------------------------
+
+describe('generateAxisSuggestions', () => {
+  const defaultAxes: ScoreAxes = {
+    clarity: 50,
+    consistency: 60,
+    risk: 70,
+    documentation: 40,
+    technicalDebt: 65,
+  };
+
+  it('should return all 5 axes with score, label, and suggestions', () => {
+    const result = generateAxisSuggestions(makeTicket(), defaultAxes);
+
+    const expectedAxes: ScoringAxisName[] = [
+      'clarity',
+      'consistency',
+      'risk',
+      'documentation',
+      'technicalDebt',
+    ];
+    for (const axis of expectedAxes) {
+      const detail = result[axis];
+      expect(detail).toBeDefined();
+      expect(detail?.score).toBe(defaultAxes[axis]);
+      expect(typeof detail?.label).toBe('string');
+      expect(Array.isArray(detail?.suggestions)).toBe(true);
+      expect(detail?.suggestions.length).toBeGreaterThan(0);
+    }
+  });
+
+  // ─── Clarity suggestions ─────────────────
+
+  describe('clarity axis', () => {
+    it('should suggest expanding short descriptions', () => {
+      const ticket = makeTicket({ description: 'Short.' });
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const claritySuggestions = result.clarity?.suggestions ?? [];
+      expect(claritySuggestions.some((s) => s.includes('Expand the description'))).toBe(true);
+    });
+
+    it('should suggest adding acceptance criteria when missing', () => {
+      const ticket = makeTicket({
+        description:
+          'A sufficiently long description about implementing a new feature for the platform that exceeds two hundred characters in total length but does not mention any specific done conditions.',
+      });
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const claritySuggestions = result.clarity?.suggestions ?? [];
+      expect(claritySuggestions.some((s) => s.includes('acceptance criteria'))).toBe(true);
+    });
+
+    it('should suggest using markdown headings for long descriptions without structure', () => {
+      const ticket = makeTicket({
+        description:
+          'A description without any hash symbols or markdown headings that is longer than one hundred characters to trigger the heading suggestion rule in the scoring engine.',
+      });
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const claritySuggestions = result.clarity?.suggestions ?? [];
+      expect(
+        claritySuggestions.some((s) => s.includes('markdown headings') || s.includes('headings')),
+      ).toBe(true);
+    });
+
+    it('should suggest better summary length when too short', () => {
+      const ticket = makeTicket({ summary: 'Fix' });
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const claritySuggestions = result.clarity?.suggestions ?? [];
+      expect(claritySuggestions.some((s) => s.includes('summary'))).toBe(true);
+    });
+
+    it('should return positive feedback when description is well-structured', () => {
+      const ticket = makeTicket(); // Already has acceptance criteria and good description
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      // The makeTicket() fixture has acceptance criteria, good length, etc.
+      // If all clarity signals pass, it gets the fallback positive message
+      const claritySuggestions = result.clarity?.suggestions ?? [];
+      expect(claritySuggestions.length).toBeGreaterThan(0);
+    });
+  });
+
+  // ─── Consistency suggestions ─────────────
+
+  describe('consistency axis', () => {
+    it('should suggest aligning summary keywords with description', () => {
+      const ticket = makeTicket({
+        summary: 'Implement OAuth2 authentication protocol',
+        description:
+          'Completely unrelated description about something else entirely that has no overlap with the summary keywords at all.',
+      });
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const consistencySuggestions = result.consistency?.suggestions ?? [];
+      expect(
+        consistencySuggestions.some((s) => s.includes('summary') || s.includes('key terms')),
+      ).toBe(true);
+    });
+
+    it('should suggest expanding description relative to summary', () => {
+      const ticket = makeTicket({
+        summary:
+          'A very long summary about implementing complex authentication mechanism with multiple providers',
+        description: 'Do it.',
+      });
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const consistencySuggestions = result.consistency?.suggestions ?? [];
+      expect(
+        consistencySuggestions.some((s) => s.includes('Expand') || s.includes('elaborate')),
+      ).toBe(true);
+    });
+
+    it('should return positive feedback when summary and description are aligned', () => {
+      const ticket = makeTicket(); // Good alignment by default
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const consistencySuggestions = result.consistency?.suggestions ?? [];
+      expect(consistencySuggestions.some((s) => s.includes('well aligned'))).toBe(true);
+    });
+  });
+
+  // ─── Risk suggestions ────────────────────
+
+  describe('risk axis', () => {
+    it('should suggest assigning the ticket when unassigned', () => {
+      const ticket = makeTicket({ assignee: undefined });
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const riskSuggestions = result.risk?.suggestions ?? [];
+      expect(riskSuggestions.some((s) => s.includes('Assign'))).toBe(true);
+    });
+
+    it('should suggest setting priority when missing', () => {
+      const ticket = makeTicket({ priority: undefined });
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const riskSuggestions = result.risk?.suggestions ?? [];
+      expect(riskSuggestions.some((s) => s.includes('priority'))).toBe(true);
+    });
+
+    it('should suggest adding labels when none exist', () => {
+      const ticket = makeTicket({ labels: [] });
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const riskSuggestions = result.risk?.suggestions ?? [];
+      expect(riskSuggestions.some((s) => s.includes('labels') || s.includes('Labels'))).toBe(true);
+    });
+
+    it('should flag vague urgency language', () => {
+      const ticket = makeTicket({
+        description: 'Fix this ASAP. Urgent rewrite everything from scratch.',
+      });
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const riskSuggestions = result.risk?.suggestions ?? [];
+      expect(
+        riskSuggestions.some(
+          (s) => s.includes('vague') || s.includes('urgency') || s.includes('asap'),
+        ),
+      ).toBe(true);
+    });
+
+    it('should return positive feedback when risk signals are good', () => {
+      const ticket = makeTicket(); // Has assignee, priority, labels
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const riskSuggestions = result.risk?.suggestions ?? [];
+      expect(riskSuggestions.some((s) => s.includes('look good') || s.includes('good'))).toBe(true);
+    });
+  });
+
+  // ─── Documentation suggestions ───────────
+
+  describe('documentation axis', () => {
+    it('should suggest adding more labels when fewer than 2', () => {
+      const ticket = makeTicket({ labels: ['only-one'] });
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const docSuggestions = result.documentation?.suggestions ?? [];
+      expect(docSuggestions.some((s) => s.includes('labels') && s.includes('recommended'))).toBe(
+        true,
+      );
+    });
+
+    it('should suggest adding documentation links', () => {
+      const ticket = makeTicket({
+        description: 'A description without any external links or references to team wiki pages.',
+      });
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const docSuggestions = result.documentation?.suggestions ?? [];
+      expect(
+        docSuggestions.some((s) => s.includes('documentation') || s.includes('Confluence')),
+      ).toBe(true);
+    });
+
+    it('should suggest more descriptive summary when too short', () => {
+      const ticket = makeTicket({ summary: 'Do' });
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const docSuggestions = result.documentation?.suggestions ?? [];
+      expect(docSuggestions.some((s) => s.includes('descriptive summary'))).toBe(true);
+    });
+
+    it('should return positive feedback when documentation is complete', () => {
+      const ticket = makeTicket({
+        labels: ['auth', 'security', 'backend'],
+        assignee: 'dev@example.com',
+        description: 'See http://docs.example.com for details. Also check confluence page.',
+        summary: 'Implement user authentication with OAuth2',
+      });
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const docSuggestions = result.documentation?.suggestions ?? [];
+      expect(docSuggestions.some((s) => s.includes('complete'))).toBe(true);
+    });
+  });
+
+  // ─── Technical Debt suggestions ──────────
+
+  describe('technicalDebt axis', () => {
+    it('should flag debt-indicating keywords', () => {
+      const ticket = makeTicket({
+        description: 'This is a temporary hack workaround for a quick fix.',
+      });
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const debtSuggestions = result.technicalDebt?.suggestions ?? [];
+      expect(
+        debtSuggestions.some(
+          (s) => s.includes('hack') || s.includes('workaround') || s.includes('debt'),
+        ),
+      ).toBe(true);
+    });
+
+    it('should suggest breaking Epics into smaller tasks', () => {
+      const ticket = makeTicket({ issueType: 'Epic' });
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const debtSuggestions = result.technicalDebt?.suggestions ?? [];
+      expect(debtSuggestions.some((s) => s.includes('Epic') || s.includes('smaller'))).toBe(true);
+    });
+
+    it('should suggest splitting very long descriptions', () => {
+      const longDescription = 'A'.repeat(2500);
+      const ticket = makeTicket({ description: longDescription });
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const debtSuggestions = result.technicalDebt?.suggestions ?? [];
+      expect(debtSuggestions.some((s) => s.includes('splitting') || s.includes('long'))).toBe(true);
+    });
+
+    it('should suggest adding acceptance criteria for scoping', () => {
+      const ticket = makeTicket({ description: 'No criteria section here.' });
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const debtSuggestions = result.technicalDebt?.suggestions ?? [];
+      expect(debtSuggestions.some((s) => s.includes('acceptance criteria'))).toBe(true);
+    });
+
+    it('should return positive feedback when technical debt signals are good', () => {
+      const ticket = makeTicket({
+        issueType: 'Task',
+        description: 'Implement feature.\n\nAcceptance criteria:\n- Feature works\n- Tests pass',
+      });
+      const result = generateAxisSuggestions(ticket, defaultAxes);
+
+      const debtSuggestions = result.technicalDebt?.suggestions ?? [];
+      expect(debtSuggestions.some((s) => s.includes('well-scoped') || s.includes('low'))).toBe(
+        true,
+      );
+    });
+  });
+
+  // ─── Label mapping ───────────────────────
+
+  describe('axis labels', () => {
+    it('should use human-readable labels for each axis', () => {
+      const result = generateAxisSuggestions(makeTicket(), defaultAxes);
+
+      expect(result.clarity?.label).toBe('Clarity');
+      expect(result.consistency?.label).toBe('Consistency');
+      expect(result.risk?.label).toBe('Risk');
+      expect(result.documentation?.label).toBe('Documentation');
+      expect(result.technicalDebt?.label).toBe('Technical Debt');
+    });
+  });
+
+  // ─── Score passthrough ───────────────────
+
+  describe('score passthrough', () => {
+    it('should pass through the exact axis scores from input', () => {
+      const customAxes: ScoreAxes = {
+        clarity: 12,
+        consistency: 34,
+        risk: 56,
+        documentation: 78,
+        technicalDebt: 91,
+      };
+      const result = generateAxisSuggestions(makeTicket(), customAxes);
+
+      expect(result.clarity?.score).toBe(12);
+      expect(result.consistency?.score).toBe(34);
+      expect(result.risk?.score).toBe(56);
+      expect(result.documentation?.score).toBe(78);
+      expect(result.technicalDebt?.score).toBe(91);
+    });
   });
 });

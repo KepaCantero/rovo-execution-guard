@@ -5,7 +5,7 @@
 // [FORGE-OPS-005] Timeout via AbortController (default 10s)
 // [FORGE-OPS-0105] Stateless functions, no module-level mutable state
 
-import { requestJira, route, type APIResponse, type FetchOptions } from '@forge/api';
+import { route, asUser, type APIResponse, type FetchOptions } from '@forge/api';
 import type { JiraTicketData, JiraTransition } from '../../types/jira-data';
 import type { ProjectConfig } from '../../types/project-config';
 import {
@@ -188,23 +188,22 @@ function handleJiraError(
  */
 async function executeJiraRequest(
   operation: string,
-  urlPath: string,
+  urlPath: ReturnType<typeof route>,
   options: ForgeRequestOptions,
   executionId: string | undefined,
   timeoutMs: number,
   retryConfig: RetryConfig = DEFAULT_RETRY_CONFIG,
 ): Promise<APIResponse> {
   const { signal, clear } = createAbortController(timeoutMs);
-  const url = route`${urlPath}`;
 
   try {
-    log('info', operation, executionId, { url: urlPath, method: options.method ?? 'GET' });
+    log('info', operation, executionId, { url: urlPath.value, method: options.method ?? 'GET' });
 
     let lastResponse: APIResponse | undefined;
 
     for (let attempt = 0; attempt <= retryConfig.maxRetries; attempt++) {
       try {
-        const response = await requestJira(url, { ...options, signal });
+        const response = await asUser().requestJira(urlPath, { ...options, signal });
 
         if (response.status === HTTP_RATE_LIMITED && attempt < retryConfig.maxRetries) {
           const delayMs = Math.min(
@@ -357,8 +356,7 @@ export async function getTicketData(
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ): Promise<JiraTicketData> {
   const operation = 'getTicketData';
-  // [ARCH-SOLID-003] Only request needed fields, not expand=all
-  const urlPath = `/rest/api/2/issue/${issueKey}?fields=summary,description,status,assignee,reporter,priority,issuetype,labels,project,created,updated`;
+  const urlPath = route`/rest/api/2/issue/${issueKey}?fields=summary,description,status,assignee,reporter,priority,issuetype,labels,project,created,updated`;
 
   const response = await executeJiraRequest(
     operation,
@@ -400,7 +398,7 @@ export async function getProjectConfig(
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ): Promise<ProjectConfig> {
   const operation = 'getProjectConfig';
-  const urlPath = `/rest/api/2/project/${projectKey}/properties/com.rovo.execution-guard.config`;
+  const urlPath = route`/rest/api/2/project/${projectKey}/properties/com.rovo.execution-guard.config`;
 
   try {
     const response = await executeJiraRequest(
@@ -443,7 +441,7 @@ export async function saveProjectConfig(
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ): Promise<void> {
   const operation = 'saveProjectConfig';
-  const urlPath = `/rest/api/2/project/${config.projectKey}/properties/com.rovo.execution-guard.config`;
+  const urlPath = route`/rest/api/2/project/${config.projectKey}/properties/com.rovo.execution-guard.config`;
 
   await executeJiraRequest(
     operation,
@@ -480,7 +478,7 @@ export async function transitionIssue(
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ): Promise<void> {
   const operation = 'transitionIssue';
-  const urlPath = `/rest/api/2/issue/${issueKey}/transitions`;
+  const urlPath = route`/rest/api/2/issue/${issueKey}/transitions`;
 
   const response = await executeJiraRequest(
     operation,
@@ -517,7 +515,7 @@ export async function getTransitions(
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ): Promise<readonly JiraTransition[]> {
   const operation = 'getTransitions';
-  const urlPath = `/rest/api/2/issue/${issueKey}/transitions`;
+  const urlPath = route`/rest/api/2/issue/${issueKey}/transitions`;
 
   const response = await executeJiraRequest(
     operation,
@@ -561,7 +559,7 @@ export async function addComment(
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ): Promise<void> {
   const operation = 'addComment';
-  const urlPath = `/rest/api/2/issue/${issueKey}/comment`;
+  const urlPath = route`/rest/api/2/issue/${issueKey}/comment`;
 
   await executeJiraRequest(
     operation,
@@ -596,8 +594,7 @@ export async function getIssueStatus(
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ): Promise<string> {
   const operation = 'getIssueStatus';
-  // [ARCH-SOLID-003] [SEC-PRIV-008] Only request status field
-  const urlPath = `/rest/api/2/issue/${issueKey}?fields=status`;
+  const urlPath = route`/rest/api/2/issue/${issueKey}?fields=status`;
 
   const response = await executeJiraRequest(
     operation,

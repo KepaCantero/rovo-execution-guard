@@ -10,7 +10,6 @@ import {
   addBreadcrumb,
   setContext,
   setTag,
-  Severity,
 } from '@sentry/browser';
 
 // --- Types ---
@@ -108,7 +107,7 @@ export const addErrorBreadcrumb = (breadcrumb: BrowserSentryBreadcrumb): void =>
     addBreadcrumb({
       category: breadcrumb.category,
       message: breadcrumb.message,
-      level: breadcrumb.level as Severity,
+      level: breadcrumb.level,
       data: breadcrumb.data ?? {},
     });
   } catch {

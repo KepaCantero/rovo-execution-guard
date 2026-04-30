@@ -56,6 +56,9 @@ permissions:
     - read:confluence-content.all
     - write:confluence-content
     - storage:app
+  content:
+    styles:
+      - 'unsafe-inline'
   external:
     fetch:
       backend:

@@ -4,7 +4,7 @@
 // [ARCH-SOLID-202] Zero any usage
 // [ARCH-SOLID-0802] Proprietary weighted scoring combining multiple signals
 
-import type { ConsistencyScore, ScoreAxes } from '../../types/consistency-score';
+import type { ConsistencyScore, ScoreAxes, AxisDetail } from '../../types/consistency-score';
 import type { QualityGateResult, GateType } from '../../types/quality-gate';
 import type { Inconsistency } from '../../types/inconsistency';
 import type { ProjectConfig } from '../../types/project-config';
@@ -574,4 +574,156 @@ export const evaluateQualityGate = (
     blockedTransitions,
     executionId: score.executionId,
   };
+};
+
+// ---------------------------------------------------------------------------
+// Axis Suggestions
+// ---------------------------------------------------------------------------
+
+/** Human-readable descriptions of each scoring axis, used for Rovo prompts */
+export const AXIS_DESCRIPTIONS: Readonly<Record<ScoringAxisName, string>> = {
+  clarity:
+    'Measures how clear and unambiguous the ticket description is. Considers description length, structure (headings, paragraphs), acceptance criteria, and summary quality.',
+  consistency:
+    'Measures alignment between summary and description. Evaluates keyword overlap and whether the description elaborates on the summary.',
+  risk: 'Measures risk exposure based on missing fields (assignee, priority, labels), vague urgency language, and incomplete information.',
+  documentation:
+    'Measures completeness of documentation: labels, assignee, reporter, priority, summary quality, and links to external documentation.',
+  technicalDebt:
+    'Measures scoping quality: focused issue types, well-sized descriptions, acceptance criteria, and absence of debt-indicating keywords.',
+};
+
+/** Human-readable labels for each axis */
+const AXIS_LABELS: Readonly<Record<ScoringAxisName, string>> = {
+  clarity: 'Clarity',
+  consistency: 'Consistency',
+  risk: 'Risk',
+  documentation: 'Documentation',
+  technicalDebt: 'Technical Debt',
+} as const;
+
+const ensureNonEmpty = (items: string[], fallback: string): string[] =>
+  items.length > 0 ? items : [fallback];
+
+const claritySuggestions = (desc: string, summaryLen: number): string[] => {
+  const out: string[] = [];
+  const descLen = desc.length;
+  const descLower = desc.toLowerCase();
+  if (descLen < 200)
+    out.push(`Expand the description (currently ${descLen} characters, recommended 200+).`);
+  if (!descLower.includes('acceptance criteria') && !descLower.includes('## acceptance'))
+    out.push('Add acceptance criteria to define when the task is complete.');
+  if (!desc.includes('\n\n') && descLen > 50)
+    out.push('Break the description into sections with headings for better readability.');
+  if (!desc.includes('#') && descLen > 100)
+    out.push('Use markdown headings (##) to structure the description.');
+  if (summaryLen < 20 || summaryLen > 100)
+    out.push('Use a summary between 20-100 characters that clearly states the goal.');
+  return ensureNonEmpty(out, 'Description is clear and well-structured.');
+};
+
+const consistencySuggestions = (desc: string, summary: string): string[] => {
+  const out: string[] = [];
+  const summaryWords = summary
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 3);
+  const descLower = desc.toLowerCase();
+  const overlap = summaryWords.filter((w) => descLower.includes(w));
+  if (summaryWords.length > 0 && overlap.length / summaryWords.length < 0.5)
+    out.push('Ensure key terms from the summary appear in the description.');
+  if (desc.length < summary.length * 3)
+    out.push('Expand the description to elaborate on the summary in more detail.');
+  return ensureNonEmpty(out, 'Summary and description are well aligned.');
+};
+
+const riskSuggestions = (
+  desc: string,
+  hasAssignee: boolean,
+  hasPriority: boolean,
+  labelCount: number,
+): string[] => {
+  const out: string[] = [];
+  if (!hasAssignee) out.push('Assign the ticket to a responsible team member.');
+  if (!hasPriority) out.push('Set a priority level to indicate urgency.');
+  if (labelCount === 0) out.push('Add labels for categorization and traceability.');
+  const vaguePatterns = /\b(asap|urgent|rewrite everything|from scratch|fix asap)\b/i;
+  if (vaguePatterns.test(desc))
+    out.push('Replace vague urgency language ("asap", "urgent") with specific timelines.');
+  if (hasPriority && desc.length < 200)
+    out.push('High-priority tickets should have detailed descriptions.');
+  return ensureNonEmpty(out, 'Risk indicators look good.');
+};
+
+const documentationSuggestions = (
+  desc: string,
+  summary: string,
+  hasAssignee: boolean,
+  labelCount: number,
+): string[] => {
+  const out: string[] = [];
+  const descLower = desc.toLowerCase();
+  if (labelCount < 2) out.push(`Add more labels (currently ${labelCount}, recommended 2+).`);
+  if (!hasAssignee) out.push('Assign the ticket for accountability.');
+  if (!descLower.includes('http') && !descLower.includes('confluence'))
+    out.push('Add links to relevant documentation or Confluence pages.');
+  if (summary.length < 15) out.push('Use a more descriptive summary (15+ characters).');
+  return ensureNonEmpty(out, 'Documentation is complete.');
+};
+
+const technicalDebtSuggestions = (desc: string, issueType: string): string[] => {
+  const out: string[] = [];
+  const debtKeywords =
+    /\b(hack|workaround|temporary|quick fix|rewrite|refactor all|from scratch)\b/i;
+  if (debtKeywords.test(desc))
+    out.push(
+      'Avoid debt-indicating keywords (hack, workaround, temporary, quick fix). Consider a proper solution.',
+    );
+  if (issueType === 'Epic')
+    out.push('Break this Epic into smaller, focused Stories or Tasks for better scoping.');
+  if (desc.length > 2000)
+    out.push('Description is very long (2000+ chars). Consider splitting into smaller tickets.');
+  if (!desc.toLowerCase().includes('acceptance criteria'))
+    out.push('Add acceptance criteria to clearly scope the work.');
+  return ensureNonEmpty(out, 'Ticket is well-scoped with low technical debt risk.');
+};
+
+/**
+ * Generates per-axis actionable suggestions based on scoring signals.
+ * These are static suggestions derived from the same signals the scoring engine uses.
+ * Used as fallback when Rovo AI is not available.
+ */
+export const generateAxisSuggestions = (
+  ticket: JiraTicketData,
+  axes: ScoreAxes,
+): Record<string, AxisDetail> => {
+  const desc = ticket.description ?? '';
+  const hasAssignee = !!ticket.assignee;
+  const hasPriority = !!ticket.priority;
+  const labelCount = ticket.labels.length;
+
+  const suggestions: Record<ScoringAxisName, string[]> = {
+    clarity: claritySuggestions(desc, ticket.summary.length),
+    consistency: consistencySuggestions(desc, ticket.summary),
+    risk: riskSuggestions(desc, hasAssignee, hasPriority, labelCount),
+    documentation: documentationSuggestions(desc, ticket.summary, hasAssignee, labelCount),
+    technicalDebt: technicalDebtSuggestions(desc, ticket.issueType),
+  };
+
+  const result: Record<string, AxisDetail> = {};
+  const axisNames: ScoringAxisName[] = [
+    'clarity',
+    'consistency',
+    'risk',
+    'documentation',
+    'technicalDebt',
+  ];
+  for (const name of axisNames) {
+    result[name] = {
+      score: axes[name],
+      label: AXIS_LABELS[name],
+      suggestions: suggestions[name],
+    };
+  }
+  return result;
 };

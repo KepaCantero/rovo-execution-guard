@@ -29,6 +29,10 @@ import {
   saveProjectConfig,
 } from '../../../src/backend/services/jira/jira-adapter';
 import { getContext } from '../../../src/backend/services/rovo/rovo-adapter';
+import {
+  writeAuditEntry,
+  readAuditEntries,
+} from '../../../src/backend/services/audit/audit-service';
 
 // ═══════════════════════════════════════════
 // MOCKS
@@ -53,6 +57,7 @@ jest.mock('../../../src/backend/services/scoring/quality-gate-rules');
 jest.mock('../../../src/backend/services/evaluation/evaluation-pipeline');
 jest.mock('../../../src/backend/services/jira/jira-adapter');
 jest.mock('../../../src/backend/services/rovo/rovo-adapter');
+jest.mock('../../../src/backend/services/audit/audit-service');
 
 const mockedCalculateScore = calculateScore as jest.MockedFunction<typeof calculateScore>;
 const mockedDetectInconsistencies = detectInconsistencies as jest.MockedFunction<
@@ -66,6 +71,8 @@ const mockedGetTicketData = getTicketData as jest.MockedFunction<typeof getTicke
 const mockedGetProjectConfig = getProjectConfig as jest.MockedFunction<typeof getProjectConfig>;
 const mockedSaveProjectConfig = saveProjectConfig as jest.MockedFunction<typeof saveProjectConfig>;
 const mockedGetContext = getContext as jest.MockedFunction<typeof getContext>;
+const mockedWriteAuditEntry = writeAuditEntry as jest.MockedFunction<typeof writeAuditEntry>;
+const mockedReadAuditEntries = readAuditEntries as jest.MockedFunction<typeof readAuditEntries>;
 
 // Reference to the shared mock for assertions
 const mockedResolverDefine = defineMock;
@@ -189,6 +196,8 @@ describe('Custom UI Resolvers (index.ts)', () => {
       query: '',
       timestamp: '',
     });
+    mockedWriteAuditEntry.mockResolvedValue(undefined);
+    mockedReadAuditEntries.mockResolvedValue([]);
   });
 
   // ─── AC-01, AC-02: Registration ────────────
@@ -713,7 +722,7 @@ describe('Custom UI Resolvers (index.ts)', () => {
       expect(data.overall).toBe(85);
       expect(mockedEvaluateTicketForGate).toHaveBeenCalledWith(
         'PROJ-123',
-        'In Progress',
+        'To Do',
         MOCK_CONFIG,
         expect.any(String),
       );

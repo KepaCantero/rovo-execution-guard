@@ -19,7 +19,11 @@ import type { ProjectConfig } from '../types/project-config';
 import type { AuditLogEntry } from '../types/audit-log';
 import { REGError } from '../types/errors';
 
-import { calculateScore, type ScoringInput } from '../services/scoring/scoring-engine';
+import {
+  calculateScore,
+  generateAxisSuggestions,
+  type ScoringInput,
+} from '../services/scoring/scoring-engine';
 import { detectInconsistencies } from '../services/scoring/inconsistency-detector';
 import { evaluateGate, type GateEvaluationInput } from '../services/scoring/quality-gate-rules';
 import {
@@ -283,7 +287,29 @@ const handleGetConsistencyScore = async (
   const input: ScoringInput = { ticket };
   const score = calculateScore(input);
 
-  return success(score, executionId);
+  const axisDetails = generateAxisSuggestions(ticket, score.axes);
+  const projectKey = issueKey.split('-')[0] ?? '';
+  let config: ProjectConfig | undefined;
+  try {
+    config = await getProjectConfig(projectKey, executionId, RESOLVER_TIMEOUT_MS);
+  } catch {
+    // Config fetch is optional for suggestions — use defaults
+  }
+
+  const scoreWithContext: ConsistencyScore = {
+    ...score,
+    axisDetails,
+    ticketContext: {
+      issueKey,
+      summary: ticket.summary,
+      description: ticket.description,
+      projectKey,
+      scoreThreshold: config?.scoreThreshold ?? 80,
+      gates: config?.gates ?? { definition: true, execution: true, delivery: true },
+    },
+  };
+
+  return success(scoreWithContext, executionId);
 };
 
 /**
@@ -662,6 +688,27 @@ const wrapHandler = (
       return failure(message, executionId);
     }
   };
+};
+
+// ═══════════════════════════════════════════
+// RESOLVER REGISTRATION
+// ═══════════════════════════════════════════
+
+/**
+ * Creates a fresh Resolver instance with all definitions registered.
+ * Used by tests for isolated resolver creation. The lazy handler export
+ * below uses the same logic for production Forge invocations.
+ * [FORGE-OPS-003] 8 resolvers count against 100 module limit
+ */
+export const registerResolvers = (): Resolver => {
+  const resolverInstance = new Resolver();
+  const rateLimiter = createRateLimiter(DEFAULT_RATE_LIMIT);
+
+  for (const definition of RESOLVER_DEFINITIONS) {
+    resolverInstance.define(definition.name, wrapHandler(definition, rateLimiter));
+  }
+
+  return resolverInstance;
 };
 
 // ═══════════════════════════════════════════
