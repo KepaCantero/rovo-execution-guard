@@ -35,6 +35,100 @@ modules:
       function: webhook-fn
       responseMessage: Webhook received
 
+  # [ROVO-INTEG-001] Rovo Agent definition with 5 actions
+  rovo:agent:
+    - key: consistency-guard
+      name: "Consistency Guard"
+      description: "Validates consistency between Jira, Confluence, and GitHub, explains scoring, and suggests improvements."
+      prompt: resource:agent-prompts;consistency-guard.txt
+      conversationStarters:
+        - "Evaluate the current issue for consistency"
+        - "What is wrong with this ticket's documentation score?"
+        - "Check if this issue aligns with our Confluence specs"
+        - "Suggest improvements for my ticket's clarity"
+        - "Explain why my workflow transition was blocked"
+      actions:
+        - evaluate-issue
+        - check-pr-consistency
+        - validate-spec-alignment
+        - explain-score
+        - get-improvement-tips
+      followUpPrompt: >
+        Based on the analysis above, would you like me to suggest specific edits
+        to improve the ticket, or shall I re-evaluate after you make changes?
+
+  # [ROVO-INTEG-001] Actions for Consistency Guard agent
+  action:
+    - key: evaluate-issue
+      function: agent-action-fn
+      actionVerb: GET
+      name: Evaluate Issue
+      description: "Runs the full consistency evaluation on a Jira issue, returning scores, inconsistencies, and gate status."
+      inputs:
+        issueKey:
+          title: Issue Key
+          type: string
+          required: true
+          description: "The Jira issue key to evaluate (e.g., PROJ-123)"
+
+    - key: check-pr-consistency
+      function: agent-action-fn
+      actionVerb: GET
+      name: Check PR Consistency
+      description: "Checks consistency between a GitHub PR and its linked Jira issue."
+      inputs:
+        prUrl:
+          title: PR URL
+          type: string
+          required: true
+          description: "The GitHub PR URL to check"
+        issueKey:
+          title: Issue Key
+          type: string
+          required: true
+          description: "The linked Jira issue key"
+
+    - key: validate-spec-alignment
+      function: agent-action-fn
+      actionVerb: GET
+      name: Validate Spec Alignment
+      description: "Validates that a Jira issue aligns with its related Confluence specification pages."
+      inputs:
+        issueKey:
+          title: Issue Key
+          type: string
+          required: true
+          description: "The Jira issue key to validate"
+
+    - key: explain-score
+      function: agent-action-fn
+      actionVerb: GET
+      name: Explain Score
+      description: "Provides a detailed explanation of how each scoring axis was calculated for a given issue."
+      inputs:
+        issueKey:
+          title: Issue Key
+          type: string
+          required: true
+          description: "The Jira issue key to explain"
+
+    - key: get-improvement-tips
+      function: agent-action-fn
+      actionVerb: GET
+      name: Get Improvement Tips
+      description: "Generates specific, actionable improvement suggestions for a Jira issue based on its consistency analysis."
+      inputs:
+        issueKey:
+          title: Issue Key
+          type: string
+          required: true
+          description: "The Jira issue key to improve"
+        focusAxis:
+          title: Focus Axis
+          type: string
+          required: false
+          description: "Optional: focus suggestions on one axis (clarity, consistency, risk, documentation, technicalDebt)"
+
   function:
     - key: resolver-fn
       handler: resolver-handler.handler
@@ -42,12 +136,16 @@ modules:
       handler: transition-handler.handler
     - key: webhook-fn
       handler: webhook-handler.handler
+    - key: agent-action-fn
+      handler: agent-action-handler.handler
 
 resources:
   - key: issue-panel-resource
     path: src/frontend/custom-ui/issue-panel
   - key: admin-dash-resource
     path: src/frontend/custom-ui/admin-dashboard
+  - key: agent-prompts
+    path: src/backend/services/rovo/agent-prompts
 
 permissions:
   scopes:
