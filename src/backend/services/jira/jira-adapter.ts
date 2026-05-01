@@ -6,7 +6,7 @@
 // [FORGE-OPS-0105] Stateless functions, no module-level mutable state
 
 import { route, asUser, type APIResponse, type FetchOptions } from '@forge/api';
-import type { JiraTicketData, JiraTransition } from '../../types/jira-data';
+import type { JiraTicketData, JiraTransition, JiraIssueLink } from '../../types/jira-data';
 import type { ProjectConfig } from '../../types/project-config';
 import {
   JiraApiError,
@@ -52,6 +52,10 @@ interface JiraIssueFields {
   readonly project: { readonly key: string };
   readonly created: string;
   readonly updated: string;
+  // RTASK-042: Relationship fields [SEC-PRIV-008]
+  readonly issuelinks?: readonly unknown[];
+  readonly fixVersions?: readonly { readonly name: string }[];
+  readonly customfield_10014?: string;
 }
 
 /** [ARCH-SOLID-203] Interface for raw Jira issue API response */
@@ -317,6 +321,11 @@ function mapIssueToTicketData(issue: JiraIssueResponse): JiraTicketData {
     projectKey: fields.project.key,
     created: fields.created,
     updated: fields.updated,
+    // RTASK-042: Relationship fields [SEC-PRIV-008]
+    epicKey: fields.customfield_10014 ?? undefined,
+    epicSummary: undefined,
+    issueLinks: mapIssueLinks(fields.issuelinks),
+    fixVersions: mapFixVersions(fields.fixVersions),
   };
 }
 
@@ -332,8 +341,82 @@ function mapTransitionResponse(t: JiraTransitionResponse): JiraTransition {
   };
 }
 
+/**
+ * Extracts a JiraIssueLink from a raw inward or outward issue reference.
+ * [ARCH-SOLID-202] Zero any — all values validated before use
+ */
+function extractLinkTarget(
+  issue: unknown,
+  direction: 'inward' | 'outward',
+  typeName: string,
+): JiraIssueLink | undefined {
+  if (typeof issue !== 'object' || issue === null) return undefined;
+  const rec = issue as Record<string, unknown>;
+  const fields = rec['fields'];
+  if (typeof fields !== 'object' || fields === null) return undefined;
+  const f = fields as Record<string, unknown>;
+  const statusObj = f['status'];
+  const statusName =
+    typeof statusObj === 'object' && statusObj !== null
+      ? (statusObj as Record<string, unknown>)['name']
+      : undefined;
+
+  return {
+    type: typeName,
+    direction,
+    targetKey: typeof rec['key'] === 'string' ? rec['key'] : '',
+    targetSummary: typeof f['summary'] === 'string' ? f['summary'] : '',
+    targetStatus: typeof statusName === 'string' ? statusName : '',
+  };
+}
+
+/**
+ * Maps a raw Jira issuelinks item to JiraIssueLink.
+ * Returns undefined for malformed links (filtered out by caller).
+ * [SEC-PRIV-004] Validates external API responses before casting
+ */
+function mapIssueLink(raw: unknown): JiraIssueLink | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined;
+  const link = raw as Record<string, unknown>;
+  const typeObj = link['type'];
+  if (typeof typeObj !== 'object' || typeObj === null) return undefined;
+  const typeName = (typeObj as Record<string, unknown>)['name'];
+  if (typeof typeName !== 'string') return undefined;
+
+  const outward = extractLinkTarget(link['outwardIssue'], 'outward', typeName);
+  if (outward) return outward;
+
+  const inward = extractLinkTarget(link['inwardIssue'], 'inward', typeName);
+  if (inward) return inward;
+
+  return undefined;
+}
+
+/**
+ * Maps raw issuelinks array to typed JiraIssueLink[].
+ * Filters out malformed entries. Returns undefined when absent.
+ * [SEC-PRIV-008] Data minimization — only extracts needed fields
+ */
+function mapIssueLinks(raw: readonly unknown[] | undefined): readonly JiraIssueLink[] | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  const mapped = raw.map(mapIssueLink).filter((l): l is JiraIssueLink => l !== undefined);
+  return mapped.length > 0 ? mapped : undefined;
+}
+
+/**
+ * Maps raw fixVersions array to string[].
+ * Returns undefined when absent.
+ */
+function mapFixVersions(
+  raw: readonly { readonly name: string }[] | undefined,
+): readonly string[] | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  const mapped = raw.map((v) => v.name);
+  return mapped.length > 0 ? mapped : undefined;
+}
+
 // ═══════════════════════════════════════════
-// PUBLIC API — 7 Adapter Functions
+// PUBLIC API — 9 Adapter Functions
 // ═══════════════════════════════════════════
 
 /**
@@ -356,7 +439,7 @@ export async function getTicketData(
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ): Promise<JiraTicketData> {
   const operation = 'getTicketData';
-  const urlPath = route`/rest/api/2/issue/${issueKey}?fields=summary,description,status,assignee,reporter,priority,issuetype,labels,project,created,updated`;
+  const urlPath = route`/rest/api/2/issue/${issueKey}?fields=summary,description,status,assignee,reporter,priority,issuetype,labels,project,created,updated,issuelinks,fixVersions,customfield_10014`;
 
   const response = await executeJiraRequest(
     operation,
@@ -617,9 +700,140 @@ export async function getIssueStatus(
   return data.fields.status.name;
 }
 
+/**
+ * Search for Jira issues using JQL.
+ * Used by RTASK-038 for project bootstrap and resync.
+ *
+ * REGLA: [FORGE-OPS-005] timeout, [FORGE-OPS-0101] 8s budget,
+ *        [ARCH-SOLID-003] field minimization, [SEC-PRIV-008] data minimization
+ *
+ * @param jql - JQL query string
+ * @param maxResults - Maximum results to return (default 50, max 100)
+ * @param executionId - Optional correlation ID for structured logging
+ * @returns Readonly array of JiraTicketData matching the query
+ * @throws {JiraApiError} on API failure
+ * @throws {TimeoutError} if request exceeds timeout
+ */
+export async function searchByJQL(
+  jql: string,
+  maxResults?: number,
+  executionId?: string,
+): Promise<readonly JiraTicketData[]> {
+  const operation = 'searchByJQL';
+  const cappedMax = Math.min(maxResults ?? 50, 100);
+  const fields =
+    'summary,status,issuetype,labels,project,created,updated,issuelinks,fixVersions,customfield_10014';
+  const urlPath = route`/rest/api/2/search?jql=${jql}&fields=${fields}&maxResults=${String(cappedMax)}`;
+
+  const response = await executeJiraRequest(
+    operation,
+    urlPath,
+    { method: 'GET' },
+    executionId,
+    DEFAULT_TIMEOUT_MS,
+  );
+
+  const data: unknown = await response.json();
+
+  if (!isJiraSearchResponse(data)) {
+    throw new JiraApiError(
+      `${operation}: invalid search response`,
+      'JIRA_INVALID_RESPONSE',
+      executionId,
+    );
+  }
+
+  return data.issues.filter(isJiraIssueResponse).map(mapIssueToTicketData);
+}
+
+/**
+ * Fetch all issues that belong to a given epic.
+ * Tries new Jira Cloud hierarchy (parent=) first, falls back to classic Epic Link.
+ *
+ * REGLA: [FORGE-OPS-005] timeout, [ARCH-SOLID-053] graceful error handling
+ *
+ * @param epicKey - The epic issue key (e.g., "PROJ-100")
+ * @param executionId - Optional correlation ID for structured logging
+ * @returns Readonly array of child JiraTicketData (empty if no children or errors)
+ */
+export async function getEpicChildren(
+  epicKey: string,
+  executionId?: string,
+): Promise<readonly JiraTicketData[]> {
+  // Try new Jira Cloud hierarchy: parent = {epicKey}
+  try {
+    const children = await searchByJQL(`parent = ${epicKey}`, 100, executionId);
+    if (children.length > 0) return children;
+  } catch {
+    // parent = might not be supported — try classic fallback
+  }
+
+  // Classic fallback: "Epic Link" = {epicKey}
+  try {
+    return await searchByJQL(`"Epic Link" = ${epicKey}`, 100, executionId);
+  } catch {
+    // Both queries failed — graceful degradation
+    log('warn', 'getEpicChildren', executionId, {
+      epicKey,
+      note: 'both parent= and Epic Link JQL queries failed',
+    });
+    return [];
+  }
+}
+
 // ═══════════════════════════════════════════
 // PRIVATE HELPERS — Validation & Parsing
 // ═══════════════════════════════════════════
+
+/**
+ * Discover the epic link custom field ID for the current Jira instance.
+ * [FORGE-OPS-0105] Stateless — no caching, fresh discovery every call.
+ * Calls /rest/api/3/field, searches for "Epic Link" name or gh-epic-link schema.
+ * Falls back to customfield_10014.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function discoverEpicLinkField(executionId?: string): Promise<string> {
+  const operation = 'discoverEpicLinkField';
+  const urlPath = route`/rest/api/3/field`;
+
+  const response = await executeJiraRequest(
+    operation,
+    urlPath,
+    { method: 'GET' },
+    executionId,
+    DEFAULT_TIMEOUT_MS,
+  );
+
+  const data: unknown = await response.json();
+
+  if (!Array.isArray(data)) {
+    log('warn', operation, executionId, {
+      note: 'field discovery returned non-array, using fallback customfield_10014',
+    });
+    return 'customfield_10014';
+  }
+
+  const fields = data as readonly Record<string, unknown>[];
+  const epicField = fields.find((field) => {
+    const name = field['name'];
+    if (typeof name === 'string' && name === 'Epic Link') return true;
+    const schema = field['schema'];
+    if (typeof schema === 'object' && schema !== null) {
+      const custom = (schema as Record<string, unknown>)['custom'];
+      if (typeof custom === 'string' && custom === 'gh-epic-link') return true;
+    }
+    return false;
+  });
+
+  if (epicField && typeof epicField['id'] === 'string') {
+    return epicField['id'];
+  }
+
+  log('info', operation, executionId, {
+    note: 'epic field not found in discovery, using fallback customfield_10014',
+  });
+  return 'customfield_10014';
+}
 
 /**
  * Validates that a transition response doesn't indicate a blocked transition.
@@ -679,6 +893,18 @@ function isTransitionsResponse(data: unknown): data is {
     data !== null &&
     'transitions' in data &&
     Array.isArray((data as { transitions: unknown }).transitions)
+  );
+}
+
+/** [ARCH-SOLID-202] Type guard for Jira search API response */
+function isJiraSearchResponse(
+  data: unknown,
+): data is { readonly issues: readonly unknown[]; readonly total: number } {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'issues' in data &&
+    Array.isArray((data as { issues: unknown }).issues)
   );
 }
 

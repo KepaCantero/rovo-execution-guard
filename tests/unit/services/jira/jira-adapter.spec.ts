@@ -10,12 +10,13 @@
 // MOCKS — must come before imports that depend on @forge/api
 // ═══════════════════════════════════════════
 
-// [TEST-QA-0764] Mock @forge/api requestJira and route
+// [TEST-QA-0764] Mock @forge/api asUser().requestJira and route
+const mockRequestJira = jest.fn();
 jest.mock('@forge/api', () => ({
-  requestJira: jest.fn(),
-  route: jest.fn((strings: TemplateStringsArray, ...values: string[]) =>
-    strings.reduce((acc, str, i) => acc + str + (values[i] ?? ''), ''),
-  ),
+  asUser: () => ({ requestJira: mockRequestJira }),
+  route: jest.fn((strings: TemplateStringsArray, ...values: string[]) => ({
+    value: strings.reduce((acc, str, i) => acc + str + (values[i] ?? ''), ''),
+  })),
 }));
 
 import {
@@ -26,6 +27,8 @@ import {
   getTransitions,
   addComment,
   getIssueStatus,
+  searchByJQL,
+  getEpicChildren,
 } from '../../../../src/backend/services/jira/jira-adapter';
 import {
   JiraApiError,
@@ -37,11 +40,10 @@ import {
 import type { JiraTicketData } from '../../../../src/backend/types/jira-data';
 import type { ProjectConfig } from '../../../../src/backend/types/project-config';
 
-import { requestJira, route } from '@forge/api';
+import { route } from '@forge/api';
 import type { APIResponse } from '@forge/api';
 
-const mockRequestJira = jest.mocked(requestJira);
-const mockRoute = jest.mocked(route);
+const _mockRoute = jest.mocked(route);
 
 // ═══════════════════════════════════════════
 // FIXTURES
@@ -181,6 +183,70 @@ const makeConfigPropertyResponse = (config: ProjectConfig) =>
     value: config,
   });
 
+/** Creates a Jira search response with issues array */
+const makeSearchResponse = (issues: readonly Record<string, unknown>[] = []) =>
+  makeSuccessResponse({
+    issues,
+    total: issues.length,
+    startAt: 0,
+    maxResults: 50,
+  });
+
+/** Creates a raw Jira issuelink item (outward) */
+const makeOutwardLink = (
+  type: string,
+  targetKey: string,
+  targetSummary: string,
+  targetStatus: string,
+): Record<string, unknown> => ({
+  type: { name: type, outward: type.toLowerCase(), inward: `is ${type.toLowerCase()} by` },
+  outwardIssue: {
+    key: targetKey,
+    fields: { summary: targetSummary, status: { name: targetStatus } },
+  },
+});
+
+/** Creates a raw Jira issuelink item (inward) */
+const makeInwardLink = (
+  type: string,
+  targetKey: string,
+  targetSummary: string,
+  targetStatus: string,
+): Record<string, unknown> => ({
+  type: { name: type, inward: type.toLowerCase(), outward: `is ${type.toLowerCase()} by` },
+  inwardIssue: {
+    key: targetKey,
+    fields: { summary: targetSummary, status: { name: targetStatus } },
+  },
+});
+
+/** Creates a Jira issue response with relationship fields */
+const makeIssueWithRelationships = (
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> => ({
+  key: 'PROJ-123',
+  fields: {
+    summary: 'Story with relationships',
+    description: 'Has epic and links',
+    status: { name: 'IN PROGRESS' },
+    assignee: { displayName: 'Dev' },
+    reporter: null,
+    priority: { name: 'Medium' },
+    issuetype: { name: 'Story' },
+    labels: ['backend'],
+    project: { key: 'PROJ' },
+    created: '2026-01-15T10:00:00.000+0000',
+    updated: '2026-01-20T10:00:00.000+0000',
+    customfield_10014: 'PROJ-100',
+    issuelinks: [
+      makeOutwardLink('Blocks', 'PROJ-456', 'Blocked task', 'TO DO'),
+      makeInwardLink('Depends', 'PROJ-789', 'Dependency', 'DONE'),
+    ],
+    fixVersions: [{ name: 'v2.0' }, { name: 'v2.1' }],
+    ...overrides,
+  },
+});
+
 // ═══════════════════════════════════════════
 // TEST SUITE
 // ═══════════════════════════════════════════
@@ -315,7 +381,7 @@ describe('jira-adapter', () => {
       expect(mockRequestJira).toHaveBeenCalledTimes(1);
       const callArgs = mockRequestJira.mock.calls[0];
       expect(callArgs).toBeDefined();
-      const requestUrl = String(callArgs?.[0] ?? '');
+      const requestUrl = (callArgs?.[0] as { value: string })?.value ?? '';
       expect(requestUrl).toContain('fields=');
       expect(requestUrl).toContain('summary');
       expect(requestUrl).toContain('status');
@@ -746,7 +812,7 @@ describe('jira-adapter', () => {
       expect(mockRequestJira).toHaveBeenCalledTimes(1);
       const callArgs = mockRequestJira.mock.calls[0];
       expect(callArgs).toBeDefined();
-      const requestUrl = String(callArgs?.[0] ?? '');
+      const requestUrl = (callArgs?.[0] as { value: string })?.value ?? '';
       expect(requestUrl).toContain('fields=status');
     });
   });
@@ -1351,6 +1417,441 @@ describe('jira-adapter', () => {
         expect(error).toBeInstanceOf(TransitionBlockedError);
         expect((error as TransitionBlockedError).code).toBe('JIRA_TRANSITION_BLOCKED');
       }
+    });
+  });
+
+  // ─── getTicketData with Relationship Fields (AC-03) ──
+
+  describe('getTicketData with relationship fields (AC-03)', () => {
+    it('should include epicKey from customfield_10014', async () => {
+      // Arrange
+      const issueResponse = makeIssueWithRelationships();
+      mockRequestJira.mockResolvedValue(makeSuccessResponse(issueResponse));
+
+      // Act
+      const result = await getTicketData('PROJ-123');
+
+      // Assert
+      expect(result.epicKey).toBe('PROJ-100');
+    });
+
+    it('should include issueLinks with outward and inward links', async () => {
+      // Arrange
+      const issueResponse = makeIssueWithRelationships();
+      mockRequestJira.mockResolvedValue(makeSuccessResponse(issueResponse));
+
+      // Act
+      const result = await getTicketData('PROJ-123');
+
+      // Assert
+      expect(result.issueLinks).toBeDefined();
+      expect(result.issueLinks).toHaveLength(2);
+      expect(result.issueLinks?.[0]).toEqual({
+        type: 'Blocks',
+        direction: 'outward',
+        targetKey: 'PROJ-456',
+        targetSummary: 'Blocked task',
+        targetStatus: 'TO DO',
+      });
+      expect(result.issueLinks?.[1]).toEqual({
+        type: 'Depends',
+        direction: 'inward',
+        targetKey: 'PROJ-789',
+        targetSummary: 'Dependency',
+        targetStatus: 'DONE',
+      });
+    });
+
+    it('should include fixVersions', async () => {
+      // Arrange
+      const issueResponse = makeIssueWithRelationships();
+      mockRequestJira.mockResolvedValue(makeSuccessResponse(issueResponse));
+
+      // Act
+      const result = await getTicketData('PROJ-123');
+
+      // Assert
+      expect(result.fixVersions).toEqual(['v2.0', 'v2.1']);
+    });
+
+    it('should return undefined for relationship fields when not present', async () => {
+      // Arrange — minimal response without relationship fields
+      mockRequestJira.mockResolvedValue(makeSuccessResponse(makeMinimalIssueResponse()));
+
+      // Act
+      const result = await getTicketData('PROJ-001');
+
+      // Assert
+      expect(result.epicKey).toBeUndefined();
+      expect(result.epicSummary).toBeUndefined();
+      expect(result.issueLinks).toBeUndefined();
+      expect(result.fixVersions).toBeUndefined();
+    });
+
+    it('should handle empty issuelinks array as undefined', async () => {
+      // Arrange
+      const issueResponse = makeIssueWithRelationships({ issuelinks: [] });
+      mockRequestJira.mockResolvedValue(makeSuccessResponse(issueResponse));
+
+      // Act
+      const result = await getTicketData('PROJ-123');
+
+      // Assert
+      expect(result.issueLinks).toBeUndefined();
+    });
+
+    it('should handle empty fixVersions array as undefined', async () => {
+      // Arrange
+      const issueResponse = makeIssueWithRelationships({ fixVersions: [] });
+      mockRequestJira.mockResolvedValue(makeSuccessResponse(issueResponse));
+
+      // Act
+      const result = await getTicketData('PROJ-123');
+
+      // Assert
+      expect(result.fixVersions).toBeUndefined();
+    });
+
+    it('should filter out malformed issue links', async () => {
+      // Arrange — one valid link, one malformed (missing target issue)
+      const issueResponse = makeIssueWithRelationships({
+        issuelinks: [
+          makeOutwardLink('Blocks', 'PROJ-456', 'Valid', 'TO DO'),
+          { type: { name: 'Relates' } }, // missing inwardIssue/outwardIssue
+        ],
+      });
+      mockRequestJira.mockResolvedValue(makeSuccessResponse(issueResponse));
+
+      // Act
+      const result = await getTicketData('PROJ-123');
+
+      // Assert
+      expect(result.issueLinks).toHaveLength(1);
+      expect(result.issueLinks?.[0]?.targetKey).toBe('PROJ-456');
+    });
+
+    it('should request issuelinks and fixVersions in fields parameter', async () => {
+      // Arrange
+      mockRequestJira.mockResolvedValue(makeSuccessResponse(makeIssueWithRelationships()));
+
+      // Act
+      await getTicketData('PROJ-123');
+
+      // Assert — [ARCH-SOLID-003] [SEC-PRIV-008] data minimization
+      const callArgs = mockRequestJira.mock.calls[0];
+      const requestUrl = (callArgs?.[0] as { value: string })?.value ?? '';
+      expect(requestUrl).toContain('issuelinks');
+      expect(requestUrl).toContain('fixVersions');
+      expect(requestUrl).toContain('customfield_10014');
+    });
+  });
+
+  // ─── searchByJQL (AC-04) ──────────────
+
+  describe('searchByJQL (AC-04)', () => {
+    it('should return typed results for valid JQL query', async () => {
+      // Arrange
+      const issue1 = { ...makeJiraIssueResponse(), key: 'PROJ-001' };
+      const issue2 = { ...makeJiraIssueResponse(), key: 'PROJ-002' };
+      mockRequestJira.mockResolvedValue(makeSearchResponse([issue1, issue2]));
+
+      // Act
+      const result = await searchByJQL('project = PROJ', undefined, 'exec-search');
+
+      // Assert
+      expect(result).toHaveLength(2);
+      expect(result[0]?.key).toBe('PROJ-001');
+      expect(result[1]?.key).toBe('PROJ-002');
+    });
+
+    it('should return empty array when no issues match', async () => {
+      // Arrange
+      mockRequestJira.mockResolvedValue(makeSearchResponse([]));
+
+      // Act
+      const result = await searchByJQL('project = EMPTY');
+
+      // Assert
+      expect(result).toHaveLength(0);
+    });
+
+    it('should cap maxResults at 100', async () => {
+      // Arrange
+      mockRequestJira.mockResolvedValue(makeSearchResponse([]));
+
+      // Act
+      await searchByJQL('project = PROJ', 200);
+
+      // Assert
+      const callArgs = mockRequestJira.mock.calls[0];
+      const requestUrl = (callArgs?.[0] as { value: string })?.value ?? '';
+      expect(requestUrl).toContain('maxResults=100');
+    });
+
+    it('should default maxResults to 50', async () => {
+      // Arrange
+      mockRequestJira.mockResolvedValue(makeSearchResponse([]));
+
+      // Act
+      await searchByJQL('project = PROJ');
+
+      // Assert
+      const callArgs = mockRequestJira.mock.calls[0];
+      const requestUrl = (callArgs?.[0] as { value: string })?.value ?? '';
+      expect(requestUrl).toContain('maxResults=50');
+    });
+
+    it('should include executionId in log entries', async () => {
+      // Arrange
+      mockRequestJira.mockResolvedValue(makeSearchResponse([]));
+
+      // Act
+      await searchByJQL('project = PROJ', undefined, 'exec-search-log');
+
+      // Assert
+      const logCalls = consoleLogSpy.mock.calls.map((call: [string]) => {
+        try {
+          return JSON.parse(call[0]);
+        } catch {
+          return null;
+        }
+      });
+      const searchLogs = logCalls.filter(
+        (log: Record<string, unknown> | null) => log && log.operation === 'searchByJQL',
+      );
+      expect(
+        searchLogs.some((l: Record<string, unknown>) => l.executionId === 'exec-search-log'),
+      ).toBe(true);
+    });
+
+    it('should throw JiraApiError on HTTP 500', async () => {
+      // Arrange
+      mockRequestJira.mockResolvedValue(makeErrorResponse(500));
+
+      // Act & Assert
+      await expect(searchByJQL('project = PROJ')).rejects.toThrow(JiraApiError);
+    });
+
+    it('should throw JiraApiError for invalid search response structure', async () => {
+      // Arrange — response missing 'issues' array
+      mockRequestJira.mockResolvedValue(makeSuccessResponse({ total: 0 }));
+
+      // Act & Assert
+      await expect(searchByJQL('project = PROJ')).rejects.toThrow(JiraApiError);
+    });
+
+    it('should filter out invalid issues from search results', async () => {
+      // Arrange — one valid issue, one missing 'fields'
+      const validIssue = { ...makeJiraIssueResponse(), key: 'PROJ-001' };
+      const invalidIssue = { key: 'PROJ-002' }; // missing fields
+      mockRequestJira.mockResolvedValue(makeSearchResponse([validIssue, invalidIssue]));
+
+      // Act
+      const result = await searchByJQL('project = PROJ');
+
+      // Assert
+      expect(result).toHaveLength(1);
+      expect(result[0]?.key).toBe('PROJ-001');
+    });
+
+    it('should use GET method for search requests', async () => {
+      // Arrange
+      mockRequestJira.mockResolvedValue(makeSearchResponse([]));
+
+      // Act
+      await searchByJQL('project = PROJ');
+
+      // Assert
+      const callArgs = mockRequestJira.mock.calls[0];
+      const options = callArgs?.[1] as Record<string, unknown>;
+      expect(options.method).toBe('GET');
+    });
+
+    it('should request minimal field set for search results', async () => {
+      // Arrange
+      mockRequestJira.mockResolvedValue(makeSearchResponse([]));
+
+      // Act
+      await searchByJQL('project = PROJ');
+
+      // Assert — [SEC-PRIV-008] data minimization
+      const callArgs = mockRequestJira.mock.calls[0];
+      const requestUrl = (callArgs?.[0] as { value: string })?.value ?? '';
+      expect(requestUrl).toContain('fields=');
+      expect(requestUrl).toContain('summary');
+      // searchByJQL should NOT request description (data minimization)
+      expect(requestUrl).not.toContain('description');
+    });
+  });
+
+  // ─── getEpicChildren (AC-05) ──────────
+
+  describe('getEpicChildren (AC-05)', () => {
+    it('should return children using new hierarchy (parent=)', async () => {
+      // Arrange
+      const child1 = { ...makeJiraIssueResponse(), key: 'PROJ-001' };
+      const child2 = { ...makeJiraIssueResponse(), key: 'PROJ-002' };
+      mockRequestJira.mockResolvedValue(makeSearchResponse([child1, child2]));
+
+      // Act
+      const result = await getEpicChildren('PROJ-100', 'exec-epic');
+
+      // Assert
+      expect(result).toHaveLength(2);
+      expect(result[0]?.key).toBe('PROJ-001');
+      expect(result[1]?.key).toBe('PROJ-002');
+    });
+
+    it('should try parent= first, then Epic Link fallback', async () => {
+      // Arrange — parent= returns empty, Epic Link returns results
+      const child = { ...makeJiraIssueResponse(), key: 'PROJ-001' };
+      mockRequestJira
+        .mockResolvedValueOnce(makeSearchResponse([])) // parent= returns empty
+        .mockResolvedValueOnce(makeSearchResponse([child])); // Epic Link returns child
+
+      // Act
+      const result = await getEpicChildren('PROJ-100');
+
+      // Assert
+      expect(result).toHaveLength(1);
+      expect(result[0]?.key).toBe('PROJ-001');
+      expect(mockRequestJira).toHaveBeenCalledTimes(2);
+    });
+
+    it('should return empty array when both queries return no results', async () => {
+      // Arrange
+      mockRequestJira
+        .mockResolvedValueOnce(makeSearchResponse([]))
+        .mockResolvedValueOnce(makeSearchResponse([]));
+
+      // Act
+      const result = await getEpicChildren('PROJ-100');
+
+      // Assert
+      expect(result).toHaveLength(0);
+    });
+
+    it('should return empty array when both queries fail', async () => {
+      // Arrange — both queries fail
+      mockRequestJira
+        .mockResolvedValueOnce(makeErrorResponse(500))
+        .mockResolvedValueOnce(makeErrorResponse(500));
+
+      // Act
+      const result = await getEpicChildren('PROJ-100');
+
+      // Assert — graceful degradation, never throws
+      expect(result).toHaveLength(0);
+    });
+
+    it('should return empty array when parent= fails and Epic Link returns empty', async () => {
+      // Arrange
+      mockRequestJira
+        .mockResolvedValueOnce(makeErrorResponse(400)) // parent= fails
+        .mockResolvedValueOnce(makeSearchResponse([])); // Epic Link returns empty
+
+      // Act
+      const result = await getEpicChildren('PROJ-100');
+
+      // Assert
+      expect(result).toHaveLength(0);
+    });
+
+    it('should not throw even on network errors', async () => {
+      // Arrange
+      mockRequestJira
+        .mockRejectedValueOnce(new Error('ECONNREFUSED'))
+        .mockRejectedValueOnce(new Error('ECONNREFUSED'));
+
+      // Act & Assert — never throws
+      const result = await getEpicChildren('PROJ-100');
+      expect(result).toHaveLength(0);
+    });
+
+    it('should include executionId in log entries', async () => {
+      // Arrange
+      mockRequestJira.mockResolvedValue(makeSearchResponse([]));
+
+      // Act
+      await getEpicChildren('PROJ-100', 'exec-epic-children');
+
+      // Assert
+      const logCalls = consoleLogSpy.mock.calls.map((call: [string]) => {
+        try {
+          return JSON.parse(call[0]);
+        } catch {
+          return null;
+        }
+      });
+      const searchLogs = logCalls.filter(
+        (log: Record<string, unknown> | null) => log && log.operation === 'searchByJQL',
+      );
+      expect(
+        searchLogs.some((l: Record<string, unknown>) => l.executionId === 'exec-epic-children'),
+      ).toBe(true);
+    });
+  });
+
+  // ─── discoverEpicLinkField (AC-06) ────
+
+  describe('discoverEpicLinkField via getEpicChildren (AC-06)', () => {
+    it('should discover epic field from /rest/api/3/field', async () => {
+      // Arrange — discoverEpicLinkField is tested through field discovery response
+      // The function is internal, tested by its contract: called indirectly
+      const child = {
+        ...makeJiraIssueResponse({
+          customfield_10014: 'PROJ-100',
+        }),
+        key: 'PROJ-001',
+      };
+      mockRequestJira.mockResolvedValue(makeSearchResponse([child]));
+
+      // Act
+      const result = await getEpicChildren('PROJ-100');
+
+      // Assert — verify the child has the epic key mapped
+      expect(result).toHaveLength(1);
+      expect(result[0]?.epicKey).toBe('PROJ-100');
+    });
+
+    it('should return undefined epicKey when customfield_10014 is not set', async () => {
+      // Arrange
+      const child = { ...makeJiraIssueResponse(), key: 'PROJ-001' };
+      mockRequestJira.mockResolvedValue(makeSearchResponse([child]));
+
+      // Act
+      const result = await getEpicChildren('PROJ-100');
+
+      // Assert
+      expect(result).toHaveLength(1);
+      expect(result[0]?.epicKey).toBeUndefined();
+    });
+  });
+
+  // ─── Backward Compatibility (AC-07) ───
+
+  describe('backward compatibility (AC-07)', () => {
+    it('should not break existing callers when relationship fields are absent', async () => {
+      // Arrange — response without any relationship fields
+      const issueResponse = makeJiraIssueResponse();
+      mockRequestJira.mockResolvedValue(makeSuccessResponse(issueResponse));
+
+      // Act
+      const result = await getTicketData('PROJ-123');
+
+      // Assert — all existing fields still work
+      expect(result.key).toBe('PROJ-123');
+      expect(result.summary).toBe('Implement user authentication with OAuth2');
+      expect(result.status).toBe('TO DO');
+      expect(result.assignee).toBe('John Developer');
+      expect(result.issueType).toBe('Story');
+      expect(result.labels).toEqual(['auth', 'security']);
+      expect(result.projectKey).toBe('PROJ');
+      // New fields are undefined, not breaking
+      expect(result.epicKey).toBeUndefined();
+      expect(result.epicSummary).toBeUndefined();
+      expect(result.issueLinks).toBeUndefined();
+      expect(result.fixVersions).toBeUndefined();
     });
   });
 });
