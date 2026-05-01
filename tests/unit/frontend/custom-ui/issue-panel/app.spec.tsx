@@ -10,10 +10,15 @@
  * REGLA: TEST-QA-056 TDD cycle, ARCH-SOLID-202 zero any
  */
 
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
+
 import {
   buildRovoPrompt,
   SEVERITY_LABELS,
   AGENT_KEY,
+  AGENT_NAME,
 } from '../../../../../src/frontend/custom-ui/issue-panel/app';
 import type { PromptSeverity } from '../../../../../src/frontend/custom-ui/issue-panel/app';
 import type {
@@ -22,11 +27,24 @@ import type {
   TicketContext,
 } from '../../../../../src/frontend/custom-ui/issue-panel/app';
 
-// Mock @forge/bridge — required by app.tsx but not used in buildRovoPrompt tests
+// Mock @forge/bridge — required by app.tsx
 jest.mock('@forge/bridge', () => ({
   invoke: jest.fn(),
   view: { getContext: jest.fn() },
   rovo: { open: jest.fn(), isEnabled: jest.fn() },
+}));
+
+// Mock @atlaskit/tokens — returns valid CSS colors so JSDOM doesn't strip styles
+jest.mock('@atlaskit/tokens', () => ({
+  token: jest.fn((name: string) => {
+    const colorMap: Record<string, string> = {
+      'color.text.success': 'rgb(54, 179, 126)',
+      'color.text.warning': 'rgb(255, 153, 31)',
+      'color.text.error': 'rgb(255, 86, 48)',
+      'color.text.subtlest': 'rgb(107, 119, 140)',
+    };
+    return colorMap[name] ?? name;
+  }),
 }));
 
 // ═══════════════════════════════════════════
@@ -279,6 +297,204 @@ describe('buildRovoPrompt — severity differentiation (AC-01)', () => {
       const result = buildRovoPrompt('clarity', makeDetail(0), BASE_AXES, BASE_TICKET_CONTEXT);
       expect(result.severity).toBe<PromptSeverity>('critical');
       expect(result.prompt).toContain('0%');
+    });
+  });
+});
+
+// ═══════════════════════════════════════════
+// COMPONENT TESTS — AC-02, AC-03
+// ═══════════════════════════════════════════
+
+// Lazy import so mocks are registered first
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { RovoButton } = require('../../../../../src/frontend/custom-ui/issue-panel/app') as {
+  RovoButton: React.ComponentType<{
+    axisKey: string;
+    detail: AxisDetail;
+    axes: ScoreAxes;
+    ticketContext: TicketContext;
+  }>;
+};
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { rovo } = require('@forge/bridge') as {
+  rovo: { open: jest.Mock; isEnabled: jest.Mock };
+};
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { token: tokenMock } = require('@atlaskit/tokens') as {
+  token: jest.Mock;
+};
+
+describe('RovoButton — agent type and severity labels (AC-02, AC-03)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (rovo.open as jest.Mock).mockResolvedValue(undefined);
+  });
+
+  // ─── AC-02: rovo.open uses agent type ─────
+
+  it('calls rovo.open with type:forge and agentKey', async () => {
+    render(
+      React.createElement(RovoButton, {
+        axisKey: 'clarity',
+        detail: makeDetail(25),
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+
+    await waitFor(() => {
+      expect(rovo.open).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'forge',
+          agentKey: AGENT_KEY,
+          agentName: AGENT_NAME,
+          prompt: expect.any(String),
+        }),
+      );
+    });
+  });
+
+  it('does NOT call rovo.open with type:default', async () => {
+    render(
+      React.createElement(RovoButton, {
+        axisKey: 'clarity',
+        detail: makeDetail(50),
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+
+    await waitFor(() => {
+      const callArgs = (rovo.open as jest.Mock).mock.calls[0]?.[0];
+      expect(callArgs?.type).not.toBe('default');
+    });
+  });
+
+  // ─── AC-03: Severity label display ─────
+
+  it('shows "Fix now" label for critical severity (score < 40)', () => {
+    render(
+      React.createElement(RovoButton, {
+        axisKey: 'clarity',
+        detail: makeDetail(25),
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+      }),
+    );
+
+    expect(screen.getByRole('button')).toHaveTextContent('Fix now');
+  });
+
+  it('shows "Improve" label for improvable severity', () => {
+    render(
+      React.createElement(RovoButton, {
+        axisKey: 'clarity',
+        detail: makeDetail(50),
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+      }),
+    );
+
+    expect(screen.getByRole('button')).toHaveTextContent('Improve');
+  });
+
+  it('shows "Optimize" label for optimal severity', () => {
+    render(
+      React.createElement(RovoButton, {
+        axisKey: 'clarity',
+        detail: makeDetail(80),
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+      }),
+    );
+
+    expect(screen.getByRole('button')).toHaveTextContent('Optimize');
+  });
+
+  // ─── AC-03: Severity-based button styling ─────
+
+  it('uses resolved SCORE_COLOR_TOKENS for button border color', () => {
+    render(
+      React.createElement(RovoButton, {
+        axisKey: 'clarity',
+        detail: makeDetail(25),
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+      }),
+    );
+
+    // Verify token() was called with the RED token name for critical severity
+    expect(tokenMock).toHaveBeenCalledWith('color.text.error');
+  });
+
+  it('uses YELLOW token for improvable severity', () => {
+    render(
+      React.createElement(RovoButton, {
+        axisKey: 'clarity',
+        detail: makeDetail(50),
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+      }),
+    );
+
+    expect(tokenMock).toHaveBeenCalledWith('color.text.warning');
+  });
+
+  it('uses GREEN token for optimal severity', () => {
+    render(
+      React.createElement(RovoButton, {
+        axisKey: 'clarity',
+        detail: makeDetail(80),
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+      }),
+    );
+
+    expect(tokenMock).toHaveBeenCalledWith('color.text.success');
+  });
+
+  // ─── Accessibility (UI-ADS-004) ─────
+
+  it('button has aria-label describing severity and axis', () => {
+    render(
+      React.createElement(RovoButton, {
+        axisKey: 'clarity',
+        detail: makeDetail(25),
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+      }),
+    );
+
+    expect(screen.getByRole('button')).toHaveAttribute(
+      'aria-label',
+      expect.stringContaining('Fix now'),
+    );
+  });
+
+  // ─── Error handling ─────
+
+  it('shows error state when rovo.open rejects', async () => {
+    (rovo.open as jest.Mock).mockRejectedValue(new Error('Rovo not available'));
+
+    render(
+      React.createElement(RovoButton, {
+        axisKey: 'clarity',
+        detail: makeDetail(50),
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Could not open Rovo/)).toBeInTheDocument();
     });
   });
 });

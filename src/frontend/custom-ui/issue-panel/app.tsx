@@ -1,6 +1,8 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { invoke, view, rovo } from '@forge/bridge';
+import { token } from '@atlaskit/tokens';
+import { getScoreColorToken, SCORE_COLOR_TOKENS } from '../admin-dashboard/styles/theme';
 
 // [ARCH-SOLID-202] Discriminated union for severity — zero any
 export type PromptSeverity = 'critical' | 'improvable' | 'optimal';
@@ -8,6 +10,7 @@ export type PromptSeverity = 'critical' | 'improvable' | 'optimal';
 // [ARCH-SOLID-231] UPPER_SNAKE_CASE for constants
 // [ARCH-SOLID-232] Named exports only
 export const AGENT_KEY = 'consistency-guard';
+export const AGENT_NAME = 'Consistency Guard';
 
 export const SEVERITY_LABELS: Record<PromptSeverity, string> = {
   critical: 'Fix now',
@@ -109,7 +112,9 @@ export const buildRovoPrompt = (
   };
 };
 
-const RovoButton = ({
+// [ARCH-SOLID-232] Named export for testing
+// [ROVO-INTEG-005] Timeout + graceful fallback via try-catch
+export const RovoButton = ({
   axisKey,
   detail,
   axes,
@@ -122,11 +127,17 @@ const RovoButton = ({
 }): React.ReactElement => {
   const [rovoStatus, setRovoStatus] = React.useState<'idle' | 'opening' | 'error'>('idle');
 
+  // [ARCH-SOLID-205] Explicit return type via buildRovoPrompt
+  const { prompt, severity } = React.useMemo(
+    () => buildRovoPrompt(axisKey, detail, axes, ticketContext),
+    [axisKey, detail, axes, ticketContext],
+  );
+
   const handleAskRovo = async (): Promise<void> => {
     setRovoStatus('opening');
     try {
-      const { prompt } = buildRovoPrompt(axisKey, detail, axes, ticketContext);
-      await rovo.open({ type: 'default', prompt });
+      // [ROVO-INTEG-001] AC-02: Open Consistency Guard agent via Forge Bridge
+      await rovo.open({ type: 'forge', agentKey: AGENT_KEY, agentName: AGENT_NAME, prompt });
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('[REG-Rovo] Failed to open Rovo:', err);
@@ -135,36 +146,50 @@ const RovoButton = ({
   };
 
   const isOpening = rovoStatus === 'opening';
+
+  // [UI-ADS-001] AC-03: Severity-based color via design tokens
+  const colorToken =
+    severity === 'critical'
+      ? SCORE_COLOR_TOKENS.RED
+      : severity === 'improvable'
+        ? SCORE_COLOR_TOKENS.YELLOW
+        : SCORE_COLOR_TOKENS.GREEN;
+  const color = token(colorToken as Parameters<typeof token>[0]);
+
   return (
     <>
       <button
         onClick={handleAskRovo}
         disabled={isOpening}
+        aria-label={`${SEVERITY_LABELS[severity]}: Ask agent about ${detail.label}`}
         style={{
           marginTop: '8px',
           padding: '4px 12px',
           fontSize: '12px',
-          border: '1px solid #0052CC',
+          border: `1px solid ${color}`,
           borderRadius: '3px',
           background: 'transparent',
-          color: '#0052CC',
+          color,
           cursor: isOpening ? 'wait' : 'pointer',
           opacity: isOpening ? 0.6 : 1,
         }}
       >
-        {isOpening ? 'Opening Rovo...' : 'Ask Rovo for suggestions'}
+        {isOpening ? 'Opening...' : SEVERITY_LABELS[severity]}
       </button>
       {rovoStatus === 'error' && (
-        <div style={{ marginTop: '4px', fontSize: '12px', color: '#FF5630' }}>
+        <div
+          style={{
+            marginTop: '4px',
+            fontSize: '12px',
+            color: token(SCORE_COLOR_TOKENS.RED as Parameters<typeof token>[0]),
+          }}
+        >
           Could not open Rovo. Make sure Rovo is enabled for your site.
         </div>
       )}
     </>
   );
 };
-
-const scoreColor = (pct: number): string =>
-  pct >= 80 ? '#36B37E' : pct >= 60 ? '#FF991F' : '#FF5630';
 
 const AxisRow = ({
   axisKey,
@@ -181,7 +206,8 @@ const AxisRow = ({
 }): React.ReactElement => {
   const [expanded, setExpanded] = React.useState(false);
   const pct = Math.round(detail.score);
-  const color = scoreColor(pct);
+  // [UI-ADS-001] Design token for score color — replaces hex scoreColor function
+  const color = token(getScoreColorToken(pct) as Parameters<typeof token>[0]);
 
   return (
     <div style={{ marginBottom: '4px' }}>
@@ -305,7 +331,8 @@ const IssuePanel = (): React.ReactElement => {
   }
 
   const percentage = Math.round(score.overall);
-  const color = percentage >= 80 ? '#36B37E' : percentage >= 60 ? '#FF991F' : '#FF5630';
+  // [UI-ADS-001] Design token for overall score color — replaces hex
+  const color = token(getScoreColorToken(percentage) as Parameters<typeof token>[0]);
   const details = score.axisDetails;
 
   return (
