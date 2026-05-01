@@ -377,7 +377,7 @@ describe('agent-action', () => {
         { accountId: 'user-1' },
       );
       expect(result.success).toBe(true);
-      expect(getPRData).toHaveBeenCalled();
+      expect(getPRData).toHaveBeenCalledWith('org/repo', 42, '', expect.any(String));
     });
 
     it('should route validate-spec-alignment correctly (AC-03)', async () => {

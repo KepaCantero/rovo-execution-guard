@@ -244,7 +244,12 @@ const handleCheckPRConsistency: ActionHandler = async (input, context) => {
 
   const ticket = await getTicketData(issueKey, executionId);
   // [FORGE-OPS-054] Token not available in agent context — empty string triggers graceful degradation
-  const prData = await getPRData(parsed.repo, parsed.prNumber, '', executionId);
+  const prData = await getPRData(
+    `${parsed.owner}/${parsed.repo}`,
+    parsed.prNumber,
+    '',
+    executionId,
+  );
 
   // Simple alignment heuristic: check if issue key appears in PR title/body
   const issueKeyInPrTitle = prData.title.toUpperCase().includes(issueKey.toUpperCase());
@@ -324,9 +329,7 @@ const handleValidateSpecAlignment: ActionHandler = async (input, context) => {
     .filter((i) => i.source === 'confluence')
     .map((i) => ({ id: i.id, description: i.description, severity: i.severity }));
 
-  const suggestions = inconsistencies
-    .filter((i) => i.suggestion)
-    .map((i) => i.suggestion as string);
+  const suggestions = inconsistencies.filter((i) => i.suggestion).map((i) => i.suggestion);
 
   return actionSuccess({ alignedSpecs, misalignedSpecs, suggestions }, executionId);
 };
