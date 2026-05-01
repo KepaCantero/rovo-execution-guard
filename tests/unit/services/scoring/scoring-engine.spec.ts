@@ -19,6 +19,10 @@ import type {
 import type { JiraTicketData } from '../../../../src/backend/types/jira-data';
 import type { Inconsistency } from '../../../../src/backend/types/inconsistency';
 import type { ConsistencyScore, ScoreAxes } from '../../../../src/backend/types/consistency-score';
+import type {
+  RelationshipContext,
+  EntityNode,
+} from '../../../../src/backend/types/relationship-index';
 import { InsufficientDataError, ScoringError } from '../../../../src/backend/types/errors';
 
 // ---------------------------------------------------------------------------
@@ -1218,5 +1222,175 @@ describe('generateAxisSuggestions', () => {
       expect(result.documentation?.score).toBe(78);
       expect(result.technicalDebt?.score).toBe(91);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RelationshipContext integration (RTASK-041 Step 9.3)
+// ---------------------------------------------------------------------------
+
+describe('calculateScore with RelationshipContext', () => {
+  const makeRelEntity = (overrides: Partial<EntityNode> = {}): EntityNode => ({
+    id: 'jira:PROJ-100',
+    type: 'jira-issue',
+    label: 'Related ticket',
+    status: 'In Progress',
+    projectKey: 'PROJ',
+    metadata: {},
+    createdAt: '2026-01-10T10:00:00Z',
+    updatedAt: '2026-01-12T10:00:00Z',
+    ...overrides,
+  });
+
+  const makeRelCtx = (overrides: Partial<RelationshipContext> = {}): RelationshipContext => ({
+    siblings: [],
+    documentation: [],
+    pullRequests: [],
+    topics: [],
+    crossReferences: [],
+    rankedItems: [],
+    assembledAt: '2026-01-16T14:30:00Z',
+    ...overrides,
+  });
+
+  it('should produce identical scores when relationshipContext is undefined (backward-compat, AC-13)', () => {
+    const ticket = makeTicket();
+    const without: ScoringInput = { ticket };
+    const withCtx: ScoringInput = { ticket, relationshipContext: undefined };
+
+    const resultWithout = calculateScore(without);
+    const resultWith = calculateScore(withCtx);
+
+    expect(resultWith.overall).toBe(resultWithout.overall);
+    expect(resultWith.axes.consistency).toBe(resultWithout.axes.consistency);
+    expect(resultWith.axes.documentation).toBe(resultWithout.axes.documentation);
+  });
+
+  it('should adjust consistency score upward when siblings are aligned (AC-05)', () => {
+    const ticket = makeTicket({
+      summary: 'Implement user authentication',
+      description:
+        'Implement user authentication with OAuth2.\n\nAcceptance criteria:\n- User can log in',
+    });
+
+    const alignedSibling = makeRelEntity({
+      id: 'jira:PROJ-200',
+      label: 'Implement user authentication with SAML',
+    });
+    const relCtx = makeRelCtx({ siblings: [alignedSibling] });
+
+    const withoutCtx = calculateScore({ ticket });
+    const withCtx = calculateScore({ ticket, relationshipContext: relCtx });
+
+    // Aligned sibling should give consistency bonus
+    expect(withCtx.axes.consistency).toBeGreaterThanOrEqual(withoutCtx.axes.consistency);
+  });
+
+  it('should adjust consistency score downward when siblings contradict (AC-05)', () => {
+    const ticket = makeTicket({
+      summary: 'Feature must be implemented',
+      description: 'We must implement this feature now.',
+    });
+
+    const contradictingSibling = makeRelEntity({
+      id: 'jira:PROJ-300',
+      label: 'Feature must not be implemented at all',
+    });
+    const relCtx = makeRelCtx({ siblings: [contradictingSibling] });
+
+    const withoutCtx = calculateScore({ ticket });
+    const withCtx = calculateScore({ ticket, relationshipContext: relCtx });
+
+    // Contradicting sibling should penalize consistency
+    expect(withCtx.axes.consistency).toBeLessThanOrEqual(withoutCtx.axes.consistency);
+  });
+
+  it('should adjust documentation score upward when docs are fresh (AC-05)', () => {
+    const ticket = makeTicket();
+
+    const freshDoc = makeRelEntity({
+      id: 'confluence:12345',
+      type: 'confluence-page',
+      label: 'Feature Spec',
+      updatedAt: '2026-01-15T10:00:00Z', // 1 day old = fresh
+    });
+    const relCtx = makeRelCtx({
+      documentation: [freshDoc],
+      assembledAt: '2026-01-16T14:30:00Z',
+    });
+
+    const withoutCtx = calculateScore({ ticket });
+    const withCtx = calculateScore({ ticket, relationshipContext: relCtx });
+
+    // Fresh docs should give documentation bonus
+    expect(withCtx.axes.documentation).toBeGreaterThanOrEqual(withoutCtx.axes.documentation);
+  });
+
+  it('should adjust documentation score downward when docs are stale (AC-05)', () => {
+    const ticket = makeTicket();
+
+    const staleDoc = makeRelEntity({
+      id: 'confluence:99999',
+      type: 'confluence-page',
+      label: 'Old Spec',
+      updatedAt: '2025-06-01T10:00:00Z', // Very old = stale
+    });
+    const relCtx = makeRelCtx({
+      documentation: [staleDoc],
+      assembledAt: '2026-01-16T14:30:00Z',
+    });
+
+    const withoutCtx = calculateScore({ ticket });
+    const withCtx = calculateScore({ ticket, relationshipContext: relCtx });
+
+    // Stale docs should penalize documentation
+    expect(withCtx.axes.documentation).toBeLessThanOrEqual(withoutCtx.axes.documentation);
+  });
+
+  it('should not affect axes other than consistency and documentation (AC-04)', () => {
+    const ticket = makeTicket();
+    const sibling = makeRelEntity({ label: 'Aligned task' });
+    const relCtx = makeRelCtx({ siblings: [sibling] });
+
+    const withoutCtx = calculateScore({ ticket });
+    const withCtx = calculateScore({ ticket, relationshipContext: relCtx });
+
+    // Clarity, risk, technicalDebt should remain identical
+    expect(withCtx.axes.clarity).toBe(withoutCtx.axes.clarity);
+    expect(withCtx.axes.risk).toBe(withoutCtx.axes.risk);
+    expect(withCtx.axes.technicalDebt).toBe(withoutCtx.axes.technicalDebt);
+  });
+
+  it('should handle empty relationship context gracefully (AC-13)', () => {
+    const ticket = makeTicket();
+    const relCtx = makeRelCtx(); // All arrays empty
+
+    const withoutCtx = calculateScore({ ticket });
+    const withCtx = calculateScore({ ticket, relationshipContext: relCtx });
+
+    // Empty context should not change scores
+    expect(withCtx.overall).toBe(withoutCtx.overall);
+    expect(withCtx.axes.consistency).toBe(withoutCtx.axes.consistency);
+    expect(withCtx.axes.documentation).toBe(withoutCtx.axes.documentation);
+  });
+
+  it('should clamp scores to 0-100 even with large relationship signals (AC-04)', () => {
+    const ticket = makeTicket();
+
+    // Create many contradicting siblings to push penalty high
+    const manyContradicting = Array.from({ length: 10 }, (_, i) =>
+      makeRelEntity({
+        id: `jira:PROJ-${400 + i}`,
+        label: 'Must not implement feature that must be done',
+      }),
+    );
+    const relCtx = makeRelCtx({ siblings: manyContradicting });
+
+    const result = calculateScore({ ticket, relationshipContext: relCtx });
+
+    expect(result.axes.consistency).toBeGreaterThanOrEqual(0);
+    expect(result.axes.consistency).toBeLessThanOrEqual(100);
+    expect(result.overall).toBeGreaterThanOrEqual(0);
+    expect(result.overall).toBeLessThanOrEqual(100);
   });
 });

@@ -9,7 +9,12 @@ import type { QualityGateResult, GateType } from '../../types/quality-gate';
 import type { Inconsistency } from '../../types/inconsistency';
 import type { ProjectConfig } from '../../types/project-config';
 import type { JiraTicketData } from '../../types/jira-data';
+import type { RelationshipContext } from '../../types/relationship-index';
 import { ScoringError, InsufficientDataError } from '../../types/errors';
+import {
+  calculateDocumentationSignal,
+  calculateConsistencySignal,
+} from '../relationship-index/relationship-consumer';
 
 // ---------------------------------------------------------------------------
 // Public Types
@@ -27,6 +32,7 @@ export type AxisWeights = Readonly<Record<ScoringAxisName, number>>;
 export interface ScoringInput {
   readonly ticket: JiraTicketData;
   readonly inconsistencies?: readonly Inconsistency[];
+  readonly relationshipContext?: RelationshipContext; // [AC-04] optional relationship context
 }
 
 export interface ScoringConfig {
@@ -75,6 +81,24 @@ const clamp = (value: number, min: number, max: number): number => {
 /** Check if a string has meaningful content after trimming. */
 const hasContent = (value: string | undefined): boolean => {
   return typeof value === 'string' && value.trim().length > 0;
+};
+
+/** [AC-05] Apply relationship documentation signal to a score. */
+const applyDocSignal = (score: number, relationshipContext?: RelationshipContext): number => {
+  if (!relationshipContext) return score;
+  const signal = calculateDocumentationSignal(relationshipContext);
+  return score + signal.bonus + signal.penalty;
+};
+
+/** [AC-05] Apply relationship consistency signal to a score. */
+const applyConsistencySignal = (
+  score: number,
+  relationshipContext?: RelationshipContext,
+  ticketSummary?: string,
+): number => {
+  if (!relationshipContext) return score;
+  const signal = calculateConsistencySignal(relationshipContext, ticketSummary);
+  return score + signal.bonus + signal.penalty;
 };
 
 // ---------------------------------------------------------------------------
@@ -187,11 +211,15 @@ const scoreClarity = (ticket: JiraTicketData): number => {
 /**
  * Consistency: alignment between summary, description, and criteria.
  * Measures how well the summary reflects the description content.
+ * [AC-05] Applies relationship signals when available.
  */
-const scoreConsistency = (ticket: JiraTicketData): number => {
+const scoreConsistency = (
+  ticket: JiraTicketData,
+  relationshipContext?: RelationshipContext,
+): number => {
   const summary = ticket.summary.trim().toLowerCase();
   const description = ticket.description.trim().toLowerCase();
-  let score = 40; // Base score
+  let score = applyConsistencySignal(40, relationshipContext, ticket.summary);
 
   // Extract significant words from summary (ignore common stop words)
   const stopWords = new Set([
@@ -362,8 +390,12 @@ const scoreRisk = (ticket: JiraTicketData): number => {
 /**
  * Documentation: completeness of documentation and references.
  * Signals: labels, assignee, reporter, structured fields.
+ * [AC-05] Applies relationship signals when available.
  */
-const scoreDocumentation = (ticket: JiraTicketData): number => {
+const scoreDocumentation = (
+  ticket: JiraTicketData,
+  relationshipContext?: RelationshipContext,
+): number => {
   let score = 20; // Base
 
   // Labels contribute (0-20 points)
@@ -404,7 +436,7 @@ const scoreDocumentation = (ticket: JiraTicketData): number => {
     score += 15;
   }
 
-  return clamp(score, 0, 100);
+  return clamp(applyDocSignal(score, relationshipContext), 0, 100);
 };
 
 /** Score description scope contribution for tech debt axis. */
@@ -488,9 +520,9 @@ export const calculateScore = (input: ScoringInput, config?: ScoringConfig): Con
 
   // Calculate individual axis scores
   const clarity = scoreClarity(input.ticket);
-  const consistency = scoreConsistency(input.ticket);
+  const consistency = scoreConsistency(input.ticket, input.relationshipContext);
   const risk = scoreRisk(input.ticket);
-  const documentation = scoreDocumentation(input.ticket);
+  const documentation = scoreDocumentation(input.ticket, input.relationshipContext);
   const technicalDebt = scoreTechnicalDebt(input.ticket);
 
   const axes: ScoreAxes = { clarity, consistency, risk, documentation, technicalDebt };

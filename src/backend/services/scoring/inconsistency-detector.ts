@@ -8,7 +8,9 @@
 import type { Inconsistency, InconsistencyType, Severity } from '../../types/inconsistency';
 import type { JiraTicketData } from '../../types/jira-data';
 import type { RovoContext } from '../../types/rovo-context';
+import type { RelationshipContext } from '../../types/relationship-index';
 import { InsufficientDataError } from '../../types/errors';
+import { detectRelationshipInconsistencies } from '../relationship-index/relationship-consumer';
 
 // ═══════════════════════════════════════════
 // PUBLIC TYPES
@@ -384,16 +386,18 @@ const validateTicket = (ticket: JiraTicketData): void => {
 /**
  * Scan ticket data against provided context and detect all inconsistencies.
  *
- * AC ref: AC-01, AC-04, AC-07, AC-08, AC-09, AC-10
+ * AC ref: AC-01, AC-03, AC-04, AC-07, AC-08, AC-09, AC-10, AC-13
  * REGLA: [ARCH-SOLID-058] - zero framework dependencies
  * REGLA: [ARCH-SOLID-0784] - independent detector pipeline
  * REGLA: [ARCH-SOLID-0912] - deterministic output
+ * REGLA: [ARCH-SOLID-049-02] - OCP: optional param extends without modifying existing behavior
  *
- * Complexity: O(n * m) where n = text length, m = config items [ARCH-SOLID-0941]
+ * Complexity: O(n * m + s×p + d + pr + x) where n = text length, m = config items [ARCH-SOLID-0941]
  *
  * @param ticket - Jira ticket data to analyze
  * @param context - Optional Rovo context for cross-referencing
  * @param config - Optional detection configuration
+ * @param relationshipContext - Optional relationship context for relationship-aware detection [AC-03]
  * @returns Sorted array of detected Inconsistency objects (critical first)
  * @throws InsufficientDataError if ticket.key is empty
  */
@@ -401,6 +405,7 @@ export const detectInconsistencies = (
   ticket: JiraTicketData,
   context?: RovoContext,
   config: DetectorConfig = DEFAULT_DETECTOR_CONFIG,
+  relationshipContext?: RelationshipContext, // [ARCH-SOLID-049-02] optional, backward-compatible
 ): Inconsistency[] => {
   validateTicket(ticket);
 
@@ -410,7 +415,25 @@ export const detectInconsistencies = (
   const missingContext = detectMissingContext(ticket, config);
   const ambiguities = detectAmbiguity(ticket, config);
 
-  const allInconsistencies = [...contradictions, ...duplicates, ...missingContext, ...ambiguities];
+  // [ARCH-SOLID-0784] Relationship-aware detection — independent pipeline step
+  // [FORGE-OPS-0104] Graceful degradation: skipped when context unavailable
+  const relationshipIssues = relationshipContext
+    ? detectRelationshipInconsistencies(
+        relationshipContext,
+        ticket.summary,
+        ticket.description,
+        ticket.updated ?? new Date().toISOString(),
+        ticket.key,
+      )
+    : [];
+
+  const allInconsistencies = [
+    ...contradictions,
+    ...duplicates,
+    ...missingContext,
+    ...ambiguities,
+    ...relationshipIssues,
+  ];
 
   // Sort by severity: critical first, then warning, then info
   return allInconsistencies.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);

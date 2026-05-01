@@ -18,6 +18,11 @@ import type { DetectorConfig } from '../../../../src/backend/services/scoring/in
 import type { Inconsistency, Severity } from '../../../../src/backend/types/inconsistency';
 import type { JiraTicketData } from '../../../../src/backend/types/jira-data';
 import type { RovoContext } from '../../../../src/backend/types/rovo-context';
+import type {
+  RelationshipContext,
+  EntityNode,
+  CrossReference,
+} from '../../../../src/backend/types/relationship-index';
 import { InsufficientDataError } from '../../../../src/backend/types/errors';
 
 // ═══════════════════════════════════════════
@@ -63,6 +68,31 @@ const makeContext = (overrides: Partial<RovoContext> = {}): RovoContext => ({
   ],
   query: 'authentication',
   timestamp: '2026-01-15T12:00:00Z',
+  ...overrides,
+});
+
+const makeEntityNode = (overrides: Partial<EntityNode> = {}): EntityNode => ({
+  id: 'jira:PROJ-100',
+  type: 'jira-issue',
+  label: 'Related ticket',
+  status: 'In Progress',
+  projectKey: 'PROJ',
+  metadata: {},
+  createdAt: '2026-01-10T10:00:00Z',
+  updatedAt: '2026-01-12T10:00:00Z',
+  ...overrides,
+});
+
+const makeRelationshipContext = (
+  overrides: Partial<RelationshipContext> = {},
+): RelationshipContext => ({
+  siblings: [],
+  documentation: [],
+  pullRequests: [],
+  topics: [],
+  crossReferences: [],
+  rankedItems: [],
+  assembledAt: '2026-01-16T14:30:00Z',
   ...overrides,
 });
 
@@ -634,6 +664,151 @@ describe('InconsistencyDetector', () => {
     it('should include contradiction term pairs', () => {
       const pairs = DEFAULT_DETECTOR_CONFIG.contradictionPairs;
       expect(pairs.length).toBeGreaterThan(0);
+    });
+  });
+
+  // ─── RelationshipContext integration (RTASK-041 Step 9.3) ──
+
+  describe('detectInconsistencies() with RelationshipContext', () => {
+    it('should produce identical results when relationshipContext is undefined (AC-13, backward-compat)', () => {
+      const ticket = makeTicket({
+        description: 'Maybe implement this TBD feature.',
+        assignee: undefined,
+        labels: [],
+      });
+
+      const without = detectInconsistencies(ticket);
+      const withUndefined = detectInconsistencies(
+        ticket,
+        undefined,
+        DEFAULT_DETECTOR_CONFIG,
+        undefined,
+      );
+
+      expect(withUndefined).toEqual(without);
+    });
+
+    it('should include relationship inconsistencies when context is provided (AC-03)', () => {
+      const ticket = makeTicket({
+        summary: 'We must implement feature X',
+        description: 'We must implement this critical feature now.',
+      });
+      const sibling: EntityNode = makeEntityNode({
+        id: 'jira:PROJ-200',
+        label: 'We must not implement feature X',
+        updatedAt: '2026-01-10T10:00:00Z',
+      });
+      const relCtx = makeRelationshipContext({ siblings: [sibling] });
+
+      const results = detectInconsistencies(ticket, undefined, DEFAULT_DETECTOR_CONFIG, relCtx);
+
+      const relationshipIssues = results.filter(
+        (r) =>
+          r.type === 'sibling_contradiction' ||
+          r.type === 'spec_drift' ||
+          r.type === 'scope_mismatch' ||
+          r.type === 'orphan_reference',
+      );
+      expect(relationshipIssues.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should handle empty relationship context without errors (AC-13)', () => {
+      const ticket = makeTicket();
+      const relCtx = makeRelationshipContext(); // All arrays empty
+
+      const results = detectInconsistencies(ticket, undefined, DEFAULT_DETECTOR_CONFIG, relCtx);
+
+      expect(Array.isArray(results)).toBe(true);
+    });
+
+    it('should sort relationship inconsistencies with existing ones by severity (AC-03)', () => {
+      const ticket = makeTicket({
+        description: 'Maybe implement this TBD feature without acceptance criteria.',
+        assignee: undefined,
+        labels: [],
+      });
+      // Create sibling contradiction (critical severity)
+      const sibling: EntityNode = makeEntityNode({
+        id: 'jira:PROJ-200',
+        label: 'We must not implement feature X',
+      });
+      const relCtx = makeRelationshipContext({ siblings: [sibling] });
+
+      const results = detectInconsistencies(ticket, undefined, DEFAULT_DETECTOR_CONFIG, relCtx);
+
+      const severityOrder: Record<Severity, number> = { critical: 0, warning: 1, info: 2 };
+      for (let i = 1; i < results.length; i++) {
+        const current = results[i];
+        const previous = results[i - 1];
+        expect(current).toBeDefined();
+        expect(previous).toBeDefined();
+        expect(severityOrder[current?.severity as Severity]).toBeGreaterThanOrEqual(
+          severityOrder[previous?.severity as Severity],
+        );
+      }
+    });
+
+    it('should detect spec_drift when documentation is stale (AC-03)', () => {
+      const ticket = makeTicket({
+        updated: '2026-04-15T10:00:00Z',
+      });
+      const staleDoc: EntityNode = makeEntityNode({
+        id: 'confluence:12345',
+        type: 'confluence-page',
+        label: 'Feature Spec',
+        updatedAt: '2025-12-01T10:00:00Z', // >90 days older
+      });
+      const relCtx = makeRelationshipContext({ documentation: [staleDoc] });
+
+      const results = detectInconsistencies(ticket, undefined, DEFAULT_DETECTOR_CONFIG, relCtx);
+
+      const driftIssues = results.filter((r) => r.type === 'spec_drift');
+      expect(driftIssues.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should detect scope_mismatch for unlinked PRs (AC-03)', () => {
+      const ticket = makeTicket({ summary: 'Fix login button' });
+      const unlinkedPR: EntityNode = makeEntityNode({
+        id: 'github:org/repo/pull/42',
+        type: 'github-pr',
+        label: 'Refactor entire auth system',
+        metadata: { fileCount: '25', linkedIssues: 'OTHER-999' },
+      });
+      const relCtx = makeRelationshipContext({ pullRequests: [unlinkedPR] });
+
+      const results = detectInconsistencies(ticket, undefined, DEFAULT_DETECTOR_CONFIG, relCtx);
+
+      const scopeIssues = results.filter((r) => r.type === 'scope_mismatch');
+      expect(scopeIssues.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should detect orphan_reference for low-confidence cross-refs (AC-03)', () => {
+      const ticket = makeTicket();
+      const weakXref: CrossReference = {
+        source: 'jira:PROJ-123',
+        target: 'confluence:99999',
+        sourceTool: 'jira',
+        targetTool: 'confluence',
+        referenceType: 'mention',
+        confidence: 0.2,
+      };
+      const relCtx = makeRelationshipContext({ crossReferences: [weakXref] });
+
+      const results = detectInconsistencies(ticket, undefined, DEFAULT_DETECTOR_CONFIG, relCtx);
+
+      const orphanIssues = results.filter((r) => r.type === 'orphan_reference');
+      expect(orphanIssues.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should accept RelationshipContext as 4th argument without breaking 3-arg calls', () => {
+      const ticket = makeTicket();
+
+      // 3-arg call (existing pattern)
+      const threeArg = detectInconsistencies(ticket, undefined, DEFAULT_DETECTOR_CONFIG);
+      // 4-arg call (new pattern)
+      const fourArg = detectInconsistencies(ticket, undefined, DEFAULT_DETECTOR_CONFIG, undefined);
+
+      expect(fourArg).toEqual(threeArg);
     });
   });
 });

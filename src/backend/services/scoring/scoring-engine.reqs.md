@@ -26,6 +26,8 @@ Pure domain scoring engine that calculates consistency scores across 5 axes (Cla
 - [ ] **AC-12**: Delivery Gate evaluates cross-validation of PR content against historical context
 - [ ] **AC-13**: All scoring constants exported and configurable
 - [ ] **AC-14**: Fixed-precision rounding (no floating-point drift)
+- [ ] **AC-15**: `ScoringInput` extended with optional `relationshipContext` field [AC-04, RTASK-041]
+- [ ] **AC-16**: `scoreConsistency` and `scoreDocumentation` use relationship signals when available [AC-05, RTASK-041]
 
 ---
 
@@ -75,7 +77,7 @@ Pure domain scoring engine that calculates consistency scores across 5 axes (Cla
 #### `ScoringInput`
 
 - **Proposito**: Input payload for the scoring engine
-- **Propiedades**: `ticket: JiraTicketData`, optional `inconsistencies: readonly Inconsistency[]`
+- **Propiedades**: `ticket: JiraTicketData`, optional `inconsistencies: readonly Inconsistency[]`, optional `relationshipContext: RelationshipContext` [AC-04, RTASK-041]
 
 #### `AxisWeights`
 
@@ -109,6 +111,8 @@ Pure domain scoring engine that calculates consistency scores across 5 axes (Cla
 - `ProjectConfig` from `../../types/project-config`
 - `JiraTicketData` from `../../types/jira-data`
 - `ScoringError`, `InsufficientDataError` from `../../types/errors`
+- `RelationshipContext` from `../../types/relationship-index` (type-only) [RTASK-041]
+- `calculateDocumentationSignal`, `calculateConsistencySignal` from `../relationship-index/relationship-consumer` [RTASK-041]
 
 ### Externas
 

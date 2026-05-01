@@ -26,6 +26,8 @@ Pure domain inconsistency detector that identifies and classifies ticket inconsi
 - [ ] **AC-12**: Test coverage exceeds 90%
 - [ ] **AC-13**: All algorithms are O(n log n) or better [FORGE-OPS-058]
 - [ ] **AC-14**: No function exceeds 20 lines of effective logic or 3 levels of nesting [ARCH-SOLID-052]
+- [ ] **AC-15**: `detectInconsistencies` accepts optional `RelationshipContext` as 4th parameter without breaking existing callers [AC-03, RTASK-041]
+- [ ] **AC-16**: Relationship-aware detectors run when context is provided, skipped when undefined (graceful degradation) [AC-13, FORGE-OPS-0104]
 
 ---
 
@@ -76,13 +78,13 @@ Pure domain inconsistency detector that identifies and classifies ticket inconsi
 
 ### Funciones exportadas
 
-#### `detectInconsistencies(ticket, context?, config?) -> Inconsistency[]`
+#### `detectInconsistencies(ticket, context?, config?, relationshipContext?) -> Inconsistency[]`
 
 - **Proposito**: Scan ticket data against provided context and detect all inconsistencies
 - **Pre-condiciones**: `ticket.key` must be non-empty
 - **Post-condiciones**: Returns deterministic array of Inconsistency objects, sorted by severity (critical first)
 - **Errores**: `InsufficientDataError` if ticket.key is empty
-- **Complejidad**: O(n) where n = ticket description length + context document count [ARCH-SOLID-0941]
+- **Complejidad**: O(n \* m + s×p + d + pr + x) where n = text length, m = config items [ARCH-SOLID-0941]
 
 #### `classifySeverity(inconsistency) -> Severity`
 
@@ -108,6 +110,8 @@ Pure domain inconsistency detector that identifies and classifies ticket inconsi
 - `src/backend/types/jira-data` -> `JiraTicketData`
 - `src/backend/types/rovo-context` -> `RovoContext`
 - `src/backend/types/errors` -> `InsufficientDataError`
+- `src/backend/types/relationship-index` -> `RelationshipContext` (type-only import) [RTASK-041]
+- `src/backend/services/relationship-index/relationship-consumer` -> `detectRelationshipInconsistencies` [RTASK-041]
 
 ### Externas
 
@@ -145,6 +149,7 @@ Pure domain inconsistency detector that identifies and classifies ticket inconsi
 
 ## Historial de Cambios
 
-| Fecha      | Tarea Ralph | Cambio         |
-| ---------- | ----------- | -------------- |
-| 2026-04-11 | RTASK-007   | Creado inicial |
+| Fecha      | Tarea Ralph | Cambio                                                                                      |
+| ---------- | ----------- | ------------------------------------------------------------------------------------------- |
+| 2026-04-11 | RTASK-007   | Creado inicial                                                                              |
+| 2026-05-02 | RTASK-041   | Added AC-15, AC-16: optional RelationshipContext parameter for relationship-aware detection |
