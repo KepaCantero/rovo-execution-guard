@@ -297,7 +297,7 @@ export const FullAnalysisButton = ({
   );
 };
 
-const AxisRow = ({
+export const AxisRow = ({
   axisKey,
   detail,
   axes,
@@ -375,7 +375,7 @@ const AxisRow = ({
   );
 };
 
-const IssuePanel = (): React.ReactElement => {
+export const IssuePanel = (): React.ReactElement => {
   const [score, setScore] = React.useState<ConsistencyScore | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);

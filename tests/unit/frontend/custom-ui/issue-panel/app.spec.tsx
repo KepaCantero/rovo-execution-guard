@@ -313,30 +313,45 @@ describe('buildRovoPrompt — severity differentiation (AC-01)', () => {
 
 // Lazy import so mocks are registered first
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { RovoButton, FullAnalysisButton } =
-  require('../../../../../src/frontend/custom-ui/issue-panel/app') as {
-    RovoButton: React.ComponentType<{
-      axisKey: string;
-      detail: AxisDetail;
+const appModule = require('../../../../../src/frontend/custom-ui/issue-panel/app') as {
+  RovoButton: React.ComponentType<{
+    axisKey: string;
+    detail: AxisDetail;
+    axes: ScoreAxes;
+    ticketContext: TicketContext;
+  }>;
+  FullAnalysisButton: React.ComponentType<{
+    score: {
+      overall: number;
       axes: ScoreAxes;
-      ticketContext: TicketContext;
-    }>;
-    FullAnalysisButton: React.ComponentType<{
-      score: {
-        overall: number;
-        axes: ScoreAxes;
-        axisDetails?: Record<string, AxisDetail>;
-        ticketContext?: TicketContext;
-        timestamp: string;
-        executionId: string;
-      };
-      rovoEnabled: boolean;
-    }>;
-  };
+      axisDetails?: Record<string, AxisDetail>;
+      ticketContext?: TicketContext;
+      timestamp: string;
+      executionId: string;
+    };
+    rovoEnabled: boolean;
+  }>;
+  AxisRow: React.ComponentType<{
+    axisKey: string;
+    detail: AxisDetail;
+    axes: ScoreAxes;
+    ticketContext?: TicketContext;
+    rovoEnabled: boolean;
+  }>;
+  IssuePanel: React.ComponentType;
+};
+
+const { RovoButton, FullAnalysisButton, AxisRow, IssuePanel } = appModule;
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { rovo } = require('@forge/bridge') as {
+const {
+  rovo,
+  invoke: invokeMock,
+  view: viewMock,
+} = require('@forge/bridge') as {
   rovo: { open: jest.Mock; isEnabled: jest.Mock };
+  invoke: jest.Mock;
+  view: { getContext: jest.Mock };
 };
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -543,6 +558,18 @@ const SCORE_WITHOUT_CONTEXT = {
   axes: BASE_AXES,
   timestamp: '2026-05-01T00:00:00Z',
   executionId: 'exec-002',
+};
+
+const SCORE_WITH_DETAILS = {
+  overall: 72,
+  axes: BASE_AXES,
+  ticketContext: BASE_TICKET_CONTEXT,
+  axisDetails: {
+    clarity: { score: 75, label: 'Clarity', suggestions: ['Add more detail'] },
+    consistency: { score: 80, label: 'Consistency', suggestions: ['Check links'] },
+  } as Record<string, AxisDetail>,
+  timestamp: '2026-05-01T00:00:00Z',
+  executionId: 'exec-003',
 };
 
 // ═══════════════════════════════════════════
@@ -772,5 +799,305 @@ describe('Sentry integration in RovoButton (AC-07)', () => {
       expect(breadcrumb.message).not.toContain('Fix login bug');
       expect(breadcrumb.message).not.toContain('Users cannot log in');
     }
+  });
+});
+
+// ═══════════════════════════════════════════
+// AXIS ROW TESTS — expand/collapse, conditional RovoButton
+// ═══════════════════════════════════════════
+
+describe('AxisRow — expand/collapse and conditional rendering', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (rovo.open as jest.Mock).mockResolvedValue(undefined);
+  });
+
+  const detail: AxisDetail = {
+    score: 75,
+    label: 'Clarity',
+    suggestions: ['Add more detail', 'Include acceptance criteria'],
+  };
+
+  it('renders axis label and score percentage', () => {
+    render(
+      React.createElement(AxisRow, {
+        axisKey: 'clarity',
+        detail,
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+        rovoEnabled: true,
+      }),
+    );
+
+    expect(screen.getByText('Clarity')).toBeInTheDocument();
+    expect(screen.getByText('75%')).toBeInTheDocument();
+  });
+
+  it('starts collapsed — suggestions not visible', () => {
+    render(
+      React.createElement(AxisRow, {
+        axisKey: 'clarity',
+        detail,
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+        rovoEnabled: true,
+      }),
+    );
+
+    expect(screen.queryByText(/Add more detail/)).not.toBeInTheDocument();
+  });
+
+  it('expands on click to show suggestions', () => {
+    render(
+      React.createElement(AxisRow, {
+        axisKey: 'clarity',
+        detail,
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+        rovoEnabled: false,
+      }),
+    );
+
+    fireEvent.click(screen.getByText('Clarity'));
+
+    expect(screen.getByText(/Add more detail/)).toBeInTheDocument();
+    expect(screen.getByText(/Include acceptance criteria/)).toBeInTheDocument();
+  });
+
+  it('collapses on second click', () => {
+    render(
+      React.createElement(AxisRow, {
+        axisKey: 'clarity',
+        detail,
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+        rovoEnabled: false,
+      }),
+    );
+
+    fireEvent.click(screen.getByText('Clarity'));
+    expect(screen.getByText(/Add more detail/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Clarity'));
+    expect(screen.queryByText(/Add more detail/)).not.toBeInTheDocument();
+  });
+
+  it('shows RovoButton when expanded with rovoEnabled and ticketContext', () => {
+    render(
+      React.createElement(AxisRow, {
+        axisKey: 'clarity',
+        detail,
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+        rovoEnabled: true,
+      }),
+    );
+
+    fireEvent.click(screen.getByText('Clarity'));
+
+    expect(screen.getByRole('button', { name: /ask agent/i })).toBeInTheDocument();
+  });
+
+  it('does NOT show RovoButton when rovoEnabled is false', () => {
+    render(
+      React.createElement(AxisRow, {
+        axisKey: 'clarity',
+        detail,
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+        rovoEnabled: false,
+      }),
+    );
+
+    fireEvent.click(screen.getByText('Clarity'));
+
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('does NOT show RovoButton when ticketContext is undefined', () => {
+    render(
+      React.createElement(AxisRow, {
+        axisKey: 'clarity',
+        detail,
+        axes: BASE_AXES,
+        rovoEnabled: true,
+      }),
+    );
+
+    fireEvent.click(screen.getByText('Clarity'));
+
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+});
+
+// ═══════════════════════════════════════════
+// ISSUE PANEL TESTS — loading, error, and success states
+// ═══════════════════════════════════════════
+
+describe('IssuePanel — loading, error, and success states', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('shows loading state initially', () => {
+    viewMock.getContext.mockReturnValue(new Promise(() => {}));
+    rovo.isEnabled.mockReturnValue(new Promise(() => {}));
+
+    render(React.createElement(IssuePanel));
+
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
+  });
+
+  it('calls rovo.isEnabled() on mount', async () => {
+    viewMock.getContext.mockResolvedValue({ extension: { issue: { key: 'PROJ-123' } } });
+    invokeMock.mockResolvedValue({
+      success: true,
+      data: SCORE_WITH_DETAILS,
+      executionId: 'exec-001',
+    });
+    rovo.isEnabled.mockResolvedValue(true);
+
+    render(React.createElement(IssuePanel));
+
+    await waitFor(() => {
+      expect(screen.getByText('72%')).toBeInTheDocument();
+    });
+
+    expect(rovo.isEnabled).toHaveBeenCalled();
+  });
+
+  it('shows error when context has no issue key', async () => {
+    viewMock.getContext.mockResolvedValue({ extension: {} });
+    rovo.isEnabled.mockResolvedValue(false);
+
+    render(React.createElement(IssuePanel));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Error:/)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Unable to determine issue key/)).toBeInTheDocument();
+  });
+
+  it('shows error when invoke returns failure', async () => {
+    viewMock.getContext.mockResolvedValue({ extension: { issue: { key: 'PROJ-123' } } });
+    invokeMock.mockResolvedValue({
+      success: false,
+      error: 'Score service unavailable',
+      executionId: 'exec-001',
+    });
+    rovo.isEnabled.mockResolvedValue(false);
+
+    render(React.createElement(IssuePanel));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Error:/)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Score service unavailable/)).toBeInTheDocument();
+  });
+
+  it('shows error when invoke throws', async () => {
+    viewMock.getContext.mockResolvedValue({ extension: { issue: { key: 'PROJ-123' } } });
+    invokeMock.mockRejectedValue(new Error('Network error'));
+    rovo.isEnabled.mockResolvedValue(false);
+
+    render(React.createElement(IssuePanel));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Error:/)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Network error/)).toBeInTheDocument();
+  });
+
+  it('renders score, FullAnalysisButton, and AxisRows on success', async () => {
+    viewMock.getContext.mockResolvedValue({ extension: { issue: { key: 'PROJ-123' } } });
+    invokeMock.mockResolvedValue({
+      success: true,
+      data: SCORE_WITH_DETAILS,
+      executionId: 'exec-001',
+    });
+    rovo.isEnabled.mockResolvedValue(true);
+
+    render(React.createElement(IssuePanel));
+
+    await waitFor(() => {
+      expect(screen.getByText('Consistency Score')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('72%')).toBeInTheDocument();
+    expect(screen.getByText('Overall Consistency')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /full consistency analysis/i })).toBeInTheDocument();
+    expect(screen.getByText('Clarity')).toBeInTheDocument();
+    expect(screen.getByText('Consistency')).toBeInTheDocument();
+  });
+});
+
+// ═══════════════════════════════════════════
+// OPENING STATE TESTS
+// ═══════════════════════════════════════════
+
+describe('RovoButton — opening state', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('shows "Opening..." when rovo.open is pending', async () => {
+    let resolveOpen!: () => void;
+    (rovo.open as jest.Mock).mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveOpen = resolve;
+        }),
+    );
+
+    render(
+      React.createElement(RovoButton, {
+        axisKey: 'clarity',
+        detail: makeDetail(50),
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button')).toHaveTextContent('Opening...');
+    });
+
+    resolveOpen();
+  });
+});
+
+describe('FullAnalysisButton — opening state', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('shows "Analyzing..." when rovo.open is pending', async () => {
+    let resolveOpen!: () => void;
+    (rovo.open as jest.Mock).mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveOpen = resolve;
+        }),
+    );
+
+    render(
+      React.createElement(FullAnalysisButton, {
+        score: BASE_SCORE,
+        rovoEnabled: true,
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button')).toHaveTextContent('Analyzing...');
+    });
+
+    resolveOpen();
   });
 });
