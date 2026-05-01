@@ -1,4 +1,4 @@
-# REQUISITOS: Agent Action Types & Utilities
+# REQUISITOS: Agent Action Handler
 
 > **Sidecar File** | Vinculado a: `src/backend/resolvers/agent-action.ts`
 
@@ -6,106 +6,156 @@
 
 ## Descripcion
 
-Defines the core types and shared utility functions for the Rovo Agent action handler.
-This module provides the type interfaces (`ActionContext`, `ActionInput`, `ActionResponse<T>`)
-that bound the communication contract between the Rovo Agent LLM and the app's backend services,
-plus utility functions for execution ID generation, error formatting, and structured logging.
+Forge function handler that routes 5 Rovo Agent actions (evaluate-issue, check-pr-consistency, validate-spec-alignment, explain-score, get-improvement-tips) to existing backend services. This handler is the bridge between the Rovo Agent's LLM-driven invocations and the app's business logic, returning structured data that the agent can consume to generate intelligent responses.
+
+Also defines core types (ActionContext, ActionInput, ActionResponse, ActionHandler, ActionLogEntry) and utility functions (generateActionExecutionId, formatActionError, logAction, actionSuccess, actionFailure).
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] **AC-01**: `ActionContext` interface with `readonly cloudId`, `readonly moduleKey`, and optional `readonly jira` nested context
-- [ ] **AC-02**: `ActionInput` interface with optional `readonly issueKey`, `readonly prUrl`, `readonly focusAxis`
-- [ ] **AC-03**: `ActionResponse<T>` generic interface with `readonly success`, `data?`, `error?`, `executionId` — follows `ResolverResponse<T>` pattern
-- [ ] **AC-04**: `generateActionExecutionId()` returns unique IDs with `act-` prefix (distinct from resolver `res-` prefix)
-- [ ] **AC-05**: `formatActionError(error, issueKey)` maps domain errors to user-friendly messages with specific handling for `TicketNotFoundError`, `InsufficientDataError`, `TimeoutError`, and generic fallback
-- [ ] **AC-06**: `logAction(entry)` structured logging helper with `actionKey`, `executionId`, `duration`, `success` fields — never logs tokens or PII
-- [ ] **AC-07**: All interfaces use `readonly` properties — zero `any` usage
-- [ ] **AC-08**: `ActionHandler` type alias for sub-handler function signatures
-- [ ] **AC-09**: `actionSuccess<T>()` and `actionFailure()` response builder helpers follow existing `success()`/`failure()` pattern
+- [x] **AC-01**: `src/agent-action-handler.ts` created as thin re-export
+- [x] **AC-02**: `src/backend/resolvers/agent-action.ts` exports types (ActionContext, ActionInput, ActionResponse, ActionHandler, ActionLogEntry)
+- [x] **AC-03**: Handler routes all 5 action keys to dedicated sub-handlers via ACTION_HANDLERS record
+- [x] **AC-04**: `handleEvaluateIssue` returns full score + inconsistencies + gate status
+- [x] **AC-05**: `handleCheckPRConsistency` returns PR-issue alignment analysis with aligned/partial/misaligned classification
+- [x] **AC-06**: `handleValidateSpecAlignment` returns spec alignment report with aligned/misaligned specs and suggestions
+- [x] **AC-07**: `handleExplainScore` returns per-axis breakdown with signals and suggestions
+- [x] **AC-08**: `handleGetImprovementTips` returns prioritized suggestions by axis (sorted by lowest score first)
+- [x] **AC-09**: All errors caught and returned as structured `ActionResponse` (never throws)
+- [x] **AC-10**: Structured logging with `executionId`, `actionKey`, `duration`, `success` on every invocation
+- [x] **AC-11**: Test coverage exceeds 85% (60 tests passing)
+- [x] **AC-12**: `.reqs.md` sidecar file created (this file)
 
 ---
 
 ## Reglas del Rulebook
 
-| ID Regla            | Categoria    | Descripcion breve                                                 |
-| ------------------- | ------------ | ----------------------------------------------------------------- |
-| [ARCH-SOLID-202]    | Arquitectura | Zero any usage — use generics and discriminated unions            |
-| [ARCH-SOLID-232]    | Arquitectura | Named exports only, no export default                             |
-| [ARCH-SOLID-049-03] | Arquitectura | Use interfaces for LSP — support test mocking                     |
-| [ARCH-SOLID-052]    | Arquitectura | Functions <= 20 lines, max 3 nesting levels                       |
-| [ARCH-SOLID-053]    | Arquitectura | Domain-specific error types for all failure paths                 |
-| [ARCH-SOLID-203]    | Arquitectura | Standard response wrappers — follow `ResolverResponse<T>` pattern |
-| [FORGE-OPS-0105]    | Forge Ops    | Stateless functions, no module-level mutable state                |
-| [SEC-PRIV-002]      | Seguridad    | Never log tokens or PII                                           |
-| [ROVO-INTEG-054]    | Rovo         | Communication contracts as versioned TypeScript interfaces        |
-| [ROVO-INTEG-060]    | Rovo         | Never assume complete information — all input fields optional     |
-| [ROVO-INTEG-004]    | Rovo         | Rovo context treated as untrusted data                            |
+| ID Regla            | Categoria    | Descripcion breve                                          |
+| ------------------- | ------------ | ---------------------------------------------------------- |
+| [ARCH-SOLID-058]    | Arquitectura | HANDLER layer — resolvers are in HANDLER layer             |
+| [ARCH-SOLID-006]    | Arquitectura | Handler -> Service -> Repository pattern                   |
+| [ARCH-SOLID-202]    | Arquitectura | Zero any usage — generic ActionResponse<T>                 |
+| [ARCH-SOLID-232]    | Arquitectura | Named exports only, no export default                      |
+| [ARCH-SOLID-049-03] | Arquitectura | Interfaces for LSP/mocking                                 |
+| [ARCH-SOLID-052]    | Arquitectura | Functions ≤ 20 lines                                       |
+| [ARCH-SOLID-053]    | Arquitectura | Domain-specific error types for all failure paths          |
+| [ARCH-SOLID-203]    | Arquitectura | Standard response wrapper pattern                          |
+| [FORGE-OPS-005]     | Forge Ops    | No invocation exceeds 10s                                  |
+| [FORGE-OPS-0101]    | Forge Ops    | Complete critical work in 8s                               |
+| [FORGE-OPS-0105]    | Forge Ops    | Stateless functions, no module-level mutable state         |
+| [FORGE-OPS-054]     | Forge Ops    | Graceful degradation when services unavailable             |
+| [SEC-PRIV-002]      | Seguridad    | No tokens/PII in logs — only operation metadata            |
+| [ROVO-INTEG-002]    | Rovo         | Rovo context for documentation cross-reference             |
+| [ROVO-INTEG-004]    | Rovo         | Untrusted data — validate before use                       |
+| [ROVO-INTEG-054]    | Rovo         | Communication contracts as versioned TypeScript interfaces |
+| [ROVO-INTEG-060]    | Rovo         | Never assume complete information — optional jira context  |
+| [GH-INTEG-001]      | GitHub       | GitHub adapter for PR data                                 |
+| [TEST-QA-036-03]    | Testing      | Structured context with executionId and actionKey          |
 
 ---
 
 ## Contrato Publico (API del modulo)
 
-### Types
+### Tipos exportados
 
 #### `ActionContext`
 
-- **Proposito**: Defines the invocation context from the Rovo Agent
-- **Propiedades**: `cloudId` (tenant), `moduleKey` (action identifier), optional `jira` context
-- **Regla**: [ROVO-INTEG-004] — all fields treated as untrusted
+- **Proposito**: Rovo Agent invocation context
+- **Campos**: `cloudId`, `moduleKey`, optional `jira` (with `url`, `resourceType`, `issueKey`, `issueId`, `issueType`, `projectKey`, `projectId`)
+- **Regla**: [ROVO-INTEG-004], [ROVO-INTEG-060]
 
 #### `ActionInput`
 
-- **Proposito**: Defines the input payload for action invocations
-- **Propiedades**: `issueKey?`, `prUrl?`, `focusAxis?` — all optional per [ROVO-INTEG-060]
+- **Proposito**: Action invocation parameters
+- **Campos**: optional `issueKey`, `prUrl`, `focusAxis`
+- **Regla**: [ROVO-INTEG-060]
 
 #### `ActionResponse<T>`
 
-- **Proposito**: Standard response wrapper for all action results — mirrors `ResolverResponse<T>`
-- **Propiedades**: `success`, `data?`, `error?`, `executionId`
+- **Proposito**: Standard response wrapper for all action results
+- **Campos**: `success`, optional `data: T`, optional `error`, `executionId`
 - **Regla**: [ARCH-SOLID-203]
 
 #### `ActionHandler`
 
 - **Proposito**: Type alias for sub-handler function signatures
-- **Firma**: `(input: ActionInput, context: ActionContext) => Promise<ActionResponse<unknown>>`
+- **Signature**: `(input: ActionInput, context: ActionContext) => Promise<ActionResponse<unknown>>`
+- **Regla**: [ARCH-SOLID-049-03]
 
 #### `ActionLogEntry`
 
 - **Proposito**: Structured log entry for action operations
-- **Propiedades**: `timestamp`, `level`, `actionKey`, `executionId`, optional `duration`, `success`, `issueKey?`, `prUrl?`, `error?`
+- **Campos**: `timestamp`, `level`, `actionKey`, `executionId`, optional `duration`, `success`, optional `issueKey`, `prUrl`, `error`
 - **Regla**: [SEC-PRIV-002]
 
-### Functions
+### Funciones exportadas
 
 #### `generateActionExecutionId(): string`
 
-- **Proposito**: Generate unique execution ID with `act-` prefix for action traceability
-- **Post-condiciones**: Returns string in format `act-{timestamp}-{random}`
-- **Regla**: [FORGE-OPS-0105] — pure function, no side effects
+- **Proposito**: Generate unique execution ID with `act-` prefix
+- **Post-condiciones**: Returns string matching `act-{timestamp}-{random}`
+- **Regla**: [FORGE-OPS-0105]
 
 #### `formatActionError(error: unknown, issueKey?: string): string`
 
 - **Proposito**: Maps domain errors to user-friendly messages
-- **Errores mapeados**: `TicketNotFoundError`, `InsufficientDataError`, `TimeoutError`, generic fallback
+- **Errores**: TicketNotFoundError → "not found", InsufficientDataError → "insufficient data", TimeoutError → "timed out", generic → "unexpected error"
 - **Regla**: [ARCH-SOLID-053], [FORGE-OPS-054]
 
 #### `logAction(entry: ActionLogEntry): void`
 
-- **Proposito**: Structured logging for action invocations
-- **Campos**: `timestamp`, `level`, `actionKey`, `executionId`, `duration?`, `success`, `issueKey?`, `prUrl?`, `error?`
-- **Regla**: [SEC-PRIV-002] — never logs tokens or PII
+- **Proposito**: Emits structured JSON log entry
+- **Post-condiciones**: console.log with JSON stringified entry
+- **Regla**: [SEC-PRIV-002], [TEST-QA-036-03]
 
 #### `actionSuccess<T>(data: T, executionId: string): ActionResponse<T>`
 
-- **Proposito**: Build a success response
+- **Proposito**: Build success response
+- **Post-condiciones**: Returns `{ success: true, data, executionId }`
 - **Regla**: [ARCH-SOLID-203]
 
 #### `actionFailure(error: string, executionId: string): ActionResponse<never>`
 
-- **Proposito**: Build a failure response
+- **Proposito**: Build failure response
+- **Post-condiciones**: Returns `{ success: false, error, executionId }`
 - **Regla**: [ARCH-SOLID-203]
+
+#### `handler(payload, forgeContext): Promise<ActionResponse<unknown>>`
+
+- **Proposito**: Forge-compatible handler for Rovo Agent action invocations
+- **Pre-condiciones**: payload contains optional `context` with `moduleKey`
+- **Post-condiciones**: Routes to sub-handler via ACTION_HANDLERS record, returns structured ActionResponse, logs invocation
+- **Errores**: Never throws — all errors caught and returned as ActionResponse
+- **Regla**: [FORGE-OPS-005], [AC-09], [AC-10]
+
+### Sub-handlers (internal)
+
+#### `handleEvaluateIssue(input, context)` — AC-04
+
+- Calls: getTicketData, getProjectConfig, detectInconsistencies, calculateScore, evaluateGate
+- Returns: `{ score, axes, axisDetails, inconsistencies, gateResults?, threshold? }`
+
+#### `handleCheckPRConsistency(input, context)` — AC-05
+
+- Calls: getTicketData, getPRData (via parsePrUrl)
+- Returns: `{ alignment: 'aligned'|'partial'|'misaligned', prSummary, issueSummary, gaps }`
+
+#### `handleValidateSpecAlignment(input, context)` — AC-06
+
+- Calls: getTicketData, getContext (graceful), getDocumentation (graceful), detectInconsistencies
+- Returns: `{ alignedSpecs, misalignedSpecs, suggestions }`
+
+#### `handleExplainScore(input, context)` — AC-07
+
+- Calls: getTicketData, getProjectConfig, calculateScore, generateAxisSuggestions
+- Returns: `{ overallScore, threshold?, axes: Array<{name, score, description, signals, suggestions}> }`
+
+#### `handleGetImprovementTips(input, context)` — AC-08
+
+- Calls: getTicketData, getProjectConfig, detectInconsistencies, calculateScore, generateAxisSuggestions
+- Returns: `{ overallScore, threshold?, prioritizedTips: Array<{axis, currentScore, targetScore, tips}> }`
+- Notes: Sorted by lowest score first; filters to focusAxis if provided
 
 ---
 
@@ -113,7 +163,13 @@ plus utility functions for execution ID generation, error formatting, and struct
 
 ### Internas (proyecto)
 
-- `src/backend/types/errors` -> `TicketNotFoundError`, `InsufficientDataError`, `TimeoutError`, `REGError`
+- `src/backend/services/jira/jira-adapter` -> `getTicketData`, `getProjectConfig`
+- `src/backend/services/scoring/scoring-engine` -> `calculateScore`, `generateAxisSuggestions`
+- `src/backend/services/scoring/inconsistency-detector` -> `detectInconsistencies`
+- `src/backend/services/scoring/quality-gate-rules` -> `evaluateGate`
+- `src/backend/services/github/github-adapter` -> `getPRData`
+- `src/backend/services/rovo/rovo-adapter` -> `getContext`, `getDocumentation`
+- `src/backend/types/errors` -> `TicketNotFoundError`, `InsufficientDataError`, `TimeoutError`
 
 ### Externas (npm)
 
@@ -125,28 +181,36 @@ plus utility functions for execution ID generation, error formatting, and struct
 
 ### Unit Tests (`tests/unit/resolvers/agent-action.spec.ts`)
 
-| Test                                                     | AC cubierto | Regla cubierta |
-| -------------------------------------------------------- | ----------- | -------------- |
-| should generate unique execution IDs with act- prefix    | AC-04       | FORGE-OPS-0105 |
-| should generate different IDs on successive calls        | AC-04       | FORGE-OPS-0105 |
-| should format TicketNotFoundError with issueKey          | AC-05       | ARCH-SOLID-053 |
-| should format InsufficientDataError with issueKey        | AC-05       | ARCH-SOLID-053 |
-| should format TimeoutError with issueKey                 | AC-05       | ARCH-SOLID-053 |
-| should format generic Error with fallback message        | AC-05       | FORGE-OPS-054  |
-| should format non-Error thrown values                    | AC-05       | ARCH-SOLID-053 |
-| should format error without issueKey                     | AC-05       | ARCH-SOLID-053 |
-| should log structured action entries                     | AC-06       | SEC-PRIV-002   |
-| should build success response with data and executionId  | AC-09       | ARCH-SOLID-203 |
-| should build failure response with error and executionId | AC-09       | ARCH-SOLID-203 |
-| ActionContext has required readonly fields               | AC-01       | ROVO-INTEG-054 |
-| ActionInput has all optional readonly fields             | AC-02       | ROVO-INTEG-060 |
-| ActionResponse has generic data field                    | AC-03       | ARCH-SOLID-203 |
+60 tests covering all 12 acceptance criteria.
+
+| Category                    | Tests | ACs Covered         |
+| --------------------------- | ----- | ------------------- |
+| generateActionExecutionId   | 2     | AC-04               |
+| formatActionError           | 6     | AC-05               |
+| logAction                   | 1     | AC-06               |
+| actionSuccess/actionFailure | 2     | AC-09               |
+| Type contracts              | 4     | AC-01, AC-02, AC-08 |
+| Handler routing             | 7     | AC-03               |
+| handleEvaluateIssue         | 4     | AC-04               |
+| handleCheckPRConsistency    | 6     | AC-05               |
+| handleValidateSpecAlignment | 6     | AC-06               |
+| handleExplainScore          | 3     | AC-07               |
+| handleGetImprovementTips    | 5     | AC-08               |
+| Error handling              | 5     | AC-09               |
+| Structured logging          | 5     | AC-10               |
+| ExecutionId traceability    | 2     | AC-10               |
+| Edge cases                  | 3     | AC-05, AC-06, AC-04 |
+
+### Mock Strategy
+
+All service adapters mocked via jest.mock(). Mocks reset in beforeEach.
 
 ---
 
 ## Historial de Cambios
 
-| Fecha      | Tarea Ralph      | Cambio                                                 |
-| ---------- | ---------------- | ------------------------------------------------------ |
-| 2026-04-30 | RTASK-033        | Created as stub for manifest validation                |
-| 2026-05-01 | RTASK-034 Step 1 | Upgraded with full types, utilities, and test coverage |
+| Fecha      | Tarea Ralph          | Cambio                                                                     |
+| ---------- | -------------------- | -------------------------------------------------------------------------- |
+| 2026-04-30 | RTASK-033            | Created as stub for manifest validation                                    |
+| 2026-05-01 | RTASK-034 Step 1     | Added types, utilities, and initial test coverage                          |
+| 2026-05-01 | RTASK-034 Steps 2-10 | Full handler routing, 5 sub-handlers, comprehensive tests, .reqs.md update |
