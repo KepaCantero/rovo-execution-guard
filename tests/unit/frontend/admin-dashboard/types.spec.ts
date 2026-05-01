@@ -40,6 +40,10 @@ const validOverviewMetrics: OverviewMetrics = {
     duplicate: 5,
     missing_context: 3,
     ambiguity: 5,
+    sibling_contradiction: 0,
+    spec_drift: 0,
+    scope_mismatch: 0,
+    orphan_reference: 0,
   },
 };
 

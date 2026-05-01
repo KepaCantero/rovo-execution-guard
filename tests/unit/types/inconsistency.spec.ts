@@ -14,21 +14,29 @@ import type {
 // ---------------------------------------------------------------------------
 
 describe('InconsistencyType', () => {
-  it('should accept all four valid inconsistency types', () => {
+  it('should accept all eight valid inconsistency types', () => {
     // Arrange
     const types: InconsistencyType[] = [
       'contradiction',
       'duplicate',
       'missing_context',
       'ambiguity',
+      'sibling_contradiction',
+      'spec_drift',
+      'scope_mismatch',
+      'orphan_reference',
     ];
 
     // Act & Assert
-    expect(types).toHaveLength(4);
+    expect(types).toHaveLength(8);
     expect(types).toContain('contradiction');
     expect(types).toContain('duplicate');
     expect(types).toContain('missing_context');
     expect(types).toContain('ambiguity');
+    expect(types).toContain('sibling_contradiction');
+    expect(types).toContain('spec_drift');
+    expect(types).toContain('scope_mismatch');
+    expect(types).toContain('orphan_reference');
   });
 
   it('should assign a single valid value to a typed variable', () => {
@@ -37,12 +45,20 @@ describe('InconsistencyType', () => {
     const t2: InconsistencyType = 'duplicate';
     const t3: InconsistencyType = 'missing_context';
     const t4: InconsistencyType = 'ambiguity';
+    const t5: InconsistencyType = 'sibling_contradiction';
+    const t6: InconsistencyType = 'spec_drift';
+    const t7: InconsistencyType = 'scope_mismatch';
+    const t8: InconsistencyType = 'orphan_reference';
 
     // Assert
     expect(t1).toBe('contradiction');
     expect(t2).toBe('duplicate');
     expect(t3).toBe('missing_context');
     expect(t4).toBe('ambiguity');
+    expect(t5).toBe('sibling_contradiction');
+    expect(t6).toBe('spec_drift');
+    expect(t7).toBe('scope_mismatch');
+    expect(t8).toBe('orphan_reference');
   });
 });
 
@@ -202,10 +218,14 @@ describe('Inconsistency', () => {
         { type: 'duplicate', severity: 'warning', source: 'confluence' },
         { type: 'missing_context', severity: 'info', source: 'rovo' },
         { type: 'ambiguity', severity: 'critical', source: 'github' },
+        { type: 'sibling_contradiction', severity: 'critical', source: 'jira' },
+        { type: 'spec_drift', severity: 'warning', source: 'confluence' },
+        { type: 'scope_mismatch', severity: 'warning', source: 'github' },
+        { type: 'orphan_reference', severity: 'info', source: 'rovo' },
       ];
 
       // Act & Assert
-      expect(combinations).toHaveLength(4);
+      expect(combinations).toHaveLength(8);
       for (const c of combinations) {
         expect(c.type).toBeDefined();
         expect(c.severity).toBeDefined();

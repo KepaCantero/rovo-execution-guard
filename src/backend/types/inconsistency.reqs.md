@@ -12,7 +12,7 @@ Defines the types for inconsistency detection between Jira tickets, Confluence d
 
 ## Acceptance Criteria
 
-- [ ] **AC-01**: `InconsistencyType` is a union of four string literals: contradiction, duplicate, missing_context, ambiguity
+- [ ] **AC-01**: `InconsistencyType` is a union of eight string literals: contradiction, duplicate, missing_context, ambiguity, sibling_contradiction, spec_drift, scope_mismatch, orphan_reference
 - [ ] **AC-02**: `Severity` is a union of three string literals: critical, warning, info
 - [ ] **AC-03**: `InconsistencySource` is a union of four string literals: rovo, jira, confluence, github
 - [ ] **AC-04**: `Inconsistency` interface has all required fields and optional `relatedDocs` and `suggestion`
@@ -39,7 +39,7 @@ Defines the types for inconsistency detection between Jira tickets, Confluence d
 #### `InconsistencyType`
 
 - **Proposito**: Discriminates the kind of inconsistency detected
-- **Valores**: `'contradiction' | 'duplicate' | 'missing_context' | 'ambiguity'`
+- **Valores**: `'contradiction' | 'duplicate' | 'missing_context' | 'ambiguity' | 'sibling_contradiction' | 'spec_drift' | 'scope_mismatch' | 'orphan_reference'`
 
 #### `Severity`
 

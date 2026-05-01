@@ -433,6 +433,10 @@ export const classifySeverity = (inconsistency: Inconsistency): Severity => {
     duplicate: 'warning',
     missing_context: 'warning',
     ambiguity: 'info',
+    sibling_contradiction: 'critical',
+    spec_drift: 'warning',
+    scope_mismatch: 'warning',
+    orphan_reference: 'info',
   };
 
   return severityMap[inconsistency.type];
@@ -459,6 +463,14 @@ export const generateSuggestion = (inconsistency: Inconsistency): string => {
       'Add the missing information to provide complete context. Include acceptance criteria, assignee, priority, and relevant labels to improve ticket clarity.',
     ambiguity:
       'Clarify the ambiguous language by replacing vague terms with specific, measurable requirements. Use concrete language that leaves no room for interpretation.',
+    sibling_contradiction:
+      'Review sibling tickets within the same epic for contradictory requirements. Align all stories to a single consistent direction before proceeding.',
+    spec_drift:
+      'Update the linked Confluence documentation to reflect the current ticket requirements. The documentation appears stale compared to recent ticket changes.',
+    scope_mismatch:
+      "Review the PR scope against the linked ticket. The PR touches files beyond the ticket's scope — verify this is intentional or split the changes.",
+    orphan_reference:
+      'Verify the referenced entity exists and establish a proper link. This reference points to an entity not tracked in the relationship graph.',
   };
 
   return suggestionMap[inconsistency.type];

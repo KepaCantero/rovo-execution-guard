@@ -463,6 +463,64 @@ describe('InconsistencyDetector', () => {
       const severity = classifySeverity(inconsistency);
       expect(severity).toBe('info');
     });
+
+    // ─── RTASK-041: Relationship-aware inconsistency types ──
+
+    it('should classify sibling_contradiction as critical (AC-02)', () => {
+      const inconsistency: Inconsistency = {
+        id: 'inc-test-sc',
+        type: 'sibling_contradiction',
+        severity: 'critical',
+        source: 'jira',
+        description: 'Sibling stories contradict each other',
+        affectedTicketKey: 'PROJ-123',
+      };
+
+      const severity = classifySeverity(inconsistency);
+      expect(severity).toBe('critical');
+    });
+
+    it('should classify spec_drift as warning (AC-02)', () => {
+      const inconsistency: Inconsistency = {
+        id: 'inc-test-sd',
+        type: 'spec_drift',
+        severity: 'warning',
+        source: 'confluence',
+        description: 'Documentation is stale',
+        affectedTicketKey: 'PROJ-123',
+      };
+
+      const severity = classifySeverity(inconsistency);
+      expect(severity).toBe('warning');
+    });
+
+    it('should classify scope_mismatch as warning (AC-02)', () => {
+      const inconsistency: Inconsistency = {
+        id: 'inc-test-sm',
+        type: 'scope_mismatch',
+        severity: 'warning',
+        source: 'github',
+        description: 'PR scope exceeds ticket scope',
+        affectedTicketKey: 'PROJ-123',
+      };
+
+      const severity = classifySeverity(inconsistency);
+      expect(severity).toBe('warning');
+    });
+
+    it('should classify orphan_reference as info (AC-02)', () => {
+      const inconsistency: Inconsistency = {
+        id: 'inc-test-or',
+        type: 'orphan_reference',
+        severity: 'info',
+        source: 'rovo',
+        description: 'Reference points to untracked entity',
+        affectedTicketKey: 'PROJ-123',
+      };
+
+      const severity = classifySeverity(inconsistency);
+      expect(severity).toBe('info');
+    });
   });
 
   // ─── generateSuggestion() ───────────────
@@ -536,6 +594,10 @@ describe('InconsistencyDetector', () => {
         { type: 'duplicate', keyword: 'remove' },
         { type: 'missing_context', keyword: 'add' },
         { type: 'ambiguity', keyword: 'clarify' },
+        { type: 'sibling_contradiction', keyword: 'review' },
+        { type: 'spec_drift', keyword: 'update' },
+        { type: 'scope_mismatch', keyword: 'review' },
+        { type: 'orphan_reference', keyword: 'verify' },
       ];
 
       for (const { type, keyword } of types) {

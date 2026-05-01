@@ -34,6 +34,10 @@ const SAMPLE_METRICS: OverviewMetrics = {
     duplicate: 5,
     missing_context: 12,
     ambiguity: 3,
+    sibling_contradiction: 0,
+    spec_drift: 0,
+    scope_mismatch: 0,
+    orphan_reference: 0,
   },
 };
 
@@ -47,6 +51,10 @@ const EMPTY_METRICS: OverviewMetrics = {
     duplicate: 0,
     missing_context: 0,
     ambiguity: 0,
+    sibling_contradiction: 0,
+    spec_drift: 0,
+    scope_mismatch: 0,
+    orphan_reference: 0,
   },
 };
 
@@ -60,6 +68,10 @@ const LOW_SCORE_METRICS: OverviewMetrics = {
     duplicate: 10,
     missing_context: 10,
     ambiguity: 10,
+    sibling_contradiction: 0,
+    spec_drift: 0,
+    scope_mismatch: 0,
+    orphan_reference: 0,
   },
 };
 
@@ -73,6 +85,10 @@ const MID_SCORE_METRICS: OverviewMetrics = {
     duplicate: 5,
     missing_context: 5,
     ambiguity: 5,
+    sibling_contradiction: 0,
+    spec_drift: 0,
+    scope_mismatch: 0,
+    orphan_reference: 0,
   },
 };
 
@@ -312,7 +328,7 @@ describe('OverviewTab', () => {
       // Assert — missing_context has the highest count (12), its bar should be the widest
       const svg = screen.getByTestId('overview-svg-chart');
       const rects = svg.querySelectorAll('rect');
-      expect(rects.length).toBe(4);
+      expect(rects.length).toBe(8);
       // The bar for missing_context (12) should have width 200 (max),
       // since 12 is the max value in SAMPLE_METRICS
       const barWidths = Array.from(rects).map((rect) =>

@@ -1,7 +1,15 @@
 // [ARCH-SOLID-058] Inconsistency domain model — zero framework dependencies
 // [ARCH-SOLID-203] Interface for public data structure
 
-export type InconsistencyType = 'contradiction' | 'duplicate' | 'missing_context' | 'ambiguity';
+export type InconsistencyType =
+  | 'contradiction'
+  | 'duplicate'
+  | 'missing_context'
+  | 'ambiguity'
+  | 'sibling_contradiction'
+  | 'spec_drift'
+  | 'scope_mismatch'
+  | 'orphan_reference';
 
 export type Severity = 'critical' | 'warning' | 'info';
 
