@@ -46,7 +46,7 @@ export type { EnforcementAction } from './enforcement';
 export type { RovoDocument, HistoricalDecision, RovoContext } from './rovo-context';
 
 // --- Jira Data ---
-export type { JiraStatus, JiraTransition, JiraTicketData } from './jira-data';
+export type { JiraStatus, JiraTransition, JiraIssueLink, JiraTicketData } from './jira-data';
 
 // --- GitHub Data ---
 export type { PRFile, GitHubPRData, GitHubStatusCheck } from './github-data';
@@ -56,3 +56,19 @@ export type { ConfluencePageData, ConfluencePageMetadata } from './confluence-da
 
 // --- Audit Log ---
 export type { AuditAction, AuditLogEntry } from './audit-log';
+
+// --- Relationship Index ---
+export type {
+  EntityType,
+  EntityNode,
+  EdgeType,
+  RelationshipEdge,
+  TopicCluster,
+  RelationshipContext,
+  ContextItem,
+  CrossReference,
+  RelationshipQuery,
+  RelationshipQueryResult,
+  GraphStats,
+  RelationshipIndexer,
+} from './relationship-index';
