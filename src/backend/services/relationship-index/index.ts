@@ -58,6 +58,17 @@ export {
 
 export type { PRIndexInput } from './github-indexer';
 
+// --- Context Builder ---
+export {
+  extractCausalPaths,
+  rankPaths,
+  assembleContext,
+  estimateTokens,
+  DEFAULT_BUDGET,
+} from './context-builder';
+
+export type { CausalPath, BuiltContext } from './context-builder';
+
 // --- Domain Types ---
 export type {
   EntityType,
@@ -74,4 +85,6 @@ export type {
   RelationshipIndexer,
   NeighborSummary,
   EntityNeighborhood,
+  ContextBudget,
+  DecisionRecord,
 } from '../../types/relationship-index';

@@ -170,6 +170,28 @@ export interface EntityNeighborhood {
 }
 
 // ═══════════════════════════════════════════
+// CONTEXT BUDGET & DECISION RECORD (RTASK-041)
+// ═══════════════════════════════════════════
+
+/** Token budget configuration for JIT context assembly. */
+export interface ContextBudget {
+  readonly maxTokens: number;
+  readonly reserveForPrompt: number;
+}
+
+/** Stored enforcement decision for operational memory. */
+export interface DecisionRecord {
+  readonly id: string;
+  readonly issueKey: string;
+  readonly gateType: string;
+  readonly score: number;
+  readonly action: 'block' | 'approve' | 'comment';
+  readonly overridden: boolean;
+  readonly contextSignature: string;
+  readonly timestamp: string;
+}
+
+// ═══════════════════════════════════════════
 // INDEXER CONTRACT [ARCH-SOLID-006]
 // ═══════════════════════════════════════════
 
