@@ -69,6 +69,19 @@ export {
 
 export type { CausalPath, BuiltContext } from './context-builder';
 
+// --- Relationship Consumer ---
+export {
+  detectSiblingContradictions,
+  detectSpecDrift,
+  detectScopeMismatch,
+  detectOrphanReferences,
+  detectRelationshipInconsistencies,
+  calculateDocumentationSignal,
+  calculateConsistencySignal,
+} from './relationship-consumer';
+
+export type { SignalResult } from './relationship-consumer';
+
 // --- Domain Types ---
 export type {
   EntityType,
