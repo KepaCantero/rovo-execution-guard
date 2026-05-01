@@ -11,6 +11,7 @@ import type { ConsistencyScore } from '../../../../src/backend/types/consistency
 import type { QualityGateResult } from '../../../../src/backend/types/quality-gate';
 import type { Inconsistency } from '../../../../src/backend/types/inconsistency';
 import type { RovoContext } from '../../../../src/backend/types/rovo-context';
+import type { RelationshipContext } from '../../../../src/backend/types/relationship-index';
 import { JiraApiError } from '../../../../src/backend/types/errors';
 
 // ═══════════════════════════════════════════
@@ -122,8 +123,8 @@ const makeRovoContext = (): RovoContext => ({
 });
 
 const makeRelationshipContext = (
-  overrides: Record<string, unknown> = {},
-): Record<string, unknown> => ({
+  overrides: Partial<RelationshipContext> = {},
+): RelationshipContext => ({
   siblings: [],
   documentation: [],
   pullRequests: [],
@@ -885,7 +886,28 @@ describe('EvaluationPipeline', () => {
     it('should populate documentationRefs from relationship context for delivery gate (AC-EP-14, AC-10)', async () => {
       // Arrange — relationship context with documentation
       const relCtx = makeRelationshipContext({
-        documentation: [{ id: 'confluence:12345' }, { id: 'confluence:67890' }],
+        documentation: [
+          {
+            id: 'confluence:12345',
+            type: 'confluence-page',
+            label: 'Page 1',
+            status: 'current',
+            projectKey: 'PROJ',
+            metadata: {},
+            createdAt: '',
+            updatedAt: '',
+          },
+          {
+            id: 'confluence:67890',
+            type: 'confluence-page',
+            label: 'Page 2',
+            status: 'current',
+            projectKey: 'PROJ',
+            metadata: {},
+            createdAt: '',
+            updatedAt: '',
+          },
+        ],
       });
       mockedBuildRelationshipContext.mockResolvedValue(relCtx);
 
