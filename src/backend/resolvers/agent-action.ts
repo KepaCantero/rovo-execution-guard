@@ -5,6 +5,7 @@
 // [FORGE-OPS-0105] Stateless functions, no module-level mutable state
 // [ROVO-INTEG-054] Communication contracts as versioned TypeScript interfaces
 // RTASK-034: Types, utilities, handler routing, and 5 sub-handlers
+// RTASK-038: Lazy hydration hook for relationship context
 
 import { getTicketData, getProjectConfig } from '../services/jira/jira-adapter';
 import { calculateScore, generateAxisSuggestions } from '../services/scoring/scoring-engine';
@@ -13,6 +14,10 @@ import { evaluateGate } from '../services/scoring/quality-gate-rules';
 import { getPRData } from '../services/github/github-adapter';
 import { getContext, getDocumentation } from '../services/rovo/rovo-adapter';
 import { TicketNotFoundError, InsufficientDataError, TimeoutError } from '../types/errors';
+import {
+  getJiraRelationshipContext,
+  EMPTY_RELATIONSHIP_CONTEXT,
+} from '../services/relationship-index/jira-indexer';
 
 // ═══════════════════════════════════════════
 // TYPES
@@ -79,6 +84,13 @@ export interface ActionLogEntry {
   readonly prUrl?: string;
   readonly error?: string;
 }
+
+// ═══════════════════════════════════════════
+// TIMEOUT BUDGET
+// ═══════════════════════════════════════════
+
+/** [FORGE-OPS-0101] 8s budget per action invocation (2s margin vs Forge 10s hard limit) */
+const ACTION_TIMEOUT_MS = 8_000;
 
 // ═══════════════════════════════════════════
 // EXECUTION ID
@@ -180,6 +192,7 @@ const parsePrUrl = (
 /**
  * AC-04: evaluate-issue — full score + inconsistencies + gate status.
  * [FORGE-OPS-005] No invocation exceeds 10s.
+ * [FORGE-OPS-0101] 8s timeout budget enforced on all adapter calls.
  */
 const handleEvaluateIssue: ActionHandler = async (input, context) => {
   const executionId = generateActionExecutionId();
@@ -190,11 +203,21 @@ const handleEvaluateIssue: ActionHandler = async (input, context) => {
     return actionFailure('issueKey is required for evaluate-issue', executionId);
   }
 
-  const ticket = await getTicketData(issueKey, executionId);
-  const config = projectKey ? await getProjectConfig(projectKey, executionId) : undefined;
+  const ticket = await getTicketData(issueKey, executionId, ACTION_TIMEOUT_MS);
+  const config = projectKey
+    ? await getProjectConfig(projectKey, executionId, ACTION_TIMEOUT_MS)
+    : undefined;
 
   const inconsistencies = detectInconsistencies(ticket);
   const score = calculateScore({ ticket, inconsistencies }, config);
+
+  // [RTASK-038] Lazy hydration — fetch relationship context if available
+  // [FORGE-OPS-0104] Graceful fallback to EMPTY_RELATIONSHIP_CONTEXT on failure
+  const relContext = await getJiraRelationshipContext(
+    issueKey,
+    projectKey ?? '',
+    executionId,
+  ).catch(() => EMPTY_RELATIONSHIP_CONTEXT);
 
   const gateResult = config
     ? evaluateGate('definition', {
@@ -213,6 +236,7 @@ const handleEvaluateIssue: ActionHandler = async (input, context) => {
       inconsistencies,
       gateResults: gateResult ? { passed: gateResult.passed, gate: gateResult.gate } : undefined,
       threshold: config?.scoreThreshold,
+      relContext,
     },
     executionId,
   );
@@ -242,13 +266,14 @@ const handleCheckPRConsistency: ActionHandler = async (input, context) => {
     );
   }
 
-  const ticket = await getTicketData(issueKey, executionId);
+  const ticket = await getTicketData(issueKey, executionId, ACTION_TIMEOUT_MS);
   // [FORGE-OPS-054] Token not available in agent context — empty string triggers graceful degradation
   const prData = await getPRData(
     `${parsed.owner}/${parsed.repo}`,
     parsed.prNumber,
     '',
     executionId,
+    ACTION_TIMEOUT_MS,
   );
 
   // Simple alignment heuristic: check if issue key appears in PR title/body
@@ -301,14 +326,21 @@ const handleValidateSpecAlignment: ActionHandler = async (input, context) => {
     return actionFailure('issueKey is required for validate-spec-alignment', executionId);
   }
 
-  const ticket = await getTicketData(issueKey, executionId);
+  const ticket = await getTicketData(issueKey, executionId, ACTION_TIMEOUT_MS);
 
   // [ROVO-INTEG-004] Graceful degradation if Rovo context unavailable
   const rovoContext = projectKey
-    ? await getContext(ticket.summary, projectKey, executionId).catch(() => undefined)
+    ? await getContext(ticket.summary, projectKey, executionId, ACTION_TIMEOUT_MS).catch(
+        () => undefined,
+      )
     : undefined;
 
-  const docs = await getDocumentation(ticket.summary, undefined, executionId).catch(
+  const docs = await getDocumentation(
+    ticket.summary,
+    undefined,
+    executionId,
+    ACTION_TIMEOUT_MS,
+  ).catch(
     () =>
       [] as readonly {
         readonly id: string;
@@ -346,8 +378,10 @@ const handleExplainScore: ActionHandler = async (input, context) => {
     return actionFailure('issueKey is required for explain-score', executionId);
   }
 
-  const ticket = await getTicketData(issueKey, executionId);
-  const config = projectKey ? await getProjectConfig(projectKey, executionId) : undefined;
+  const ticket = await getTicketData(issueKey, executionId, ACTION_TIMEOUT_MS);
+  const config = projectKey
+    ? await getProjectConfig(projectKey, executionId, ACTION_TIMEOUT_MS)
+    : undefined;
 
   const score = calculateScore({ ticket }, config);
   const axisSuggestions = generateAxisSuggestions(ticket, score.axes);
@@ -385,8 +419,10 @@ const handleGetImprovementTips: ActionHandler = async (input, context) => {
     return actionFailure('issueKey is required for get-improvement-tips', executionId);
   }
 
-  const ticket = await getTicketData(issueKey, executionId);
-  const config = projectKey ? await getProjectConfig(projectKey, executionId) : undefined;
+  const ticket = await getTicketData(issueKey, executionId, ACTION_TIMEOUT_MS);
+  const config = projectKey
+    ? await getProjectConfig(projectKey, executionId, ACTION_TIMEOUT_MS)
+    : undefined;
 
   const inconsistencies = detectInconsistencies(ticket);
   const score = calculateScore({ ticket, inconsistencies }, config);

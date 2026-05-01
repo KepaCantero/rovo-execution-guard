@@ -58,6 +58,19 @@ jest.mock('../../../src/backend/services/rovo/rovo-adapter', () => ({
   getDocumentation: jest.fn(),
 }));
 
+jest.mock('../../../src/backend/services/relationship-index/jira-indexer', () => ({
+  getJiraRelationshipContext: jest.fn(),
+  EMPTY_RELATIONSHIP_CONTEXT: {
+    siblings: [],
+    documentation: [],
+    pullRequests: [],
+    topics: [],
+    crossReferences: [],
+    rankedItems: [],
+    assembledAt: '',
+  },
+}));
+
 import { getTicketData, getProjectConfig } from '../../../src/backend/services/jira/jira-adapter';
 import {
   calculateScore,
@@ -67,6 +80,10 @@ import { detectInconsistencies } from '../../../src/backend/services/scoring/inc
 import { evaluateGate } from '../../../src/backend/services/scoring/quality-gate-rules';
 import { getPRData } from '../../../src/backend/services/github/github-adapter';
 import { getContext, getDocumentation } from '../../../src/backend/services/rovo/rovo-adapter';
+import {
+  getJiraRelationshipContext,
+  EMPTY_RELATIONSHIP_CONTEXT,
+} from '../../../src/backend/services/relationship-index/jira-indexer';
 
 // ═══════════════════════════════════════════
 // FIXTURES
@@ -224,6 +241,7 @@ describe('agent-action', () => {
     (getPRData as jest.Mock).mockResolvedValue(MOCK_PR_DATA);
     (getContext as jest.Mock).mockResolvedValue(MOCK_ROVO_CONTEXT);
     (getDocumentation as jest.Mock).mockResolvedValue(MOCK_DOCS);
+    (getJiraRelationshipContext as jest.Mock).mockResolvedValue(EMPTY_RELATIONSHIP_CONTEXT);
   });
 
   // ═══════════════════════════════════════════
@@ -364,7 +382,7 @@ describe('agent-action', () => {
         { accountId: 'user-1' },
       );
       expect(result.success).toBe(true);
-      expect(getTicketData).toHaveBeenCalledWith('PROJ-123', expect.any(String));
+      expect(getTicketData).toHaveBeenCalledWith('PROJ-123', expect.any(String), 8000);
     });
 
     it('should route check-pr-consistency correctly (AC-03)', async () => {
@@ -377,7 +395,7 @@ describe('agent-action', () => {
         { accountId: 'user-1' },
       );
       expect(result.success).toBe(true);
-      expect(getPRData).toHaveBeenCalledWith('org/repo', 42, '', expect.any(String));
+      expect(getPRData).toHaveBeenCalledWith('org/repo', 42, '', expect.any(String), 8000);
     });
 
     it('should route validate-spec-alignment correctly (AC-03)', async () => {
@@ -456,7 +474,66 @@ describe('agent-action', () => {
     it('should use context.jira.issueKey when input.issueKey is absent (AC-04)', async () => {
       const result = await handler({ context: VALID_CONTEXT }, { accountId: 'user-1' });
       expect(result.success).toBe(true);
-      expect(getTicketData).toHaveBeenCalledWith('PROJ-123', expect.any(String));
+      expect(getTicketData).toHaveBeenCalledWith('PROJ-123', expect.any(String), 8000);
+    });
+
+    // RTASK-038: Lazy hydration hook tests
+
+    it('should call getJiraRelationshipContext in evaluate-issue (RTASK-038)', async () => {
+      const result = await handler(
+        { context: VALID_CONTEXT, issueKey: 'PROJ-123' },
+        { accountId: 'user-1' },
+      );
+      expect(result.success).toBe(true);
+      expect(getJiraRelationshipContext).toHaveBeenCalledWith(
+        'PROJ-123',
+        'PROJ',
+        expect.any(String),
+      );
+    });
+
+    it('should include relContext in response (RTASK-038)', async () => {
+      const mockRelCtx = {
+        siblings: [
+          {
+            id: 'jira:PROJ-124',
+            type: 'jira-issue',
+            label: 'Related',
+            status: '',
+            projectKey: 'PROJ',
+            metadata: {},
+            createdAt: '',
+            updatedAt: '',
+          },
+        ],
+        documentation: [],
+        pullRequests: [],
+        topics: [],
+        crossReferences: [],
+        rankedItems: [],
+        assembledAt: '2026-05-01T00:00:00Z',
+      };
+      (getJiraRelationshipContext as jest.Mock).mockResolvedValue(mockRelCtx);
+
+      const result = await handler(
+        { context: VALID_CONTEXT, issueKey: 'PROJ-123' },
+        { accountId: 'user-1' },
+      );
+      expect(result.success).toBe(true);
+      const data = result.data as { relContext: unknown };
+      expect(data.relContext).toEqual(mockRelCtx);
+    });
+
+    it('should gracefully degrade when getJiraRelationshipContext fails (RTASK-038, FORGE-OPS-0104)', async () => {
+      (getJiraRelationshipContext as jest.Mock).mockRejectedValue(new Error('Storage error'));
+
+      const result = await handler(
+        { context: VALID_CONTEXT, issueKey: 'PROJ-123' },
+        { accountId: 'user-1' },
+      );
+      expect(result.success).toBe(true);
+      const data = result.data as { relContext: unknown };
+      expect(data.relContext).toEqual(EMPTY_RELATIONSHIP_CONTEXT);
     });
   });
 
@@ -892,6 +969,7 @@ describe('agent-action', () => {
       (calculateScore as jest.Mock).mockReturnValue(MOCK_SCORE);
       (detectInconsistencies as jest.Mock).mockReturnValue(MOCK_INCONSISTENCIES);
       (evaluateGate as jest.Mock).mockReturnValue(MOCK_GATE_RESULT);
+      (getJiraRelationshipContext as jest.Mock).mockResolvedValue(EMPTY_RELATIONSHIP_CONTEXT);
       const r2 = await handler(
         { context: VALID_CONTEXT, issueKey: 'PROJ-123' },
         { accountId: 'user-1' },

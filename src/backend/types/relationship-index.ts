@@ -145,6 +145,31 @@ export interface GraphStats {
 }
 
 // ═══════════════════════════════════════════
+// NEIGHBORHOOD (denormalized O(1) read path)
+// ═══════════════════════════════════════════
+
+/** Summary of a neighboring entity — lightweight pointer for O(1) context retrieval. */
+export interface NeighborSummary {
+  readonly id: string;
+  readonly key: string;
+  readonly type: EntityType;
+  readonly relationship: EdgeType;
+  readonly weight: number;
+}
+
+/** Denormalized neighborhood stored per entity for single-read context retrieval. */
+export interface EntityNeighborhood {
+  readonly entityId: string;
+  readonly entityKey: string;
+  readonly entityType: EntityType;
+  readonly projectKey: string;
+  readonly siblings: readonly NeighborSummary[];
+  readonly linkedIssues: readonly NeighborSummary[];
+  readonly topics: readonly string[];
+  readonly updatedAt: string;
+}
+
+// ═══════════════════════════════════════════
 // INDEXER CONTRACT [ARCH-SOLID-006]
 // ═══════════════════════════════════════════
 

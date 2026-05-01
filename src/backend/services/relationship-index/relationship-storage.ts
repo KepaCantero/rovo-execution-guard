@@ -14,6 +14,7 @@ import type {
   GraphStats,
   EntityType,
   EdgeType,
+  EntityNeighborhood,
 } from '../../types/relationship-index';
 
 import { StorageError } from '../../types/errors';
@@ -807,5 +808,74 @@ export async function bulkPutEdges(
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     logStructured('error', 'bulkPutEdges', executionId, { error: msg });
+  }
+}
+
+// ═══════════════════════════════════════════
+// NEIGHBORHOOD OPERATIONS
+// ═══════════════════════════════════════════
+
+/** Type guard for EntityNeighborhood. [ARCH-SOLID-202] */
+function isEntityNeighborhood(value: unknown): value is EntityNeighborhood {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return (
+    typeof obj['entityId'] === 'string' &&
+    typeof obj['entityKey'] === 'string' &&
+    typeof obj['entityType'] === 'string' &&
+    typeof obj['projectKey'] === 'string'
+  );
+}
+
+/** Retrieve a denormalized neighborhood. Returns null if not found. */
+export async function getNeighborhood(
+  projectKey: string,
+  entityId: string,
+  executionId?: string,
+): Promise<EntityNeighborhood | null> {
+  try {
+    const storage = getStorage();
+    const key = buildKey('neighborhood', projectKey, entityId, executionId);
+    const raw = await storage.get(key);
+
+    if (raw === undefined || raw === null) {
+      return null;
+    }
+
+    if (!isEntityNeighborhood(raw)) {
+      logStructured('warn', 'getNeighborhood', executionId, { key, result: 'invalid_data' });
+      return null;
+    }
+
+    return raw;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logStructured('error', 'getNeighborhood', executionId, { error: msg });
+    return null;
+  }
+}
+
+/** Store a denormalized neighborhood. [FORGE-OPS-013] Size check. */
+export async function putNeighborhood(
+  projectKey: string,
+  neighborhood: EntityNeighborhood,
+  executionId?: string,
+): Promise<void> {
+  try {
+    const storage = getStorage();
+    const key = buildKey('neighborhood', projectKey, neighborhood.entityId, executionId);
+
+    checkValueSize(neighborhood, key, executionId);
+    await withRetry(async () => storage.set(key, neighborhood), 'putNeighborhood', executionId);
+    logStructured('info', 'putNeighborhood', executionId, {
+      key,
+      entityId: neighborhood.entityId,
+    });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logStructured('error', 'putNeighborhood', executionId, {
+      error: msg,
+      entityId: neighborhood.entityId,
+    });
   }
 }
