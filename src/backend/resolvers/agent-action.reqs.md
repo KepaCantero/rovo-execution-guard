@@ -209,8 +209,9 @@ All service adapters mocked via jest.mock(). Mocks reset in beforeEach.
 
 ## Historial de Cambios
 
-| Fecha      | Tarea Ralph          | Cambio                                                                     |
-| ---------- | -------------------- | -------------------------------------------------------------------------- |
-| 2026-04-30 | RTASK-033            | Created as stub for manifest validation                                    |
-| 2026-05-01 | RTASK-034 Step 1     | Added types, utilities, and initial test coverage                          |
-| 2026-05-01 | RTASK-034 Steps 2-10 | Full handler routing, 5 sub-handlers, comprehensive tests, .reqs.md update |
+| Fecha      | Tarea Ralph          | Cambio                                                                                                                                                                                                                   |
+| ---------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-04-30 | RTASK-033            | Created as stub for manifest validation                                                                                                                                                                                  |
+| 2026-05-01 | RTASK-034 Step 1     | Added types, utilities, and initial test coverage                                                                                                                                                                        |
+| 2026-05-01 | RTASK-034 Steps 2-10 | Full handler routing, 5 sub-handlers, comprehensive tests, .reqs.md update                                                                                                                                               |
+| 2026-05-02 | RTASK-041            | handleEvaluateIssue passes relContext to detection/scoring (AC-07). handleCheckPRConsistency uses graph traversal for alignment (AC-08). handleValidateSpecAlignment uses graph documentation with Rovo fallback (AC-09) |

@@ -38,6 +38,10 @@ jest.mock('../../../../src/backend/services/scoring/quality-gate-rules', () => (
   determineEnforcementActions: jest.fn(),
 }));
 
+jest.mock('../../../../src/backend/services/relationship-index/relationship-storage', () => ({
+  buildRelationshipContext: jest.fn(),
+}));
+
 import { getTicketData } from '../../../../src/backend/services/jira/jira-adapter';
 import { getContext } from '../../../../src/backend/services/rovo/rovo-adapter';
 import { detectInconsistencies } from '../../../../src/backend/services/scoring/inconsistency-detector';
@@ -46,6 +50,7 @@ import {
   evaluateGate,
   determineEnforcementActions,
 } from '../../../../src/backend/services/scoring/quality-gate-rules';
+import { buildRelationshipContext } from '../../../../src/backend/services/relationship-index/relationship-storage';
 
 const mockedGetTicketData = getTicketData as jest.MockedFunction<typeof getTicketData>;
 const mockedGetContext = getContext as jest.MockedFunction<typeof getContext>;
@@ -56,6 +61,9 @@ const mockedCalculateScore = calculateScore as jest.MockedFunction<typeof calcul
 const mockedEvaluateGate = evaluateGate as jest.MockedFunction<typeof evaluateGate>;
 const mockedDetermineEnforcementActions = determineEnforcementActions as jest.MockedFunction<
   typeof determineEnforcementActions
+>;
+const mockedBuildRelationshipContext = buildRelationshipContext as jest.MockedFunction<
+  typeof buildRelationshipContext
 >;
 
 // ═══════════════════════════════════════════
@@ -113,6 +121,19 @@ const makeRovoContext = (): RovoContext => ({
   timestamp: '2026-01-15T10:00:00Z',
 });
 
+const makeRelationshipContext = (
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> => ({
+  siblings: [],
+  documentation: [],
+  pullRequests: [],
+  topics: [],
+  crossReferences: [],
+  rankedItems: [],
+  assembledAt: '2026-01-15T10:00:00Z',
+  ...overrides,
+});
+
 const makeInconsistency = (overrides: Partial<Inconsistency> = {}): Inconsistency => ({
   id: 'inc-test-001',
   type: 'ambiguity',
@@ -141,6 +162,7 @@ describe('EvaluationPipeline', () => {
     mockedCalculateScore.mockReturnValue(makeScore());
     mockedEvaluateGate.mockReturnValue(makeGateResult());
     mockedDetermineEnforcementActions.mockReturnValue([]);
+    mockedBuildRelationshipContext.mockResolvedValue(makeRelationshipContext());
   });
 
   afterEach(() => {
@@ -176,7 +198,12 @@ describe('EvaluationPipeline', () => {
         expect.any(String),
         expect.any(Number),
       );
-      expect(mockedDetectInconsistencies).toHaveBeenCalledWith(ticket, expect.any(Object));
+      expect(mockedDetectInconsistencies).toHaveBeenCalledWith(
+        ticket,
+        expect.any(Object),
+        undefined,
+        expect.any(Object),
+      );
       expect(mockedCalculateScore).toHaveBeenCalled();
       expect(mockedEvaluateGate).toHaveBeenCalledWith('definition', expect.any(Object));
       expect(mockedDetermineEnforcementActions).toHaveBeenCalledWith(
@@ -226,7 +253,7 @@ describe('EvaluationPipeline', () => {
       // Assert
       expect(result.gateResult.passed).toBe(false);
       expect(result.inconsistencies).toHaveLength(1);
-      expect(result.inconsistencies[0]!.severity).toBe('critical');
+      expect(result.inconsistencies[0]?.severity).toBe('critical');
     });
 
     // ─── AC-EP-02: Returns EvaluationPipelineResult ──────────
@@ -374,7 +401,12 @@ describe('EvaluationPipeline', () => {
       // Assert — pipeline succeeds without Rovo
       expect(result.gateResult).toBeDefined();
       expect(result.error).toBeUndefined();
-      expect(mockedDetectInconsistencies).toHaveBeenCalledWith(expect.any(Object), undefined);
+      expect(mockedDetectInconsistencies).toHaveBeenCalledWith(
+        expect.any(Object),
+        undefined,
+        undefined,
+        expect.any(Object),
+      );
     });
 
     it('should continue without Rovo context when it returns undefined (AC-EP-06)', async () => {
@@ -549,7 +581,12 @@ describe('EvaluationPipeline', () => {
       // Assert — graceful fallback
       expect(result.error).toBeUndefined();
       expect(result.gateResult).toBeDefined();
-      expect(mockedDetectInconsistencies).toHaveBeenCalledWith(expect.any(Object), undefined);
+      expect(mockedDetectInconsistencies).toHaveBeenCalledWith(
+        expect.any(Object),
+        undefined,
+        undefined,
+        expect.any(Object),
+      );
     });
 
     // ─── ROVO-INTEG-0915: Rovo is enhancer not requirement ──────────
@@ -664,7 +701,7 @@ describe('EvaluationPipeline', () => {
 
       // Assert
       expect(result.enforcementActions).toHaveLength(1);
-      expect(result.enforcementActions[0]!.type).toBe('block_transition');
+      expect(result.enforcementActions[0]?.type).toBe('block_transition');
     });
 
     // ─── Non-Error fallback: Rovo context throws non-Error ──────────
@@ -679,7 +716,12 @@ describe('EvaluationPipeline', () => {
       // Assert — pipeline continues without Rovo (graceful degradation)
       expect(result.error).toBeUndefined();
       expect(result.gateResult).toBeDefined();
-      expect(mockedDetectInconsistencies).toHaveBeenCalledWith(expect.any(Object), undefined);
+      expect(mockedDetectInconsistencies).toHaveBeenCalledWith(
+        expect.any(Object),
+        undefined,
+        undefined,
+        expect.any(Object),
+      );
 
       // Verify the fallback log entry was emitted with 'Unknown Rovo error'
       const logCalls = consoleLogSpy.mock.calls
@@ -772,6 +814,12 @@ describe('EvaluationPipeline', () => {
           evaluateGate: jest.fn().mockReturnValue(makeGateResult()),
           determineEnforcementActions: jest.fn().mockReturnValue([]),
         }));
+        jest.doMock(
+          '../../../../src/backend/services/relationship-index/relationship-storage',
+          () => ({
+            buildRelationshipContext: jest.fn().mockResolvedValue(makeRelationshipContext()),
+          }),
+        );
 
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const mod = require('../../../../src/backend/services/evaluation/evaluation-pipeline');
@@ -787,6 +835,131 @@ describe('EvaluationPipeline', () => {
       expect(result.error).toBe('Validation error');
       expect(result.inconsistencies).toEqual([]);
       expect(result.enforcementActions).toEqual([]);
+    });
+
+    // ─── AC-EP-12: Pipeline fetches RelationshipContext with graceful degradation ──────────
+
+    it('should fetch relationship context and pass to detection (AC-EP-12, AC-06)', async () => {
+      // Arrange
+      const relCtx = makeRelationshipContext();
+      mockedBuildRelationshipContext.mockResolvedValue(relCtx);
+
+      // Act
+      const result = await evaluateTicketForGate('PROJ-123', 'In Progress', makeProjectConfig());
+
+      // Assert — buildRelationshipContext called with correct args
+      expect(mockedBuildRelationshipContext).toHaveBeenCalledWith(
+        'PROJ',
+        'jira:PROJ-123',
+        expect.any(String),
+      );
+      // detectInconsistencies called with relationshipContext as 4th arg
+      expect(mockedDetectInconsistencies).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(Object),
+        undefined,
+        relCtx,
+      );
+      expect(result.error).toBeUndefined();
+    });
+
+    it('should pass relationship context to scoring engine (AC-EP-12)', async () => {
+      // Arrange
+      const relCtx = makeRelationshipContext();
+      mockedBuildRelationshipContext.mockResolvedValue(relCtx);
+
+      // Act
+      await evaluateTicketForGate('PROJ-123', 'In Progress', makeProjectConfig());
+
+      // Assert — calculateScore called with ScoringInput containing relationshipContext
+      expect(mockedCalculateScore).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ticket: expect.any(Object),
+          relationshipContext: relCtx,
+        }),
+      );
+    });
+
+    // ─── AC-EP-14: documentationRefs populated from RelationshipContext ──────────
+
+    it('should populate documentationRefs from relationship context for delivery gate (AC-EP-14, AC-10)', async () => {
+      // Arrange — relationship context with documentation
+      const relCtx = makeRelationshipContext({
+        documentation: [{ id: 'confluence:12345' }, { id: 'confluence:67890' }],
+      });
+      mockedBuildRelationshipContext.mockResolvedValue(relCtx);
+
+      // Act
+      await evaluateTicketForGate('PROJ-123', 'Done', makeProjectConfig());
+
+      // Assert — evaluateGate called with GateEvaluationInput containing documentationRefs
+      expect(mockedEvaluateGate).toHaveBeenCalledWith(
+        'delivery',
+        expect.objectContaining({
+          documentationRefs: ['confluence:12345', 'confluence:67890'],
+        }),
+      );
+    });
+
+    // ─── FORGE-OPS-054: Graceful degradation when relationship context fetch fails ──────────
+
+    it('should continue without relationship context when fetch fails (AC-EP-12, FORGE-OPS-054)', async () => {
+      // Arrange
+      mockedBuildRelationshipContext.mockRejectedValue(new Error('Storage unavailable'));
+
+      // Act
+      const result = await evaluateTicketForGate('PROJ-123', 'In Progress', makeProjectConfig());
+
+      // Assert — pipeline succeeds, no relationship context passed
+      expect(result.error).toBeUndefined();
+      expect(result.gateResult).toBeDefined();
+      expect(mockedDetectInconsistencies).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(Object),
+        undefined,
+        undefined,
+      );
+    });
+
+    // ─── AC-EP-15: Delivery gate documentation check functional ──────────
+
+    it('should not regress existing pipeline behavior when relationship context is empty (AC-EP-15)', async () => {
+      // Arrange — empty relationship context (no documentation)
+      mockedBuildRelationshipContext.mockResolvedValue(makeRelationshipContext());
+
+      // Act
+      const result = await evaluateTicketForGate('PROJ-123', 'In Progress', makeProjectConfig());
+
+      // Assert — same as before: gate evaluates, no documentationRefs
+      expect(result.gateResult).toBeDefined();
+      expect(result.error).toBeUndefined();
+      expect(mockedEvaluateGate).toHaveBeenCalledWith(
+        'definition',
+        expect.objectContaining({
+          documentationRefs: undefined,
+        }),
+      );
+    });
+
+    it('should fetch relationship context and log the operation (AC-EP-12)', async () => {
+      // Arrange
+      mockedBuildRelationshipContext.mockResolvedValue(makeRelationshipContext());
+
+      // Act
+      await evaluateTicketForGate('PROJ-123', 'In Progress', makeProjectConfig());
+
+      // Assert — verify log includes fetchRelationshipContext operation
+      const logCalls = consoleLogSpy.mock.calls
+        .map((call: [string]) => {
+          try {
+            return JSON.parse(call[0]);
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean);
+      const loggedOps = logCalls.map((entry: { operation?: string }) => entry.operation);
+      expect(loggedOps).toContain('fetchRelationshipContext');
     });
   });
 });

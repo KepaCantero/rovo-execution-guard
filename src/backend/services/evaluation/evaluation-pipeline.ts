@@ -18,6 +18,7 @@ import type { EnforcementAction } from '../../types/enforcement';
 import type { AuditLogEntry } from '../../types/audit-log';
 import type { ProjectConfig } from '../../types/project-config';
 import type { RovoContext } from '../../types/rovo-context';
+import type { RelationshipContext } from '../../types/relationship-index';
 import { REGError } from '../../types/errors';
 
 import { getTicketData } from '../jira/jira-adapter';
@@ -29,6 +30,7 @@ import {
   determineEnforcementActions,
   type GateEvaluationInput,
 } from '../scoring/quality-gate-rules';
+import { buildRelationshipContext } from '../relationship-index/relationship-storage';
 
 // ═══════════════════════════════════════════
 // TYPES
@@ -168,6 +170,42 @@ const fetchRovoContext = async (
 };
 
 /**
+ * Fetch relationship context with graceful degradation.
+ * REGLA: [FORGE-OPS-054] Graceful degradation when relationship index unavailable
+ * REGLA: [ROVO-INTEG-0915] Relationship context is enhancer, never requirement
+ * AC ref: AC-EP-12
+ */
+const fetchRelationshipContext = async (
+  ticketKey: string,
+  projectKey: string,
+  executionId: string,
+): Promise<RelationshipContext | undefined> => {
+  try {
+    log({
+      timestamp: new Date().toISOString(),
+      level: 'info',
+      operation: 'fetchRelationshipContext',
+      executionId,
+      ticketKey,
+      projectKey,
+    });
+
+    return await buildRelationshipContext(projectKey, `jira:${ticketKey}`, executionId);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown relationship index error';
+    log({
+      timestamp: new Date().toISOString(),
+      level: 'warn',
+      operation: 'fetchRelationshipContextFallback',
+      executionId,
+      ticketKey,
+      error: message,
+    });
+    return undefined;
+  }
+};
+
+/**
  * Detect inconsistencies from ticket data and optional Rovo context.
  * REGLA: [ARCH-SOLID-006] Delegates to DOMAIN layer
  */
@@ -175,6 +213,7 @@ const detectIssues = (
   ticket: JiraTicketData,
   context: RovoContext | undefined,
   executionId: string,
+  relationshipContext?: RelationshipContext,
 ): readonly Inconsistency[] => {
   log({
     timestamp: new Date().toISOString(),
@@ -185,7 +224,7 @@ const detectIssues = (
     hasContext: context !== undefined,
   });
 
-  return detectInconsistencies(ticket, context);
+  return detectInconsistencies(ticket, context, undefined, relationshipContext);
 };
 
 /**
@@ -196,6 +235,7 @@ const computeScore = (
   ticket: JiraTicketData,
   inconsistencies: readonly Inconsistency[],
   executionId: string,
+  relationshipContext?: RelationshipContext,
 ): ConsistencyScore => {
   log({
     timestamp: new Date().toISOString(),
@@ -209,6 +249,7 @@ const computeScore = (
   const input: ScoringInput = {
     ticket,
     inconsistencies,
+    relationshipContext,
   };
 
   return calculateScore(input);
@@ -225,6 +266,7 @@ const evaluateQualityGate = (
   config: ProjectConfig,
   ticketKey: string,
   executionId: string,
+  documentationRefs?: readonly string[],
 ): { readonly gateResult: QualityGateResult; readonly actions: readonly EnforcementAction[] } => {
   log({
     timestamp: new Date().toISOString(),
@@ -241,6 +283,7 @@ const evaluateQualityGate = (
     inconsistencies,
     config,
     ticketKey,
+    documentationRefs,
   };
 
   const gateResult = evaluateGate(gateType, gateInput);
@@ -427,13 +470,26 @@ const runPipeline = async (
   // Step 2: Fetch Rovo context (optional, graceful degradation)
   const rovoContext = await fetchRovoContext(ticketKey, projectConfig.projectKey, executionId);
 
-  // Step 3: Detect inconsistencies
-  const inconsistencies = detectIssues(ticket, rovoContext, executionId);
+  // Step 2.5: Fetch relationship context (optional, graceful degradation) [AC-EP-12]
+  const relationshipContext = await fetchRelationshipContext(
+    ticketKey,
+    projectConfig.projectKey,
+    executionId,
+  );
 
-  // Step 4: Calculate score
-  const score = computeScore(ticket, inconsistencies, executionId);
+  // Step 2.6: Extract documentationRefs from relationship context [AC-EP-14]
+  const documentationRefs =
+    relationshipContext && relationshipContext.documentation.length > 0
+      ? relationshipContext.documentation.map((d) => d.id)
+      : undefined;
 
-  // Step 5: Evaluate gate and determine enforcement
+  // Step 3: Detect inconsistencies (now with relationship context)
+  const inconsistencies = detectIssues(ticket, rovoContext, executionId, relationshipContext);
+
+  // Step 4: Calculate score (now with relationship context)
+  const score = computeScore(ticket, inconsistencies, executionId, relationshipContext);
+
+  // Step 5: Evaluate gate and determine enforcement (with documentationRefs fix)
   const { gateResult, actions } = evaluateQualityGate(
     gateType,
     score,
@@ -441,6 +497,7 @@ const runPipeline = async (
     projectConfig,
     ticketKey,
     executionId,
+    documentationRefs,
   );
 
   // Step 6: Build audit entry

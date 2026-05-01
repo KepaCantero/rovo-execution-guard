@@ -185,6 +185,48 @@ const parsePrUrl = (
   };
 };
 
+/** Check if a PR number is linked in the relationship graph. [ARCH-SOLID-052] */
+const isPrLinkedInGraph = (
+  relContext: {
+    readonly pullRequests: readonly {
+      readonly metadata: Readonly<Record<string, string>>;
+      readonly label: string;
+    }[];
+  },
+  prNumber: number,
+): boolean =>
+  relContext.pullRequests.some(
+    (pr) => pr.metadata['prNumber'] === String(prNumber) || pr.label.includes(String(prNumber)),
+  );
+
+/** Compute PR-issue alignment from multiple signals. [ARCH-SOLID-052] */
+const computePrAlignment = (
+  prInGraph: boolean,
+  issueKeyInPrTitle: boolean,
+  issueKeyInPrBody: boolean,
+  titleSimilarity: number,
+): {
+  readonly alignment: 'aligned' | 'partial' | 'misaligned';
+  readonly gaps: readonly string[];
+} => {
+  if (prInGraph || issueKeyInPrTitle || issueKeyInPrBody) {
+    return { alignment: 'aligned', gaps: [] };
+  }
+  if (titleSimilarity > 0.3) {
+    return {
+      alignment: 'partial',
+      gaps: ['PR does not explicitly reference the Jira issue key'],
+    };
+  }
+  return {
+    alignment: 'misaligned',
+    gaps: [
+      'PR title has low similarity to issue summary',
+      'PR does not reference the Jira issue key',
+    ],
+  };
+};
+
 // ═══════════════════════════════════════════
 // SUB-HANDLERS
 // ═══════════════════════════════════════════
@@ -208,9 +250,6 @@ const handleEvaluateIssue: ActionHandler = async (input, context) => {
     ? await getProjectConfig(projectKey, executionId, ACTION_TIMEOUT_MS)
     : undefined;
 
-  const inconsistencies = detectInconsistencies(ticket);
-  const score = calculateScore({ ticket, inconsistencies }, config);
-
   // [RTASK-038] Lazy hydration — fetch relationship context if available
   // [FORGE-OPS-0104] Graceful fallback to EMPTY_RELATIONSHIP_CONTEXT on failure
   const relContext = await getJiraRelationshipContext(
@@ -218,6 +257,13 @@ const handleEvaluateIssue: ActionHandler = async (input, context) => {
     projectKey ?? '',
     executionId,
   ).catch(() => EMPTY_RELATIONSHIP_CONTEXT);
+
+  // [RTASK-041] Pass relationship context to detection and scoring (AC-07)
+  const inconsistencies = detectInconsistencies(ticket, undefined, undefined, relContext);
+  const score = calculateScore(
+    { ticket, inconsistencies, relationshipContext: relContext },
+    config,
+  );
 
   const gateResult = config
     ? evaluateGate('definition', {
@@ -276,6 +322,16 @@ const handleCheckPRConsistency: ActionHandler = async (input, context) => {
     ACTION_TIMEOUT_MS,
   );
 
+  // [RTASK-041] Fetch relationship context for graph-based PR alignment (AC-08)
+  const relContext = await getJiraRelationshipContext(
+    issueKey,
+    context.jira?.projectKey ?? '',
+    executionId,
+  ).catch(() => EMPTY_RELATIONSHIP_CONTEXT);
+
+  // Check if PR is linked in relationship graph
+  const prInGraph = isPrLinkedInGraph(relContext, parsed.prNumber);
+
   // Simple alignment heuristic: check if issue key appears in PR title/body
   const issueKeyInPrTitle = prData.title.toUpperCase().includes(issueKey.toUpperCase());
   const issueKeyInPrBody = prData.body.toUpperCase().includes(issueKey.toUpperCase());
@@ -284,30 +340,21 @@ const handleCheckPRConsistency: ActionHandler = async (input, context) => {
   const overlapCount = titleWords.filter((w) => w.length > 3 && prTitleWords.includes(w)).length;
   const titleSimilarity = titleWords.length > 0 ? overlapCount / titleWords.length : 0;
 
-  const gaps: string[] = [];
-  let alignment: 'aligned' | 'partial' | 'misaligned';
+  const { alignment, gaps } = computePrAlignment(
+    prInGraph,
+    issueKeyInPrTitle,
+    issueKeyInPrBody,
+    titleSimilarity,
+  );
 
-  if (issueKeyInPrTitle || issueKeyInPrBody) {
-    alignment = 'aligned';
-  } else if (titleSimilarity > 0.3) {
-    alignment = 'partial';
-    gaps.push('PR does not explicitly reference the Jira issue key');
-  } else {
-    alignment = 'misaligned';
-    gaps.push('PR title has low similarity to issue summary');
-    gaps.push('PR does not reference the Jira issue key');
-  }
-
-  if (prData.files.length === 0) {
-    gaps.push('PR has no file changes listed');
-  }
+  const allGaps = prData.files.length === 0 ? [...gaps, 'PR has no file changes listed'] : gaps;
 
   return actionSuccess(
     {
       alignment,
       prSummary: { title: prData.title, state: prData.state, fileCount: prData.files.length },
       issueSummary: { key: ticket.key, summary: ticket.summary, status: ticket.status },
-      gaps,
+      gaps: allGaps,
     },
     executionId,
   );
@@ -328,6 +375,13 @@ const handleValidateSpecAlignment: ActionHandler = async (input, context) => {
 
   const ticket = await getTicketData(issueKey, executionId, ACTION_TIMEOUT_MS);
 
+  // [RTASK-041] Fetch relationship context for graph-based spec alignment (AC-09)
+  const relContext = await getJiraRelationshipContext(
+    issueKey,
+    projectKey ?? '',
+    executionId,
+  ).catch(() => EMPTY_RELATIONSHIP_CONTEXT);
+
   // [ROVO-INTEG-004] Graceful degradation if Rovo context unavailable
   const rovoContext = projectKey
     ? await getContext(ticket.summary, projectKey, executionId, ACTION_TIMEOUT_MS).catch(
@@ -335,23 +389,28 @@ const handleValidateSpecAlignment: ActionHandler = async (input, context) => {
       )
     : undefined;
 
-  const docs = await getDocumentation(
-    ticket.summary,
-    undefined,
-    executionId,
-    ACTION_TIMEOUT_MS,
-  ).catch(
-    () =>
-      [] as readonly {
-        readonly id: string;
-        readonly title: string;
-        readonly content: string;
-        readonly source: string;
-        readonly relevance: number;
-      }[],
-  );
+  // Use graph docs when available, fallback to Rovo getDocumentation (AC-09)
+  const docs =
+    relContext.documentation.length > 0
+      ? relContext.documentation.map((d) => ({
+          id: d.id,
+          title: d.label,
+          content: d.metadata['content'] ?? '',
+          source: 'confluence',
+          relevance: 0.8,
+        }))
+      : await getDocumentation(ticket.summary, undefined, executionId, ACTION_TIMEOUT_MS).catch(
+          () =>
+            [] as readonly {
+              readonly id: string;
+              readonly title: string;
+              readonly content: string;
+              readonly source: string;
+              readonly relevance: number;
+            }[],
+        );
 
-  const inconsistencies = detectInconsistencies(ticket, rovoContext);
+  const inconsistencies = detectInconsistencies(ticket, rovoContext, undefined, relContext);
 
   const alignedSpecs = docs
     .filter((d) => d.relevance > 0.5)

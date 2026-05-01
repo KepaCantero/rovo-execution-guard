@@ -147,6 +147,7 @@ Las siguientes reglas del RULEBOOK.md deben respetarse en este modulo:
 
 ## Historial de Cambios
 
-| Fecha | Tarea Ralph | Cambio         |
-| ----- | ----------- | -------------- |
-|       | RTASK-014   | Creado inicial |
+| Fecha      | Tarea Ralph | Cambio                                                                                                                                                                                                          |
+| ---------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|            | RTASK-014   | Creado inicial                                                                                                                                                                                                  |
+| 2026-05-02 | RTASK-041   | AC-EP-12: Pipeline fetches RelationshipContext with graceful degradation. AC-EP-14: documentationRefs populated from RelationshipContext.documentation. BUG FIX: documentationRefs delivery gate now functional |

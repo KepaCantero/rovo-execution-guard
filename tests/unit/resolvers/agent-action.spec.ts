@@ -1030,4 +1030,174 @@ describe('agent-action', () => {
       expect(data.alignedSpecs).toHaveLength(0);
     });
   });
+
+  // ═══════════════════════════════════════════
+  // RELATIONSHIP CONTEXT INTEGRATION (RTASK-041)
+  // ═══════════════════════════════════════════
+
+  describe('relationship context integration (RTASK-041)', () => {
+    const MOCK_REL_CONTEXT = {
+      siblings: [],
+      documentation: [
+        {
+          id: 'confluence:12345',
+          type: 'confluence-page' as const,
+          label: 'Auth Spec',
+          status: 'current',
+          projectKey: 'PROJ',
+          metadata: { content: 'Specification for authentication flow' },
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+        },
+      ],
+      pullRequests: [
+        {
+          id: 'github:org/repo/pull/42',
+          type: 'github-pr' as const,
+          label: 'PROJ-123 Implement auth flow',
+          status: 'open',
+          projectKey: 'PROJ',
+          metadata: { prNumber: '42' },
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+        },
+      ],
+      topics: [],
+      crossReferences: [],
+      rankedItems: [],
+      assembledAt: '2026-05-01T00:00:00Z',
+    };
+
+    // ─── AC-07: handleEvaluateIssue passes relContext ──────────
+
+    it('should pass relContext to detectInconsistencies in evaluate-issue (AC-07, RTASK-041)', async () => {
+      (getJiraRelationshipContext as jest.Mock).mockResolvedValue(MOCK_REL_CONTEXT);
+
+      await handler({ context: VALID_CONTEXT, issueKey: 'PROJ-123' }, { accountId: 'user-1' });
+
+      expect(detectInconsistencies).toHaveBeenCalledWith(
+        MOCK_TICKET,
+        undefined,
+        undefined,
+        MOCK_REL_CONTEXT,
+      );
+    });
+
+    it('should pass relContext to calculateScore via ScoringInput in evaluate-issue (AC-07, RTASK-041)', async () => {
+      (getJiraRelationshipContext as jest.Mock).mockResolvedValue(MOCK_REL_CONTEXT);
+
+      await handler({ context: VALID_CONTEXT, issueKey: 'PROJ-123' }, { accountId: 'user-1' });
+
+      expect(calculateScore).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ticket: MOCK_TICKET,
+          relationshipContext: MOCK_REL_CONTEXT,
+        }),
+        expect.any(Object),
+      );
+    });
+
+    // ─── AC-08: handleCheckPRConsistency uses graph data ──────────
+
+    it('should use graph data for PR alignment when PR is linked in relationship context (AC-08, RTASK-041)', async () => {
+      (getJiraRelationshipContext as jest.Mock).mockResolvedValue(MOCK_REL_CONTEXT);
+
+      const result = await handler(
+        {
+          context: { ...VALID_CONTEXT, moduleKey: 'check-pr-consistency' },
+          issueKey: 'PROJ-123',
+          prUrl: 'https://github.com/org/repo/pull/42',
+        },
+        { accountId: 'user-1' },
+      );
+
+      expect(result.success).toBe(true);
+      expect(getJiraRelationshipContext).toHaveBeenCalledWith(
+        'PROJ-123',
+        'PROJ',
+        expect.any(String),
+      );
+    });
+
+    it('should fallback to string similarity when graph has no PR data (AC-08, RTASK-041)', async () => {
+      // Empty relationship context — no PRs
+      (getJiraRelationshipContext as jest.Mock).mockResolvedValue(EMPTY_RELATIONSHIP_CONTEXT);
+      (getPRData as jest.Mock).mockResolvedValue({
+        ...MOCK_PR_DATA,
+        title: 'Fix typo in readme',
+        body: 'Minor fix',
+      });
+
+      const result = await handler(
+        {
+          context: { ...VALID_CONTEXT, moduleKey: 'check-pr-consistency' },
+          issueKey: 'PROJ-999',
+          prUrl: 'https://github.com/org/repo/pull/42',
+        },
+        { accountId: 'user-1' },
+      );
+
+      expect(result.success).toBe(true);
+      const data = result.data as { alignment: string };
+      // Falls back to string similarity — no issue key match, low similarity
+      expect(['partial', 'misaligned']).toContain(data.alignment);
+    });
+
+    // ─── AC-09: handleValidateSpecAlignment uses graph documentation ──────────
+
+    it('should use graph documentation for spec alignment when available (AC-09, RTASK-041)', async () => {
+      (getJiraRelationshipContext as jest.Mock).mockResolvedValue(MOCK_REL_CONTEXT);
+
+      const result = await handler(
+        {
+          context: { ...VALID_CONTEXT, moduleKey: 'validate-spec-alignment' },
+          issueKey: 'PROJ-123',
+        },
+        { accountId: 'user-1' },
+      );
+
+      expect(result.success).toBe(true);
+      expect(getJiraRelationshipContext).toHaveBeenCalledWith(
+        'PROJ-123',
+        'PROJ',
+        expect.any(String),
+      );
+    });
+
+    it('should fallback to Rovo getDocumentation when graph has no docs (AC-09, RTASK-041)', async () => {
+      // Empty documentation in relationship context
+      (getJiraRelationshipContext as jest.Mock).mockResolvedValue(EMPTY_RELATIONSHIP_CONTEXT);
+
+      const result = await handler(
+        {
+          context: { ...VALID_CONTEXT, moduleKey: 'validate-spec-alignment' },
+          issueKey: 'PROJ-123',
+        },
+        { accountId: 'user-1' },
+      );
+
+      expect(result.success).toBe(true);
+      // Falls back to Rovo getDocumentation
+      expect(getDocumentation).toHaveBeenCalled();
+    });
+
+    it('should pass relContext to detectInconsistencies in validate-spec-alignment (AC-09, RTASK-041)', async () => {
+      (getJiraRelationshipContext as jest.Mock).mockResolvedValue(MOCK_REL_CONTEXT);
+
+      await handler(
+        {
+          context: { ...VALID_CONTEXT, moduleKey: 'validate-spec-alignment' },
+          issueKey: 'PROJ-123',
+        },
+        { accountId: 'user-1' },
+      );
+
+      expect(detectInconsistencies).toHaveBeenCalledWith(
+        MOCK_TICKET,
+        expect.any(Object),
+        undefined,
+        MOCK_REL_CONTEXT,
+      );
+    });
+  });
 });
