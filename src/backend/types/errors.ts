@@ -122,3 +122,14 @@ export class CircuitOpenError extends REGError {
     this.name = 'CircuitOpenError';
   }
 }
+
+// [ARCH-SOLID-053] Domain-specific error for Forge Storage operations
+export class StorageError extends REGError {
+  public readonly key?: string;
+
+  constructor(message: string, code: string, executionId?: string, key?: string) {
+    super(message, code, executionId);
+    this.name = 'StorageError';
+    this.key = key;
+  }
+}

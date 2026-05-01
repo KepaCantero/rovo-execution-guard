@@ -20,6 +20,7 @@ export {
   SpaceNotFoundError,
   TimeoutError,
   CircuitOpenError,
+  StorageError,
 } from './errors';
 
 // --- Scoring ---
