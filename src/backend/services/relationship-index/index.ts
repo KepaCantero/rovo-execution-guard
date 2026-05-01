@@ -47,6 +47,17 @@ export {
 
 export type { ConfluencePageInput } from './confluence-indexer';
 
+// --- GitHub Indexer ---
+export {
+  indexPullRequest,
+  extractJiraKeysFromPR,
+  getImplementingPRs,
+  buildPRNeighborhood,
+  extractPRTopics,
+} from './github-indexer';
+
+export type { PRIndexInput } from './github-indexer';
+
 // --- Domain Types ---
 export type {
   EntityType,
