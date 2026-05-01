@@ -21,15 +21,25 @@ import type { AuditLogEntry } from '../../../src/backend/types/audit-log';
 jest.mock('../../../src/backend/services/evaluation/evaluation-pipeline');
 jest.mock('../../../src/backend/services/enforcement/enforcement-actions');
 jest.mock('../../../src/backend/services/jira/jira-adapter');
+jest.mock('../../../src/backend/services/relationship-index/jira-indexer');
 
 import { evaluateTicketForGate } from '../../../src/backend/services/evaluation/evaluation-pipeline';
 import { blockTransition } from '../../../src/backend/services/enforcement/enforcement-actions';
-import { getProjectConfig, addComment } from '../../../src/backend/services/jira/jira-adapter';
+import {
+  getProjectConfig,
+  addComment,
+  getTicketData,
+} from '../../../src/backend/services/jira/jira-adapter';
+import { indexJiraIssue } from '../../../src/backend/services/relationship-index/jira-indexer';
+
+import type { JiraTicketData } from '../../../src/backend/types/jira-data';
 
 const mockEvaluateTicketForGate = jest.mocked(evaluateTicketForGate);
 const mockBlockTransition = jest.mocked(blockTransition);
 const mockGetProjectConfig = jest.mocked(getProjectConfig);
 const mockAddComment = jest.mocked(addComment);
+const mockGetTicketData = jest.mocked(getTicketData);
+const mockIndexJiraIssue = jest.mocked(indexJiraIssue);
 
 // ═══════════════════════════════════════════
 // FIXTURES
@@ -159,6 +169,19 @@ const makeTransitionEvent = (
   fromStatus: 'To Do',
   toStatus: 'In Progress',
   projectKey: 'PROJ',
+  ...overrides,
+});
+
+const makeTicketData = (overrides: Partial<JiraTicketData> = {}): JiraTicketData => ({
+  key: 'PROJ-123',
+  summary: 'Test ticket summary',
+  description: 'Test description body',
+  status: 'In Progress',
+  issueType: 'Story',
+  labels: ['backend', 'urgent'],
+  projectKey: 'PROJ',
+  created: '2026-01-01T00:00:00Z',
+  updated: '2026-05-01T00:00:00Z',
   ...overrides,
 });
 
@@ -759,6 +782,131 @@ describe('workflow-transition', () => {
       // Results should be independent
       expect(result1.executionId).not.toBe(result2.executionId);
       expect(mockEvaluateTicketForGate).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // ─── RTASK-038 Step 3: Incremental indexing hook ──
+
+  describe('incremental indexing hook', () => {
+    const flushPromises = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+    it('should trigger indexing after passing gate evaluation', async () => {
+      const event = makeTransitionEvent();
+      mockGetProjectConfig.mockResolvedValue(makeProjectConfig());
+      mockEvaluateTicketForGate.mockResolvedValue(makePassingResult());
+      mockGetTicketData.mockResolvedValue(makeTicketData());
+      mockIndexJiraIssue.mockResolvedValue();
+
+      await onJiraWorkflowTransition(event);
+      await flushPromises();
+
+      expect(mockGetTicketData).toHaveBeenCalledWith(
+        'PROJ-123',
+        expect.any(String),
+        expect.any(Number),
+      );
+      expect(mockIndexJiraIssue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issueKey: 'PROJ-123',
+          projectKey: 'PROJ',
+          summary: 'Test ticket summary',
+        }),
+        expect.any(String),
+      );
+    });
+
+    it('should trigger indexing after failing gate evaluation', async () => {
+      const event = makeTransitionEvent();
+      mockGetProjectConfig.mockResolvedValue(makeProjectConfig());
+      mockEvaluateTicketForGate.mockResolvedValue(makeFailingResult());
+      mockBlockTransition.mockResolvedValue({} as AuditLogEntry);
+      mockGetTicketData.mockResolvedValue(makeTicketData());
+      mockIndexJiraIssue.mockResolvedValue();
+
+      await onJiraWorkflowTransition(event);
+      await flushPromises();
+
+      expect(mockIndexJiraIssue).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not affect transition result when indexing fails (FORGE-OPS-054)', async () => {
+      const event = makeTransitionEvent();
+      mockGetProjectConfig.mockResolvedValue(makeProjectConfig());
+      mockEvaluateTicketForGate.mockResolvedValue(makePassingResult());
+      mockGetTicketData.mockResolvedValue(makeTicketData());
+      mockIndexJiraIssue.mockRejectedValue(new Error('Indexing storage error'));
+
+      const result = await onJiraWorkflowTransition(event);
+      await flushPromises();
+
+      expect(result.allowed).toBe(true);
+      expect(result.error).toBeUndefined();
+    });
+
+    it('should not call indexJiraIssue for ungated transitions', async () => {
+      const event = makeTransitionEvent({ toStatus: 'Custom' });
+
+      await onJiraWorkflowTransition(event);
+      await flushPromises();
+
+      expect(mockIndexJiraIssue).not.toHaveBeenCalled();
+      expect(mockGetTicketData).not.toHaveBeenCalled();
+    });
+
+    it('should not call indexJiraIssue when gate is disabled', async () => {
+      const event = makeTransitionEvent();
+      mockGetProjectConfig.mockResolvedValue(
+        makeProjectConfig({ gates: { definition: false, execution: true, delivery: true } }),
+      );
+
+      await onJiraWorkflowTransition(event);
+      await flushPromises();
+
+      expect(mockIndexJiraIssue).not.toHaveBeenCalled();
+      expect(mockGetTicketData).not.toHaveBeenCalled();
+    });
+
+    it('should map issueLinks to JiraIssueLinkInput dropping extra fields', async () => {
+      const event = makeTransitionEvent();
+      mockGetProjectConfig.mockResolvedValue(makeProjectConfig());
+      mockEvaluateTicketForGate.mockResolvedValue(makePassingResult());
+      mockGetTicketData.mockResolvedValue(
+        makeTicketData({
+          issueLinks: [
+            {
+              type: 'Blocks',
+              direction: 'outward',
+              targetKey: 'PROJ-456',
+              targetSummary: 'Other ticket',
+              targetStatus: 'To Do',
+            },
+          ],
+        }),
+      );
+      mockIndexJiraIssue.mockResolvedValue();
+
+      await onJiraWorkflowTransition(event);
+      await flushPromises();
+
+      expect(mockIndexJiraIssue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issueLinks: [{ type: 'Blocks', direction: 'outward', targetKey: 'PROJ-456' }],
+        }),
+        expect.any(String),
+      );
+    });
+
+    it('should degrade gracefully when getTicketData fails (FORGE-OPS-054)', async () => {
+      const event = makeTransitionEvent();
+      mockGetProjectConfig.mockResolvedValue(makeProjectConfig());
+      mockEvaluateTicketForGate.mockResolvedValue(makePassingResult());
+      mockGetTicketData.mockRejectedValue(new Error('Jira API timeout'));
+
+      const result = await onJiraWorkflowTransition(event);
+      await flushPromises();
+
+      expect(result.allowed).toBe(true);
+      expect(mockIndexJiraIssue).not.toHaveBeenCalled();
     });
   });
 });

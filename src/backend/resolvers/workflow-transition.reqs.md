@@ -24,6 +24,7 @@ Capa HANDLER que orquesta el evaluation pipeline (SERVICE) y ejecuta enforcement
 - [ ] **AC-07**: Configurable por proyecto (gates activos/inactivos via ProjectConfig)
 - [ ] **AC-08**: Unit test coverage > 85%
 - [ ] **AC-09**: `.reqs.md` sidecar creado
+- [ ] **AC-10**: Fire-and-forget incremental indexing after audit log write — calls indexJiraIssue via buildIndexInputFromTicket helper, failure MUST NOT affect transition result (FORGE-OPS-054)
 
 ---
 
@@ -47,8 +48,9 @@ Las siguientes reglas del RULEBOOK.md deben respetarse en este modulo:
 | [ARCH-SOLID-058]  | Arquitectura | Zero dependencias de framework en tipos de dominio                       |
 | [ARCH-SOLID-202]  | Arquitectura | Zero `any` — usar unknown, generics, discriminated unions                |
 | [ARCH-SOLID-053]  | Arquitectura | Tipos de error de dominio para todos los caminos de fallo                |
-| [ARCH-SOLID-006]  | Arquitectura | Patron Handler -> Service -> Repository                                  |
+| [ARCH-SOLID-006]  | Arquitectura | Patron Handler -> Service -> Repository (incl. jira-indexer)             |
 | [ARCH-SOLID-232]  | Arquitectura | Named exports solo, no export default                                    |
+| [ARCH-SOLID-052]  | Arquitectura | buildIndexInputFromTicket helper extraido                                |
 | [ARCH-SOLID-203]  | Arquitectura | Interfaces con propiedades readonly                                      |
 | [ARCH-SOLID-061]  | Arquitectura | Bounded contexts: Ticket Validation (Jira-side)                          |
 | [ARCH-SOLID-052]  | Arquitectura | Funciones <= 20 lineas de logica, max 3 niveles de anidamiento           |
@@ -124,7 +126,9 @@ Las siguientes reglas del RULEBOOK.md deben respetarse en este modulo:
 - `src/backend/types/errors` -> `REGError`, `JiraApiError`
 - `src/backend/services/evaluation/evaluation-pipeline` -> `evaluateTicketForGate`, `EvaluationPipelineResult`
 - `src/backend/services/enforcement/enforcement-actions` -> `blockTransition`, `addComment`, `executeAction`
-- `src/backend/services/jira/jira-adapter` -> `getProjectConfig`, `addComment` (for fail-open notification)
+- `src/backend/services/jira/jira-adapter` -> `getProjectConfig`, `addComment` (for fail-open notification), `getTicketData` (for incremental indexing)
+- `src/backend/services/relationship-index/jira-indexer` -> `indexJiraIssue`, `JiraIndexInput` (for incremental indexing)
+- `src/backend/types/jira-data` -> `JiraTicketData` (type for ticket data mapping)
 
 ### Externas (npm)
 
@@ -159,6 +163,12 @@ Las siguientes reglas del RULEBOOK.md deben respetarse en este modulo:
 | onJiraWorkflowTransition publishes comment on fail-open error                | AC-04        | SEC-PRIV-002   |
 | onJiraWorkflowTransition invalid event data fails gracefully                 | -            | SEC-PRIV-004   |
 | onJiraWorkflowTransition enforcement actions dispatched correctly            | AC-02        | ARCH-SOLID-006 |
+| onJiraWorkflowTransition triggers incremental indexing after passing gate    | AC-10        | ARCH-SOLID-006 |
+| onJiraWorkflowTransition triggers incremental indexing after failing gate    | AC-10        | FORGE-OPS-054  |
+| onJiraWorkflowTransition indexing failure does not affect transition         | AC-10        | FORGE-OPS-054  |
+| onJiraWorkflowTransition skips indexing for ungated transitions              | AC-10        | ARCH-SOLID-061 |
+| onJiraWorkflowTransition skips indexing when gate disabled                   | AC-10        | -              |
+| onJiraWorkflowTransition maps issueLinks dropping extra fields               | AC-10        | ARCH-SOLID-052 |
 
 ---
 

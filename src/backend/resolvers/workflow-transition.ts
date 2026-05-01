@@ -25,9 +25,14 @@ import {
 
 import { blockTransition } from '../services/enforcement/enforcement-actions';
 
-import { getProjectConfig, addComment } from '../services/jira/jira-adapter';
+import { getProjectConfig, addComment, getTicketData } from '../services/jira/jira-adapter';
 
 import { writeAuditEntry } from '../services/audit/audit-service';
+
+import { indexJiraIssue } from '../services/relationship-index/jira-indexer';
+import type { JiraIndexInput } from '../services/relationship-index/jira-indexer';
+
+import type { JiraTicketData } from '../types/jira-data';
 
 // ═══════════════════════════════════════════
 // TYPES
@@ -275,6 +280,45 @@ const writeAuditLog = async (auditEntry: AuditLogEntry, executionId: string): Pr
 };
 
 // ═══════════════════════════════════════════
+// INCREMENTAL INDEXING
+// ═══════════════════════════════════════════
+
+/**
+ * Maps JiraTicketData to JiraIndexInput for the relationship indexer.
+ * [ARCH-SOLID-052] Extracted helper to keep handleGatedTransition clean.
+ */
+const buildIndexInputFromTicket = (ticket: JiraTicketData): JiraIndexInput => ({
+  issueKey: ticket.key,
+  projectKey: ticket.projectKey,
+  summary: ticket.summary,
+  description: ticket.description,
+  issueType: ticket.issueType,
+  status: ticket.status,
+  labels: ticket.labels,
+  epicKey: ticket.epicKey,
+  issueLinks: ticket.issueLinks?.map((link) => ({
+    type: link.type,
+    direction: link.direction,
+    targetKey: link.targetKey,
+  })),
+});
+
+/**
+ * Fetches ticket data and triggers incremental relationship indexing.
+ * [ARCH-SOLID-006] Handler -> Service (jira-indexer) -> Repository (relationship-storage).
+ * [FORGE-OPS-054] Errors caught at call site — never propagates to caller.
+ */
+const triggerIncrementalIndex = async (
+  issueKey: string,
+  projectKey: string,
+  executionId: string,
+): Promise<void> => {
+  const ticket = await getTicketData(issueKey, executionId, HANDLER_TIMEOUT_MS);
+  const input = buildIndexInputFromTicket(ticket);
+  await indexJiraIssue(input, executionId);
+};
+
+// ═══════════════════════════════════════════
 // PUBLIC API
 // ═══════════════════════════════════════════
 
@@ -372,6 +416,17 @@ const handleGatedTransition = async (
 
     // Step 4: Write audit log [AC-06]
     await writeAuditLog(result.auditEntry, executionId);
+
+    // [FORGE-OPS-054] [FORGE-OPS-0104] Non-blocking relationship indexing — failure MUST NOT affect transition [ARCH-SOLID-058]
+    void triggerIncrementalIndex(event.issueKey, event.projectKey, executionId).catch(() => {
+      log({
+        timestamp: new Date().toISOString(),
+        level: 'warn',
+        operation: 'incrementalIndex.failed',
+        executionId,
+        issueKey: event.issueKey,
+      });
+    });
 
     // Step 5: Handle gate result
     if (result.gateResult.passed) {
