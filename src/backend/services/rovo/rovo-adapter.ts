@@ -1,3 +1,18 @@
+/**
+ * ROVO ADAPTER — DEPRECATION STRATEGY [RTASK-036]
+ *
+ * This module uses two undocumented internal endpoints:
+ *   - /gateway/api/rovo/search  (callRovoSearch)
+ *   - /gateway/api/rovo/validate (callRovoValidation)
+ *
+ * These are NOT part of the public Rovo API and may change without notice.
+ * The official integration path is now the rovo:agent + action Forge modules (RTASK-033/034).
+ *
+ * 3-LAYER RESILIENCE:
+ *   Layer 1: rovo:agent + actions (official, GA) — NEW
+ *   Layer 2: Internal endpoints + fallback (JQL + CQL + rules) — DEPRECATED
+ *   Layer 3: Fail-open with score 100 + audit log — PERMANENT SAFETY NET
+ */
 // [ARCH-SOLID-058] Integration layer — wraps @forge/api for Rovo with graceful fallback
 // [ARCH-SOLID-202] Zero any usage
 // [ARCH-SOLID-053] Domain-specific error types for all failure paths
@@ -534,6 +549,15 @@ async function executeConfluenceRequest(
 // =====================================================================
 
 /**
+ * DEPRECATION NOTICE (RTASK-036):
+ * This function uses the undocumented internal endpoint /gateway/api/rovo/search.
+ * It will be replaced by the official rovo:agent + action module pattern
+ * once the agent integration is fully validated in production.
+ *
+ * Migration path: Use the Consistency Guard agent's evaluate-issue action instead.
+ * Timeline: Deprecation target Q3 2026. Fallback to JQL + CQL remains as permanent safety net.
+ * @deprecated Use agent-action-handler via rovo:agent module instead.
+ *
  * Calls Rovo search endpoint and returns parsed response.
  * [ROVO-INTEG-005] 5s timeout
  * [ROVO-INTEG-0915] Returns undefined on any failure (caller falls back)
@@ -1151,6 +1175,15 @@ export async function validateConsistency(
 }
 
 /**
+ * DEPRECATION NOTICE (RTASK-036):
+ * This function uses the undocumented internal endpoint /gateway/api/rovo/validate.
+ * It will be replaced by the official rovo:agent + action module pattern
+ * once the agent integration is fully validated in production.
+ *
+ * Migration path: Use the Consistency Guard agent's evaluate-issue action instead.
+ * Timeline: Deprecation target Q3 2026. Rule-based fallback remains as permanent safety net.
+ * @deprecated Use agent-action-handler via rovo:agent module instead.
+ *
  * Calls Rovo validation endpoint.
  * [ARCH-SOLID-052] <20 lines effective logic
  */

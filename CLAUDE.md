@@ -95,7 +95,7 @@ After every successful task:
 
 ## Pipeline (RTASK)
 
-Completed: 001-011, 013, 021, 024. In progress: 012.
+Completed: 001-011, 013, 021, 024, 033-036. In progress: 012.
 
 Next in order:
 

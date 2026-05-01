@@ -8,6 +8,8 @@
 
 Typed, error-resilient adapter wrapping Atlassian Rovo API with graceful fallback to basic keyword-based search via Jira and Confluence APIs. Provides contextual intelligence capabilities (related tickets, documentation, historical decisions) with quota control, timeouts, and structured logging. When Rovo is unavailable, falls back to keyword matching in Jira and CQL search in Confluence.
 
+**RTASK-036 Deprecation Strategy**: The internal endpoints `/gateway/api/rovo/search` and `/gateway/api/rovo/validate` are now deprecated in favor of the official `rovo:agent` + `action` Forge module pattern (RTASK-033/034). Three-layer resilience model: (1) Agent + Actions = NEW, (2) Internal endpoints + fallback = DEPRECATED, (3) Fail-open with score 100 = PERMANENT SAFETY NET.
+
 ---
 
 ## Acceptance Criteria
@@ -21,6 +23,11 @@ Typed, error-resilient adapter wrapping Atlassian Rovo API with graceful fallbac
 - [ ] **AC-07**: Test coverage exceeds 85%
 - [ ] **AC-08**: Integration tests use mocked API responses for both Rovo and fallback paths
 - [ ] **AC-09**: `.reqs.md` sidecar file is created with requirements traceability
+- [ ] **AC-10**: `callRovoSearch()` has `@deprecated` JSDoc tag with migration path and Q3 2026 timeline [RTASK-036]
+- [ ] **AC-11**: `callRovoValidation()` has `@deprecated` JSDoc tag with migration path and Q3 2026 timeline [RTASK-036]
+- [ ] **AC-12**: Module-level deprecation strategy comment added at top of rovo-adapter.ts describing 3-layer resilience [RTASK-036]
+- [ ] **AC-13**: All existing functionality preserved — no behavior changes, comments only [RTASK-036]
+- [ ] **AC-14**: Automation templates doc created with 5 templates at `docs/rovo-agent-automation-templates.md` [RTASK-036]
 
 ---
 
@@ -28,39 +35,41 @@ Typed, error-resilient adapter wrapping Atlassian Rovo API with graceful fallbac
 
 Las siguientes reglas del RULEBOOK.md deben respetarse en este modulo:
 
-| ID Regla          | Categoria    | Descripcion breve                                                      |
-| ----------------- | ------------ | ---------------------------------------------------------------------- |
-| [FORGE-OPS-005]   | Forge Ops    | No Forge function invocation must exceed 10s execution                 |
-| [FORGE-OPS-0101]  | Forge Ops    | Critical work within 8s, 2s margin against 10s hard limit              |
-| [FORGE-OPS-0104]  | Forge Ops    | Graceful degradation when Rovo unavailable                             |
-| [FORGE-OPS-0105]  | Forge Ops    | Stateless functions, no module-level mutable state                     |
-| [ROVO-INTEG-001]  | Rovo Integ   | Cursor-based pagination for Confluence REST API v2                     |
-| [ROVO-INTEG-002]  | Rovo Integ   | Use Link headers for navigation, not manual URL construction           |
-| [ROVO-INTEG-003]  | Rovo Integ   | limit param must not exceed 250                                        |
-| [ROVO-INTEG-004]  | Rovo Integ   | Rovo context treated as untrusted data, validated before use           |
-| [ROVO-INTEG-005]  | Rovo Integ   | Rovo API calls must implement timeout (max 5s) and graceful fallback   |
-| [ROVO-INTEG-0795] | Rovo Integ   | Every external API call must have explicit timeout and fallback        |
-| [ROVO-INTEG-0915] | Rovo Integ   | Rovo is enhancer, never a requirement for basic functionality          |
-| [ROVO-INTEG-0775] | Rovo Integ   | Wrap every Rovo response in a type guard                               |
-| [ROVO-INTEG-0924] | Rovo Integ   | Detect schema changes via validation failure, adapt with degraded mode |
-| [ROVO-INTEG-055]  | Rovo Integ   | Cross-verification for Rovo-driven Consistency Score                   |
-| [ROVO-INTEG-060]  | Rovo Integ   | Handle uncertainty when Rovo returns insufficient context              |
-| [SEC-PRIV-002]    | Security     | No sensitive data in structured logs                                   |
-| [SEC-PRIV-004]    | Security     | Validate external API responses before casting                         |
-| [SEC-PRIV-008]    | Security     | Data minimization — only request needed fields                         |
-| [ARCH-SOLID-003]  | Architecture | Expand only necessary fields, never request full body                  |
-| [ARCH-SOLID-007]  | Architecture | Rovo integration decoupled from scoring engine via adapter             |
-| [ARCH-SOLID-052]  | Architecture | No function > 20 lines effective logic, max 3 nesting levels           |
-| [ARCH-SOLID-053]  | Architecture | Domain-specific error types, never generic Error                       |
-| [ARCH-SOLID-058]  | Architecture | Domain types zero framework deps                                       |
-| [ARCH-SOLID-202]  | Architecture | Zero `any` usage                                                       |
-| [ARCH-SOLID-203]  | Architecture | Interfaces for data structures, `type` for unions                      |
-| [ARCH-SOLID-205]  | Architecture | Explicit return types on all public functions                          |
-| [ARCH-SOLID-232]  | Architecture | Named exports only, no export default                                  |
-| [ARCH-SOLID-233]  | Architecture | async/await, no .then/.catch chains                                    |
-| [ARCH-SOLID-234]  | Architecture | Descriptive error messages with operational context                    |
-| [ARCH-SOLID-241]  | Architecture | try/catch wrapping all async operations                                |
-| [ARCH-SOLID-243]  | Architecture | Explicit I/O timeouts                                                  |
+| ID Regla          | Categoria    | Descripcion breve                                                                  |
+| ----------------- | ------------ | ---------------------------------------------------------------------------------- |
+| [FORGE-OPS-005]   | Forge Ops    | No Forge function invocation must exceed 10s execution                             |
+| [FORGE-OPS-0101]  | Forge Ops    | Critical work within 8s, 2s margin against 10s hard limit                          |
+| [FORGE-OPS-0104]  | Forge Ops    | Graceful degradation when Rovo unavailable                                         |
+| [FORGE-OPS-0105]  | Forge Ops    | Stateless functions, no module-level mutable state                                 |
+| [ROVO-INTEG-001]  | Rovo Integ   | Cursor-based pagination for Confluence REST API v2                                 |
+| [ROVO-INTEG-002]  | Rovo Integ   | Use Link headers for navigation, not manual URL construction                       |
+| [ROVO-INTEG-003]  | Rovo Integ   | limit param must not exceed 250                                                    |
+| [ROVO-INTEG-004]  | Rovo Integ   | Rovo context treated as untrusted data, validated before use                       |
+| [ROVO-INTEG-005]  | Rovo Integ   | Rovo API calls must implement timeout (max 5s) and graceful fallback               |
+| [ROVO-INTEG-0795] | Rovo Integ   | Every external API call must have explicit timeout and fallback                    |
+| [ROVO-INTEG-0915] | Rovo Integ   | Rovo is enhancer, never a requirement for basic functionality                      |
+| [ROVO-INTEG-0775] | Rovo Integ   | Wrap every Rovo response in a type guard                                           |
+| [FORGE-OPS-001]   | Forge Ops    | manifest.yml must not be modified for deprecation (comments/docs only) [RTASK-036] |
+| [SEC-PRIV-005]    | Security     | Data minimization maintained in replacement path [RTASK-036]                       |
+| [ROVO-INTEG-0924] | Rovo Integ   | Detect schema changes via validation failure, adapt with degraded mode             |
+| [ROVO-INTEG-055]  | Rovo Integ   | Cross-verification for Rovo-driven Consistency Score                               |
+| [ROVO-INTEG-060]  | Rovo Integ   | Handle uncertainty when Rovo returns insufficient context                          |
+| [SEC-PRIV-002]    | Security     | No sensitive data in structured logs                                               |
+| [SEC-PRIV-004]    | Security     | Validate external API responses before casting                                     |
+| [SEC-PRIV-008]    | Security     | Data minimization — only request needed fields                                     |
+| [ARCH-SOLID-003]  | Architecture | Expand only necessary fields, never request full body                              |
+| [ARCH-SOLID-007]  | Architecture | Rovo integration decoupled from scoring engine via adapter                         |
+| [ARCH-SOLID-052]  | Architecture | No function > 20 lines effective logic, max 3 nesting levels                       |
+| [ARCH-SOLID-053]  | Architecture | Domain-specific error types, never generic Error                                   |
+| [ARCH-SOLID-058]  | Architecture | Domain types zero framework deps                                                   |
+| [ARCH-SOLID-202]  | Architecture | Zero `any` usage                                                                   |
+| [ARCH-SOLID-203]  | Architecture | Interfaces for data structures, `type` for unions                                  |
+| [ARCH-SOLID-205]  | Architecture | Explicit return types on all public functions                                      |
+| [ARCH-SOLID-232]  | Architecture | Named exports only, no export default                                              |
+| [ARCH-SOLID-233]  | Architecture | async/await, no .then/.catch chains                                                |
+| [ARCH-SOLID-234]  | Architecture | Descriptive error messages with operational context                                |
+| [ARCH-SOLID-241]  | Architecture | try/catch wrapping all async operations                                            |
+| [ARCH-SOLID-243]  | Architecture | Explicit I/O timeouts                                                              |
 
 ---
 
@@ -127,6 +136,22 @@ Las siguientes reglas del RULEBOOK.md deben respetarse en este modulo:
 - **AC**: AC-03
 - **Reglas**: FORGE-OPS-0105 (stateless)
 
+### Funciones internas deprecadas (RTASK-036)
+
+#### `callRovoSearch(query, projectKey, executionId, timeoutMs): Promise<RawRovoSearchResponse | undefined>`
+
+- **Proposito**: Internal function calling `/gateway/api/rovo/search` — DEPRECATED
+- **Deprecated**: Use agent-action-handler via `rovo:agent` module instead. Migration path: Consistency Guard agent's `evaluate-issue` action. Timeline: Q3 2026.
+- **AC**: AC-10, AC-13
+- **Reglas**: ROVO-INTEG-0915 (fallback safety net), SEC-PRIV-005 (data minimization)
+
+#### `callRovoValidation(ticketData, context, executionId): Promise<ConsistencyValidation | undefined>`
+
+- **Proposito**: Internal function calling `/gateway/api/rovo/validate` — DEPRECATED
+- **Deprecated**: Use agent-action-handler via `rovo:agent` module instead. Migration path: Consistency Guard agent's `evaluate-issue` action. Timeline: Q3 2026.
+- **AC**: AC-11, AC-13
+- **Reglas**: ROVO-INTEG-0915 (fallback safety net), SEC-PRIV-005 (data minimization)
+
 ---
 
 ## Dependencias (imports)
@@ -191,6 +216,7 @@ Las siguientes reglas del RULEBOOK.md deben respetarse en este modulo:
 
 ## Historial de Cambios
 
-| Fecha      | Tarea Ralph | Cambio                         |
-| ---------- | ----------- | ------------------------------ |
-| 2026-04-20 | RTASK-010   | Creado inicial (Step 1 - reqs) |
+| Fecha      | Tarea Ralph | Cambio                                                                                                                           |
+| ---------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-04-20 | RTASK-010   | Creado inicial (Step 1 - reqs)                                                                                                   |
+| 2026-05-01 | RTASK-036   | Added deprecation strategy (AC-10 to AC-14), deprecated callRovoSearch/callRovoValidation, FORGE-OPS-001, SEC-PRIV-005 rule refs |
