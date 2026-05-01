@@ -35,6 +35,18 @@ export {
 
 export type { JiraIndexInput, JiraIssueLinkInput } from './jira-indexer';
 
+// --- Confluence Indexer ---
+export {
+  indexConfluencePage,
+  extractJiraReferences,
+  extractPageTopics,
+  getDocumentingPages,
+  buildConfluenceNeighborhood,
+  stalenessFactor,
+} from './confluence-indexer';
+
+export type { ConfluencePageInput } from './confluence-indexer';
+
 // --- Domain Types ---
 export type {
   EntityType,
