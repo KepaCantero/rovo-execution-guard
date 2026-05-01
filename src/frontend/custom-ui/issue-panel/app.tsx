@@ -2,7 +2,20 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { invoke, view, rovo } from '@forge/bridge';
 
-interface ScoreAxes {
+// [ARCH-SOLID-202] Discriminated union for severity — zero any
+export type PromptSeverity = 'critical' | 'improvable' | 'optimal';
+
+// [ARCH-SOLID-231] UPPER_SNAKE_CASE for constants
+// [ARCH-SOLID-232] Named exports only
+export const AGENT_KEY = 'consistency-guard';
+
+export const SEVERITY_LABELS: Record<PromptSeverity, string> = {
+  critical: 'Fix now',
+  improvable: 'Improve',
+  optimal: 'Optimize',
+} as const;
+
+export interface ScoreAxes {
   readonly clarity: number;
   readonly consistency: number;
   readonly risk: number;
@@ -10,13 +23,13 @@ interface ScoreAxes {
   readonly technicalDebt: number;
 }
 
-interface AxisDetail {
+export interface AxisDetail {
   readonly score: number;
   readonly label: string;
   readonly suggestions: readonly string[];
 }
 
-interface TicketContext {
+export interface TicketContext {
   readonly issueKey: string;
   readonly summary: string;
   readonly description: string;
@@ -47,42 +60,53 @@ interface ResolverResponse<T> {
 
 const AXIS_KEYS = ['clarity', 'consistency', 'risk', 'documentation', 'technicalDebt'] as const;
 
-const AXIS_DESCRIPTIONS: Record<string, string> = {
-  clarity: 'How clear and unambiguous the ticket description is',
-  consistency: 'Alignment between summary and description',
-  risk: 'Risk exposure from missing fields or vague language',
-  documentation: 'Completeness of documentation and references',
-  technicalDebt: 'Scoping quality and absence of debt indicators',
-};
-
-const buildRovoPrompt = (
+// [ARCH-SOLID-205] Explicit return type
+// [ARCH-SOLID-232] Named export for testing
+export const buildRovoPrompt = (
   axisKey: string,
   detail: AxisDetail,
   axes: ScoreAxes,
   ticketContext: TicketContext,
-): string => {
+): { prompt: string; severity: PromptSeverity } => {
   const pct = Math.round(detail.score);
-  const descPreview = ticketContext.description.slice(0, 500);
-  return [
-    `You are a quality advisor for Jira tickets in the Rovo Execution Guard app.`,
-    `Analyze this Jira issue and suggest specific improvements for the "${detail.label}" axis.`,
-    '',
-    `What ${detail.label} measures: ${AXIS_DESCRIPTIONS[axisKey]}`,
-    '',
-    `Current ${detail.label} score: ${pct}%`,
-    `Project quality threshold: ${ticketContext.scoreThreshold}%`,
-    `Quality gates enabled: definition=${ticketContext.gates.definition}, execution=${ticketContext.gates.execution}, delivery=${ticketContext.gates.delivery}`,
-    '',
-    `Issue: ${ticketContext.issueKey}`,
-    `Summary: ${ticketContext.summary}`,
-    `Description: ${descPreview}${ticketContext.description.length > 500 ? '...' : ''}`,
-    '',
-    `All axis scores: clarity=${Math.round(axes.clarity)}%, consistency=${Math.round(axes.consistency)}%, risk=${Math.round(axes.risk)}%, documentation=${Math.round(axes.documentation)}%, technicalDebt=${Math.round(axes.technicalDebt)}%`,
-    '',
-    "Provide 3-5 specific, actionable suggestions to improve this ticket's " +
-      detail.label +
-      ' score. Be concrete and reference the actual ticket content.',
-  ].join('\n');
+  const threshold = ticketContext.scoreThreshold;
+
+  // [ROVO-INTEG-060] CRITICAL (< 40%): Urgent prompt demanding immediate fixes
+  if (pct < 40) {
+    return {
+      severity: 'critical',
+      prompt: [
+        `URGENT: The "${detail.label}" score for ${ticketContext.issueKey} is critically low at ${pct}%.`,
+        `This is blocking workflow transitions. The project threshold is ${threshold}%.`,
+        `Current suggestions: ${detail.suggestions.join('; ')}`,
+        `Provide 3-5 IMMEDIATE fixes to raise this score above ${threshold}%.`,
+        `Issue summary: ${ticketContext.summary}`,
+      ].join('\n'),
+    };
+  }
+
+  // [ROVO-INTEG-060] IMPROVABLE (40% to threshold): Targeted improvement prompt
+  if (pct < threshold) {
+    return {
+      severity: 'improvable',
+      prompt: [
+        `The "${detail.label}" score for ${ticketContext.issueKey} is ${pct}%, below the ${threshold}% threshold.`,
+        `Current suggestions: ${detail.suggestions.join('; ')}`,
+        `Suggest specific improvements to reach ${threshold}%.`,
+        `Issue summary: ${ticketContext.summary}`,
+      ].join('\n'),
+    };
+  }
+
+  // [ROVO-INTEG-060] OPTIMAL (>= threshold): Optimization prompt
+  return {
+    severity: 'optimal',
+    prompt: [
+      `The "${detail.label}" score for ${ticketContext.issueKey} is ${pct}% (above ${threshold}% threshold).`,
+      `Are there further optimizations to push this score higher?`,
+      `Issue summary: ${ticketContext.summary}`,
+    ].join('\n'),
+  };
 };
 
 const RovoButton = ({
@@ -101,7 +125,7 @@ const RovoButton = ({
   const handleAskRovo = async (): Promise<void> => {
     setRovoStatus('opening');
     try {
-      const prompt = buildRovoPrompt(axisKey, detail, axes, ticketContext);
+      const { prompt } = buildRovoPrompt(axisKey, detail, axes, ticketContext);
       await rovo.open({ type: 'default', prompt });
     } catch (err) {
       // eslint-disable-next-line no-console
