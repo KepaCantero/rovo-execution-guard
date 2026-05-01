@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { invoke, view, rovo } from '@forge/bridge';
 import { token } from '@atlaskit/tokens';
 import { getScoreColorToken, SCORE_COLOR_TOKENS } from '../admin-dashboard/styles/theme';
+import { ErrorBoundaryWrapper } from '../../components/ErrorBoundary';
+import { captureException, addErrorBreadcrumb } from '../../utils/sentry';
 
 // [ARCH-SOLID-202] Discriminated union for severity — zero any
 export type PromptSeverity = 'critical' | 'improvable' | 'optimal';
@@ -136,11 +138,25 @@ export const RovoButton = ({
   const handleAskRovo = async (): Promise<void> => {
     setRovoStatus('opening');
     try {
+      // [TEST-QA-036-02] Breadcrumb before rovo.open
+      // [SEC-PRIV-002] No PII in breadcrumbs — only axis key
+      addErrorBreadcrumb({
+        category: 'rovo',
+        message: `Opening agent for axis ${axisKey}`,
+        level: 'info',
+      });
       // [ROVO-INTEG-001] AC-02: Open Consistency Guard agent via Forge Bridge
       await rovo.open({ type: 'forge', agentKey: AGENT_KEY, agentName: AGENT_NAME, prompt });
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('[REG-Rovo] Failed to open Rovo:', err);
+      const error = err instanceof Error ? err : new Error(String(err));
+      // [SEC-PRIV-002] No PII in breadcrumbs — only axis key
+      addErrorBreadcrumb({
+        category: 'rovo',
+        message: `Failed to open agent for axis ${axisKey}`,
+        level: 'error',
+      });
+      // [TEST-QA-036-01] Capture exception with context
+      captureException(error, { issueKey: ticketContext.issueKey });
       setRovoStatus('error');
     }
   };
@@ -177,6 +193,96 @@ export const RovoButton = ({
         {isOpening ? 'Opening...' : SEVERITY_LABELS[severity]}
       </button>
       {rovoStatus === 'error' && (
+        <div
+          style={{
+            marginTop: '4px',
+            fontSize: '12px',
+            color: token(SCORE_COLOR_TOKENS.RED as Parameters<typeof token>[0]),
+          }}
+        >
+          Could not open Rovo. Make sure Rovo is enabled for your site.
+        </div>
+      )}
+    </>
+  );
+};
+
+// [ARCH-SOLID-232] Named export for testing
+// [ROVO-INTEG-005] Timeout + graceful fallback via try-catch
+export const FullAnalysisButton = ({
+  score,
+  rovoEnabled,
+}: {
+  readonly score: ConsistencyScore;
+  readonly rovoEnabled: boolean;
+}): React.ReactElement | null => {
+  const [analysisStatus, setAnalysisStatus] = React.useState<'idle' | 'opening' | 'error'>('idle');
+  const ticketContext = score.ticketContext;
+
+  // [UI-ADS-201] Hooks at top level — early return AFTER useState
+  if (!ticketContext) return null;
+
+  const handleFullAnalysis = async (): Promise<void> => {
+    setAnalysisStatus('opening');
+    try {
+      const overallPct = Math.round(score.overall);
+      const prompt = [
+        `Perform a full consistency evaluation for ${ticketContext.issueKey}: ${ticketContext.summary}`,
+        `Current overall score: ${overallPct}%`,
+        `Provide a comprehensive analysis with specific improvement recommendations.`,
+      ].join('\n');
+
+      // [SEC-PRIV-002] No PII in breadcrumbs — only action type
+      // [TEST-QA-036-02] Breadcrumb at significant step
+      addErrorBreadcrumb({
+        category: 'rovo',
+        message: 'Opening agent for full analysis',
+        level: 'info',
+      });
+      await rovo.open({ type: 'forge', agentKey: AGENT_KEY, agentName: AGENT_NAME, prompt });
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      addErrorBreadcrumb({
+        category: 'rovo',
+        message: 'Failed to open agent for full analysis',
+        level: 'error',
+      });
+      // [TEST-QA-036-01] Capture exception with context
+      captureException(error, { issueKey: ticketContext.issueKey });
+      setAnalysisStatus('error');
+    }
+  };
+
+  if (!rovoEnabled) {
+    return (
+      <div style={{ marginTop: '12px', fontSize: '13px', color: '#6B778C' }}>
+        Full Analysis — Rovo is not available in this environment
+      </div>
+    );
+  }
+
+  const isOpening = analysisStatus === 'opening';
+
+  return (
+    <>
+      <button
+        onClick={handleFullAnalysis}
+        disabled={isOpening}
+        aria-label="Run full consistency analysis with Rovo"
+        style={{
+          marginTop: '12px',
+          padding: '8px 16px',
+          fontSize: '14px',
+          border: '1px solid #DFE1E6',
+          borderRadius: '3px',
+          background: 'transparent',
+          cursor: isOpening ? 'wait' : 'pointer',
+          opacity: isOpening ? 0.6 : 1,
+        }}
+      >
+        {isOpening ? 'Analyzing...' : 'Full Analysis'}
+      </button>
+      {analysisStatus === 'error' && (
         <div
           style={{
             marginTop: '4px',
@@ -348,6 +454,7 @@ const IssuePanel = (): React.ReactElement => {
         <div style={{ fontSize: '48px', fontWeight: 'bold', color }}>{percentage}%</div>
         <div style={{ color: '#6B778C', fontSize: '13px' }}>Overall Consistency</div>
       </div>
+      <FullAnalysisButton score={score} rovoEnabled={rovoEnabled} />
       {details &&
         AXIS_KEYS.map((key) => {
           const detail = details[key];
@@ -367,8 +474,13 @@ const IssuePanel = (): React.ReactElement => {
   );
 };
 
+// [AC-06] [FORGE-OPS-0104] Wrap with ErrorBoundary for graceful degradation
 const container = document.getElementById('root');
 if (container) {
   const root = createRoot(container);
-  root.render(<IssuePanel />);
+  root.render(
+    <ErrorBoundaryWrapper>
+      <IssuePanel />
+    </ErrorBoundaryWrapper>,
+  );
 }

@@ -47,6 +47,12 @@ jest.mock('@atlaskit/tokens', () => ({
   }),
 }));
 
+// Mock sentry — no-op in tests, spies verify calls [TEST-QA-036-01]
+jest.mock('../../../../../src/frontend/utils/sentry', () => ({
+  captureException: jest.fn(),
+  addErrorBreadcrumb: jest.fn(),
+}));
+
 // ═══════════════════════════════════════════
 // FIXTURES
 // ═══════════════════════════════════════════
@@ -307,14 +313,26 @@ describe('buildRovoPrompt — severity differentiation (AC-01)', () => {
 
 // Lazy import so mocks are registered first
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { RovoButton } = require('../../../../../src/frontend/custom-ui/issue-panel/app') as {
-  RovoButton: React.ComponentType<{
-    axisKey: string;
-    detail: AxisDetail;
-    axes: ScoreAxes;
-    ticketContext: TicketContext;
-  }>;
-};
+const { RovoButton, FullAnalysisButton } =
+  require('../../../../../src/frontend/custom-ui/issue-panel/app') as {
+    RovoButton: React.ComponentType<{
+      axisKey: string;
+      detail: AxisDetail;
+      axes: ScoreAxes;
+      ticketContext: TicketContext;
+    }>;
+    FullAnalysisButton: React.ComponentType<{
+      score: {
+        overall: number;
+        axes: ScoreAxes;
+        axisDetails?: Record<string, AxisDetail>;
+        ticketContext?: TicketContext;
+        timestamp: string;
+        executionId: string;
+      };
+      rovoEnabled: boolean;
+    }>;
+  };
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { rovo } = require('@forge/bridge') as {
@@ -325,6 +343,15 @@ const { rovo } = require('@forge/bridge') as {
 const { token: tokenMock } = require('@atlaskit/tokens') as {
   token: jest.Mock;
 };
+
+// Sentry mock references for assertion
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const sentryMocks = require('../../../../../src/frontend/utils/sentry') as {
+  captureException: jest.Mock;
+  addErrorBreadcrumb: jest.Mock;
+};
+const { captureException: captureExceptionMock, addErrorBreadcrumb: addErrorBreadcrumbMock } =
+  sentryMocks;
 
 describe('RovoButton — agent type and severity labels (AC-02, AC-03)', () => {
   beforeEach(() => {
@@ -496,5 +523,254 @@ describe('RovoButton — agent type and severity labels (AC-02, AC-03)', () => {
     await waitFor(() => {
       expect(screen.getByText(/Could not open Rovo/)).toBeInTheDocument();
     });
+  });
+});
+
+// ═══════════════════════════════════════════
+// SCORE FIXTURES for FullAnalysisButton
+// ═══════════════════════════════════════════
+
+const BASE_SCORE = {
+  overall: 72,
+  axes: BASE_AXES,
+  ticketContext: BASE_TICKET_CONTEXT,
+  timestamp: '2026-05-01T00:00:00Z',
+  executionId: 'exec-001',
+};
+
+const SCORE_WITHOUT_CONTEXT = {
+  overall: 72,
+  axes: BASE_AXES,
+  timestamp: '2026-05-01T00:00:00Z',
+  executionId: 'exec-002',
+};
+
+// ═══════════════════════════════════════════
+// COMPONENT TESTS — AC-04, AC-05 (FullAnalysisButton)
+// ═══════════════════════════════════════════
+
+describe('FullAnalysisButton — Full Analysis and Rovo guard (AC-04, AC-05)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (rovo.open as jest.Mock).mockResolvedValue(undefined);
+  });
+
+  // ─── AC-04: Full Analysis button renders ─────
+
+  it('renders when rovoEnabled is true and ticketContext exists', () => {
+    render(
+      React.createElement(FullAnalysisButton, {
+        score: BASE_SCORE,
+        rovoEnabled: true,
+      }),
+    );
+
+    expect(screen.getByRole('button', { name: /full consistency analysis/i })).toBeInTheDocument();
+    expect(screen.getByRole('button')).toHaveTextContent('Full Analysis');
+  });
+
+  it('does NOT render when ticketContext is undefined', () => {
+    render(
+      React.createElement(FullAnalysisButton, {
+        score: SCORE_WITHOUT_CONTEXT,
+        rovoEnabled: true,
+      }),
+    );
+
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  // ─── AC-05: Rovo guard ─────
+
+  it('shows disabled message when rovoEnabled is false', () => {
+    render(
+      React.createElement(FullAnalysisButton, {
+        score: BASE_SCORE,
+        rovoEnabled: false,
+      }),
+    );
+
+    expect(screen.getByText(/Rovo is not available/)).toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  // ─── AC-04: rovo.open with comprehensive prompt ─────
+
+  it('calls rovo.open with forge type, agentKey and comprehensive prompt on click', async () => {
+    render(
+      React.createElement(FullAnalysisButton, {
+        score: BASE_SCORE,
+        rovoEnabled: true,
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+
+    await waitFor(() => {
+      expect(rovo.open).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'forge',
+          agentKey: AGENT_KEY,
+          agentName: AGENT_NAME,
+          prompt: expect.any(String),
+        }),
+      );
+    });
+
+    const callArgs = (rovo.open as jest.Mock).mock.calls[0]?.[0];
+    expect(callArgs.prompt).toContain('PROJ-123');
+    expect(callArgs.prompt).toContain('72%');
+    expect(callArgs.prompt).toContain('Fix login bug');
+  });
+
+  // ─── AC-07: Sentry breadcrumbs before rovo.open ─────
+
+  it('calls addErrorBreadcrumb before rovo.open', async () => {
+    render(
+      React.createElement(FullAnalysisButton, {
+        score: BASE_SCORE,
+        rovoEnabled: true,
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+
+    await waitFor(() => {
+      expect(rovo.open).toHaveBeenCalled();
+    });
+
+    expect(addErrorBreadcrumbMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: 'rovo',
+        message: expect.stringContaining('full analysis'),
+        level: 'info',
+      }),
+    );
+  });
+
+  // ─── AC-07: Sentry captureException on failure ─────
+
+  it('calls captureException on rovo.open failure', async () => {
+    (rovo.open as jest.Mock).mockRejectedValue(new Error('Rovo not available'));
+
+    render(
+      React.createElement(FullAnalysisButton, {
+        score: BASE_SCORE,
+        rovoEnabled: true,
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+
+    await waitFor(() => {
+      expect(captureExceptionMock).toHaveBeenCalled();
+    });
+
+    expect(captureExceptionMock).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ issueKey: 'PROJ-123' }),
+    );
+  });
+
+  it('shows error state when rovo.open fails', async () => {
+    (rovo.open as jest.Mock).mockRejectedValue(new Error('Rovo not available'));
+
+    render(
+      React.createElement(FullAnalysisButton, {
+        score: BASE_SCORE,
+        rovoEnabled: true,
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Could not open Rovo/)).toBeInTheDocument();
+    });
+  });
+});
+
+// ═══════════════════════════════════════════
+// SENTRY INTEGRATION TESTS — AC-07 (RovoButton)
+// ═══════════════════════════════════════════
+
+describe('Sentry integration in RovoButton (AC-07)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (rovo.open as jest.Mock).mockResolvedValue(undefined);
+  });
+
+  it('calls addErrorBreadcrumb before rovo.open', async () => {
+    render(
+      React.createElement(RovoButton, {
+        axisKey: 'clarity',
+        detail: makeDetail(50),
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+
+    await waitFor(() => {
+      expect(rovo.open).toHaveBeenCalled();
+    });
+
+    expect(addErrorBreadcrumbMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: 'rovo',
+        level: 'info',
+      }),
+    );
+  });
+
+  it('calls captureException on rovo.open error', async () => {
+    (rovo.open as jest.Mock).mockRejectedValue(new Error('Rovo failed'));
+
+    render(
+      React.createElement(RovoButton, {
+        axisKey: 'clarity',
+        detail: makeDetail(50),
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+
+    await waitFor(() => {
+      expect(captureExceptionMock).toHaveBeenCalled();
+    });
+
+    expect(captureExceptionMock).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ issueKey: 'PROJ-123' }),
+    );
+  });
+
+  // ─── SEC-PRIV-002: No PII in breadcrumbs ─────
+
+  it('breadcrumbs do NOT contain PII (no summary/description)', async () => {
+    render(
+      React.createElement(RovoButton, {
+        axisKey: 'clarity',
+        detail: makeDetail(50),
+        axes: BASE_AXES,
+        ticketContext: BASE_TICKET_CONTEXT,
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+
+    await waitFor(() => {
+      expect(rovo.open).toHaveBeenCalled();
+    });
+
+    const breadcrumbCalls = (addErrorBreadcrumbMock as jest.Mock).mock.calls;
+    for (const call of breadcrumbCalls) {
+      const breadcrumb = call[0];
+      expect(breadcrumb.message).not.toContain('Fix login bug');
+      expect(breadcrumb.message).not.toContain('Users cannot log in');
+    }
   });
 });
