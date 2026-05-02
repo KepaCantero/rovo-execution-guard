@@ -6,7 +6,7 @@
 
 ## Descripcion
 
-Storage-level graph maintenance operations for the Relationship Index: node validation against storage, orphaned edge cleanup. Keeps the graph healthy by detecting and removing stale data without external API calls.
+Storage-level graph maintenance operations for the Relationship Index: node validation against storage, orphaned edge cleanup, stale node detection, edge compaction, and health reporting. Keeps the graph healthy by detecting and removing stale data without external API calls.
 
 ---
 
@@ -14,7 +14,11 @@ Storage-level graph maintenance operations for the Relationship Index: node vali
 
 - [ ] **AC-01**: `validateNodeBatch` validates nodes against storage, checking both node existence and edge target existence, returning deduplicated orphaned IDs
 - [ ] **AC-03**: `removeOrphanedEdges` removes edge entries for orphaned node IDs, returning count of individual edges removed
-- [ ] **AC-11**: All maintenance operations are idempotent — running twice produces same state
+- [ ] **AC-04**: `refreshStaleNodes` counts nodes whose `updatedAt` is older than the maxAge threshold (pure computation, no external API calls)
+- [ ] **AC-05**: `compactStorage` deduplicates edges per source node by `(source, target, type)` key and writes back compacted lists
+- [ ] **AC-06**: `generateHealthReport` produces actionable health metrics with healthy/degraded/critical thresholds per spec table
+- [ ] **AC-11**: All maintenance operations are idempotent — running twice produces same result
+- [ ] **AC-12**: Maintenance never blocks evaluation pipeline (fire-and-forget safe)
 
 ---
 
@@ -22,11 +26,15 @@ Storage-level graph maintenance operations for the Relationship Index: node vali
 
 | ID Regla       | Categoria    | Descripcion breve                                             |
 | -------------- | ------------ | ------------------------------------------------------------- |
-| FORGE-OPS-007  | Forge Ops    | Rate limits: 110ms between deletes                            |
+| FORGE-OPS-005  | Forge Ops    | No Forge function exceeds 10s — bounded batch processing      |
+| FORGE-OPS-007  | Forge Ops    | Rate limits: 110ms between writes/deletes                     |
+| FORGE-OPS-012  | Forge Ops    | Hierarchical storage keys via repository only                 |
+| FORGE-OPS-013  | Forge Ops    | Storage values must not exceed 4KB                            |
 | FORGE-OPS-0102 | Forge Ops    | Retry with exponential backoff (baked into storage functions) |
 | FORGE-OPS-0104 | Forge Ops    | Graceful degradation — errors logged, not thrown              |
 | FORGE-OPS-0105 | Forge Ops    | Stateless functions, no module-level mutable state            |
 | ARCH-SOLID-006 | Arquitectura | Handler → Service → Repository (this is Service)              |
+| ARCH-SOLID-052 | Arquitectura | Functions < 20 lines effective logic, max 3 nesting levels    |
 | ARCH-SOLID-202 | Arquitectura | Zero any                                                      |
 | ARCH-SOLID-205 | Arquitectura | Explicit return types on all exports                          |
 | ARCH-SOLID-232 | Arquitectura | Named exports only                                            |
@@ -43,7 +51,7 @@ Storage-level graph maintenance operations for the Relationship Index: node vali
 
 #### `validateNodeBatch(nodes: readonly EntityNode[], executionId: string): Promise<readonly string[]>`
 
-- **Proposito**: Validate a batch of nodes against storage, returning IDs of orphaned nodes (both missing source nodes and missing edge targets)
+- **Proposito**: Validate a batch of nodes against storage, returning IDs of orphaned nodes
 - **Pre-condiciones**: nodes array may be empty; each EntityNode has its own projectKey
 - **Post-condiciones**: Returns deduplicated list of node IDs that don't exist in storage
 - **Errores**: Individual errors logged and skipped (graceful degradation)
@@ -55,14 +63,46 @@ Storage-level graph maintenance operations for the Relationship Index: node vali
 - **Post-condiciones**: Returns count of individual edges removed across all orphaned nodes
 - **Errores**: Individual errors logged and skipped (graceful degradation)
 
+#### `refreshStaleNodes(nodes: readonly EntityNode[], maxAge: string, executionId: string): Promise<number>`
+
+- **Proposito**: Count nodes whose `updatedAt` is older than the maxAge threshold
+- **Pre-condiciones**: nodes array may be empty; maxAge format "Nd" (e.g., "7d"), invalid defaults to epoch
+- **Post-condiciones**: Returns count of stale nodes; pure computation, no side effects
+- **Errores**: No async errors — pure synchronous date comparison
+
+#### `compactStorage(projectKey: string, sourceIds: readonly string[], executionId: string): Promise<MaintenanceResult>`
+
+- **Proposito**: Deduplicate edges per source node and write back compacted lists
+- **Pre-condiciones**: sourceIds may be empty; all IDs belong to same project
+- **Post-condiciones**: Returns MaintenanceResult with duplicate removal counts
+- **Errores**: Individual errors logged and skipped (graceful degradation)
+
+#### `generateHealthReport(projectKey: string, executionId: string, healthData?: {...}): Promise<GraphHealthReport>`
+
+- **Proposito**: Compute health metrics with healthy/degraded/critical thresholds from GraphStats
+- **Pre-condiciones**: projectKey must be valid; healthData is optional caller-provided orphaned/stale counts
+- **Post-condiciones**: Returns GraphHealthReport with computed status (worst metric wins)
+- **Errores**: Returns best-effort report using default stats on storage failure
+
 ---
 
 ## Dependencias (imports)
 
 ### Internas (proyecto)
 
-- `src/backend/services/relationship-index/relationship-storage` → `getNode`, `getEdges`, `deleteEdges`
-- `src/backend/types/relationship-index` → `EntityNode` (type-only)
+- `src/backend/services/relationship-index/relationship-storage` → `getNode`, `getEdges`, `deleteEdges`, `putEdges`, `getStats`
+- `src/backend/types/relationship-index` → `EntityNode`, `RelationshipEdge` (type-only)
+
+---
+
+## Health Thresholds Reference
+
+| Metric                      | Healthy | Degraded | Critical |
+| --------------------------- | ------- | -------- | -------- |
+| Orphaned nodes (% of total) | < 5%    | 5-15%    | > 15%    |
+| Stale edges (% of total)    | < 10%   | 10-25%   | > 25%    |
+| Max edges per node          | < 50    | 50-100   | > 100    |
+| Days since maintenance      | < 14    | 14-30    | > 30     |
 
 ---
 
@@ -70,27 +110,53 @@ Storage-level graph maintenance operations for the Relationship Index: node vali
 
 ### Unit Tests (`tests/unit/services/relationship-index/graph-maintenance.spec.ts`)
 
-| Test                                             | AC cubierto | Regla cubierta |
-| ------------------------------------------------ | ----------- | -------------- |
-| Returns empty array when all nodes exist         | AC-01       | -              |
-| Returns orphaned IDs for missing nodes           | AC-01       | -              |
-| Checks edge targets and reports orphaned targets | AC-01       | -              |
-| Deduplicates orphaned IDs                        | AC-01       | -              |
-| Handles empty node batch                         | AC-01       | -              |
-| All nodes orphaned                               | AC-01       | -              |
-| Validates all 6 entity types                     | AC-01       | -              |
-| Idempotent: same input produces same output      | AC-11       | -              |
-| Continues after individual errors                | AC-01       | FORGE-OPS-0104 |
-| Deletes edge entries for orphaned nodes          | AC-03       | -              |
-| Returns 0 when no edges to remove                | AC-03       | -              |
-| Handles empty orphaned list                      | AC-03       | -              |
-| Idempotent: running twice same state             | AC-11       | -              |
-| Continues after delete errors                    | AC-03       | FORGE-OPS-0104 |
+| Test                                        | AC cubierto | Regla cubierta |
+| ------------------------------------------- | ----------- | -------------- |
+| validateNodeBatch: all nodes exist          | AC-01       | -              |
+| validateNodeBatch: orphaned IDs for missing | AC-01       | -              |
+| validateNodeBatch: edge target check        | AC-01       | -              |
+| validateNodeBatch: dedup                    | AC-01       | -              |
+| validateNodeBatch: empty batch              | AC-01       | -              |
+| validateNodeBatch: all orphaned             | AC-01       | -              |
+| validateNodeBatch: all 5 entity types       | AC-01       | -              |
+| validateNodeBatch: idempotent               | AC-11       | -              |
+| validateNodeBatch: graceful degradation     | AC-01       | FORGE-OPS-0104 |
+| removeOrphanedEdges: deletes and counts     | AC-03       | -              |
+| removeOrphanedEdges: no edges               | AC-03       | -              |
+| removeOrphanedEdges: empty list             | AC-03       | -              |
+| removeOrphanedEdges: idempotent             | AC-11       | -              |
+| removeOrphanedEdges: graceful degradation   | AC-03       | FORGE-OPS-0104 |
+| refreshStaleNodes: all fresh                | AC-04       | -              |
+| refreshStaleNodes: counts stale             | AC-04       | -              |
+| refreshStaleNodes: empty list               | AC-04       | -              |
+| refreshStaleNodes: all stale                | AC-04       | -              |
+| refreshStaleNodes: parse 14d                | AC-04       | -              |
+| refreshStaleNodes: invalid maxAge           | AC-04       | -              |
+| refreshStaleNodes: mixed entity types       | AC-04       | -              |
+| refreshStaleNodes: idempotent               | AC-11       | -              |
+| compactStorage: empty sourceIds             | AC-05       | -              |
+| compactStorage: deduplicates and writes     | AC-05       | -              |
+| compactStorage: no duplicates               | AC-05       | -              |
+| compactStorage: multiple sources            | AC-05       | -              |
+| compactStorage: rate limiting               | AC-05       | FORGE-OPS-007  |
+| compactStorage: idempotent                  | AC-11       | -              |
+| compactStorage: graceful degradation        | AC-05       | FORGE-OPS-0104 |
+| generateHealthReport: healthy status        | AC-06       | -              |
+| generateHealthReport: degraded status       | AC-06       | -              |
+| generateHealthReport: critical status       | AC-06       | -              |
+| generateHealthReport: days critical         | AC-06       | -              |
+| generateHealthReport: worst metric wins     | AC-06       | -              |
+| generateHealthReport: empty graph           | AC-06       | -              |
+| generateHealthReport: never maintained      | AC-06       | -              |
+| generateHealthReport: storage keys estimate | AC-06       | -              |
+| generateHealthReport: avgEdgesPerNode       | AC-06       | -              |
+| generateHealthReport: default healthData    | AC-06       | -              |
 
 ---
 
 ## Historial de Cambios
 
-| Fecha      | Tarea Ralph | Cambio                                                                                |
-| ---------- | ----------- | ------------------------------------------------------------------------------------- |
-| 2026-05-02 | RTASK-044   | Creado inicial (Step 11.1: validateNodeBatch, removeOrphanedEdges, MaintenanceResult) |
+| Fecha      | Tarea Ralph | Cambio                                                                                            |
+| ---------- | ----------- | ------------------------------------------------------------------------------------------------- |
+| 2026-05-02 | RTASK-044   | Creado inicial (Step 11.1: validateNodeBatch, removeOrphanedEdges, MaintenanceResult)             |
+| 2026-05-02 | RTASK-044   | Extendido (Step 11.2: refreshStaleNodes, compactStorage, generateHealthReport, GraphHealthReport) |

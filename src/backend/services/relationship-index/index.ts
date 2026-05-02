@@ -119,3 +119,14 @@ export type {
   ContextBudget,
   DecisionRecord,
 } from '../../types/relationship-index';
+
+// --- Graph Maintenance ---
+export {
+  validateNodeBatch,
+  removeOrphanedEdges,
+  refreshStaleNodes,
+  compactStorage,
+  generateHealthReport,
+} from './graph-maintenance';
+
+export type { MaintenanceResult, GraphHealthReport } from './graph-maintenance';
