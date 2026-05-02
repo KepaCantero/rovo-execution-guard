@@ -293,7 +293,6 @@ export const FullAnalysisButton = ({
   const [analysisStatus, setAnalysisStatus] = React.useState<'idle' | 'opening' | 'error'>('idle');
   const ticketContext = score.ticketContext;
 
-  // [UI-ADS-201] Hooks at top level — early return AFTER useState
   if (!ticketContext) return null;
 
   const handleFullAnalysis = async (): Promise<void> => {
@@ -304,19 +303,25 @@ export const FullAnalysisButton = ({
         `Perform a full consistency evaluation for ${ticketContext.issueKey}: ${ticketContext.summary}`,
         `Current overall score: ${overallPct}%`,
         `Provide a comprehensive analysis with specific improvement recommendations.`,
-      ].join('\n');
+      ].join('\\n');
 
       addErrorBreadcrumb({
         category: 'rovo',
         message: 'Opening agent for full analysis',
         level: 'info',
       });
-      await rovo.open({ type: 'forge', agentKey: AGENT_KEY, agentName: AGENT_NAME, prompt });
+
+      await Promise.race([
+        rovo.open({ type: 'forge', agentKey: AGENT_KEY, agentName: AGENT_NAME, prompt }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Rovo open timed out')), 10_000),
+        ),
+      ]);
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       addErrorBreadcrumb({
         category: 'rovo',
-        message: 'Failed to open agent for full analysis',
+        message: `Failed to open agent: ${error.message}`,
         level: 'error',
       });
       captureException(error, { issueKey: ticketContext.issueKey });
@@ -477,9 +482,25 @@ export const IssuePanel = (): React.ReactElement => {
           return;
         }
 
-        const response = await invoke<ResolverResponse<ConsistencyScore>>('getConsistencyScore', {
-          issueKey,
-        });
+        // eslint-disable-next-line no-console
+        console.log('[issue-panel] invoking getConsistencyScore for', issueKey);
+        const response = await Promise.race([
+          invoke<ResolverResponse<ConsistencyScore>>('getConsistencyScore', {
+            issueKey,
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Score request timed out')), 15_000),
+          ),
+        ]);
+        // eslint-disable-next-line no-console
+        console.log(
+          '[issue-panel] response:',
+          response.success,
+          'hasData:',
+          !!response.data,
+          'keys:',
+          response.data ? Object.keys(response.data) : 'none',
+        );
 
         if (response.success && response.data) {
           setScore(response.data);
@@ -487,6 +508,8 @@ export const IssuePanel = (): React.ReactElement => {
           setError(response.error ?? 'Failed to fetch consistency score');
         }
       } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[issue-panel] fetchScore error:', err);
         setError(err instanceof Error ? err.message : 'Failed to load score');
       } finally {
         setLoading(false);

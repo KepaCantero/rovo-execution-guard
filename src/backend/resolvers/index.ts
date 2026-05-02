@@ -308,12 +308,20 @@ const handleGetConsistencyScore = async (
     ticketContext: {
       issueKey,
       summary: ticket.summary,
-      description: ticket.description,
+      description: ticket.description.substring(0, 500),
       projectKey,
       scoreThreshold: config?.scoreThreshold ?? 80,
       gates: config?.gates ?? { definition: true, execution: true, delivery: true },
     },
   };
+
+  log({
+    timestamp: new Date().toISOString(),
+    level: 'info',
+    operation: 'getConsistencyScore.complete',
+    executionId,
+    issueKey,
+  });
 
   return success(scoreWithContext, executionId);
 };
@@ -664,6 +672,17 @@ const handleBootstrapIndex = async (
   return success(stats, executionId);
 };
 
+const handleCheckRovoHealth = async (
+  _payload: ResolverPayload,
+  context: ResolverContext,
+  executionId: string,
+): Promise<ResolverResponse<{ readonly available: boolean }>> => {
+  const accountId = extractAccountId(context);
+  checkReadPermission(accountId);
+
+  return success({ available: true }, executionId);
+};
+
 // ═══════════════════════════════════════════
 // RESOLVER REGISTRATION (lazy via handler export)
 // ═══════════════════════════════════════════
@@ -692,6 +711,7 @@ const RESOLVER_DEFINITIONS: ReadonlyArray<ResolverDefinition> = [
   { name: 'revalidateTicket', handler: handleRevalidateTicket },
   { name: 'getGraphHealth', handler: handleGetGraphHealth },
   { name: 'bootstrapIndex', handler: handleBootstrapIndex },
+  { name: 'checkRovoHealth', handler: handleCheckRovoHealth },
 ] as const;
 
 /**
