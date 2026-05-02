@@ -127,6 +127,10 @@ export {
   refreshStaleNodes,
   compactStorage,
   generateHealthReport,
+  pruneDecisionLog,
+  compactDecisionPatterns,
+  validateNeighborhoods,
+  runMaintenanceCycle,
 } from './graph-maintenance';
 
 export type { MaintenanceResult, GraphHealthReport } from './graph-maintenance';

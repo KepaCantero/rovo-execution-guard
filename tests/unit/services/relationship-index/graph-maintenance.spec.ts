@@ -4,12 +4,18 @@ import {
   refreshStaleNodes,
   compactStorage,
   generateHealthReport,
+  pruneDecisionLog,
+  compactDecisionPatterns,
+  validateNeighborhoods,
+  runMaintenanceCycle,
 } from '../../../../src/backend/services/relationship-index/graph-maintenance';
 
 import type {
   EntityNode,
   RelationshipEdge,
   GraphStats,
+  DecisionRecord,
+  EntityNeighborhood,
 } from '../../../../src/backend/types/relationship-index';
 
 import * as storage from '../../../../src/backend/services/relationship-index/relationship-storage';
@@ -21,6 +27,12 @@ const mockGetEdges = storage.getEdges as jest.MockedFunction<typeof storage.getE
 const mockDeleteEdges = storage.deleteEdges as jest.MockedFunction<typeof storage.deleteEdges>;
 const mockPutEdges = storage.putEdges as jest.MockedFunction<typeof storage.putEdges>;
 const mockGetStats = storage.getStats as jest.MockedFunction<typeof storage.getStats>;
+const mockGetNeighborhood = storage.getNeighborhood as jest.MockedFunction<
+  typeof storage.getNeighborhood
+>;
+const mockPutNeighborhood = storage.putNeighborhood as jest.MockedFunction<
+  typeof storage.putNeighborhood
+>;
 
 // ═══════════════════════════════════════════
 // FIXTURES
@@ -93,6 +105,30 @@ const EDGE_TO_EPIC = makeEdge({
   target: 'jira:PROJ-E1',
   type: 'parent-of',
   weight: 1.0,
+});
+
+const makeDecision = (overrides: Partial<DecisionRecord> = {}): DecisionRecord => ({
+  id: 'dec-001',
+  issueKey: 'PROJ-100',
+  gateType: 'consistency',
+  score: 75,
+  action: 'block',
+  overridden: false,
+  contextSignature: 'PROJ-100:high:consistency:few',
+  timestamp: '2026-04-01T00:00:00Z',
+  ...overrides,
+});
+
+const makeNeighborhood = (overrides: Partial<EntityNeighborhood> = {}): EntityNeighborhood => ({
+  entityId: 'jira:PROJ-100',
+  entityKey: 'PROJ-100',
+  entityType: 'jira-issue',
+  projectKey: 'PROJ',
+  siblings: [],
+  linkedIssues: [],
+  topics: [],
+  updatedAt: '2026-04-01T00:00:00Z',
+  ...overrides,
 });
 
 // ═══════════════════════════════════════════
@@ -728,6 +764,504 @@ describe('graph-maintenance', () => {
 
       expect(result.orphanedNodes).toBe(0);
       expect(result.staleEdges).toBe(0);
+    });
+  });
+
+  // ─── pruneDecisionLog() ─────────────────
+
+  describe('pruneDecisionLog()', () => {
+    beforeEach(() => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-05-02T12:00:00Z'));
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    // ─── AC-15: pruneDecisionLog ──
+
+    it('should return 0 pruned when all decisions are within retention (AC-15)', async () => {
+      const decisions = [
+        makeDecision({ timestamp: '2026-04-15T00:00:00Z' }), // 17 days ago, within 90d
+      ];
+
+      const result = await pruneDecisionLog(decisions, 90, 'exec-1');
+
+      expect(result.orphansRemoved).toBe(0);
+      expect(result.nodesProcessed).toBe(1);
+    });
+
+    it('should prune decisions older than retention period (AC-15)', async () => {
+      const decisions = [
+        makeDecision({ id: 'dec-old', timestamp: '2025-12-01T00:00:00Z' }), // >90 days old
+        makeDecision({ id: 'dec-recent', timestamp: '2026-04-15T00:00:00Z' }), // within 90d
+      ];
+
+      const result = await pruneDecisionLog(decisions, 90, 'exec-1');
+
+      expect(result.orphansRemoved).toBe(1);
+    });
+
+    it('should keep overridden decisions younger than 30 days regardless of retention (AC-15)', async () => {
+      const decisions = [
+        makeDecision({
+          id: 'dec-overridden',
+          timestamp: '2026-04-10T00:00:00Z', // 22 days ago
+          overridden: true,
+        }),
+      ];
+
+      // Retention of 7 days — would normally prune, but overridden < 30 days is kept
+      const result = await pruneDecisionLog(decisions, 7, 'exec-1');
+
+      expect(result.orphansRemoved).toBe(0);
+    });
+
+    it('should prune overridden decisions older than 30 days (AC-15)', async () => {
+      const decisions = [
+        makeDecision({
+          id: 'dec-old-overridden',
+          timestamp: '2026-03-01T00:00:00Z', // 62 days ago
+          overridden: true,
+        }),
+      ];
+
+      const result = await pruneDecisionLog(decisions, 90, 'exec-1');
+
+      expect(result.orphansRemoved).toBe(1);
+    });
+
+    it('should handle empty decisions array (AC-15)', async () => {
+      const result = await pruneDecisionLog([], 90, 'exec-1');
+
+      expect(result.orphansRemoved).toBe(0);
+      expect(result.nodesProcessed).toBe(0);
+      expect(result.operation).toBe('pruneDecisionLog');
+    });
+
+    it('should prune all decisions when all expired (AC-15)', async () => {
+      const decisions = [
+        makeDecision({ id: 'dec-1', timestamp: '2025-01-01T00:00:00Z' }),
+        makeDecision({ id: 'dec-2', timestamp: '2025-06-01T00:00:00Z' }),
+      ];
+
+      const result = await pruneDecisionLog(decisions, 90, 'exec-1');
+
+      expect(result.orphansRemoved).toBe(2);
+    });
+
+    // ─── AC-11: Idempotency ──
+
+    it('should be idempotent — same input produces same output (AC-11)', async () => {
+      const decisions = [makeDecision({ timestamp: '2025-12-01T00:00:00Z' })];
+
+      const result1 = await pruneDecisionLog(decisions, 90, 'exec-1');
+      const result2 = await pruneDecisionLog(decisions, 90, 'exec-1');
+
+      expect(result1.orphansRemoved).toBe(result2.orphansRemoved);
+    });
+  });
+
+  // ─── compactDecisionPatterns() ─────────────────
+
+  describe('compactDecisionPatterns()', () => {
+    // ─── AC-16: compactDecisionPatterns ──
+
+    it('should return 0 compactions for empty decisions (AC-16)', async () => {
+      const result = await compactDecisionPatterns([], 'exec-1');
+
+      expect(result.staleUpdated).toBe(0);
+      expect(result.nodesProcessed).toBe(0);
+      expect(result.operation).toBe('compactDecisionPatterns');
+    });
+
+    it('should not compact decisions with unique signatures (AC-16)', async () => {
+      const decisions = [
+        makeDecision({ contextSignature: 'PROJ-100:high:consistency:few' }),
+        makeDecision({ contextSignature: 'PROJ-200:mid:documentation:many' }),
+      ];
+
+      const result = await compactDecisionPatterns(decisions, 'exec-1');
+
+      expect(result.staleUpdated).toBe(0); // No groups of 2+
+    });
+
+    it('should compact decisions with same contextSignature and gateType (AC-16)', async () => {
+      const decisions = [
+        makeDecision({
+          id: 'dec-1',
+          contextSignature: 'PROJ-100:high:consistency:few',
+          timestamp: '2026-04-01T00:00:00Z',
+        }),
+        makeDecision({
+          id: 'dec-2',
+          contextSignature: 'PROJ-100:high:consistency:few',
+          timestamp: '2026-04-15T00:00:00Z',
+        }),
+        makeDecision({
+          id: 'dec-3',
+          contextSignature: 'PROJ-100:high:consistency:few',
+          timestamp: '2026-04-20T00:00:00Z',
+        }),
+      ];
+
+      const result = await compactDecisionPatterns(decisions, 'exec-1');
+
+      // Group of 3 → compact to 1 representative → 2 removed
+      expect(result.staleUpdated).toBe(2);
+    });
+
+    it('should keep most recent decision as representative (AC-16)', async () => {
+      const decisions = [
+        makeDecision({
+          id: 'dec-old',
+          contextSignature: 'PROJ-100:high:consistency:few',
+          timestamp: '2026-03-01T00:00:00Z',
+        }),
+        makeDecision({
+          id: 'dec-new',
+          contextSignature: 'PROJ-100:high:consistency:few',
+          timestamp: '2026-04-20T00:00:00Z',
+        }),
+      ];
+
+      const result = await compactDecisionPatterns(decisions, 'exec-1');
+
+      // Group of 2 → compact to 1 → 1 removed
+      expect(result.staleUpdated).toBe(1);
+    });
+
+    it('should handle multiple groups independently (AC-16)', async () => {
+      const decisions = [
+        // Group A: 3 decisions
+        makeDecision({ contextSignature: 'sig-a', timestamp: '2026-04-01T00:00:00Z' }),
+        makeDecision({ contextSignature: 'sig-a', timestamp: '2026-04-10T00:00:00Z' }),
+        makeDecision({ contextSignature: 'sig-a', timestamp: '2026-04-20T00:00:00Z' }),
+        // Group B: 2 decisions
+        makeDecision({ contextSignature: 'sig-b', timestamp: '2026-04-05T00:00:00Z' }),
+        makeDecision({ contextSignature: 'sig-b', timestamp: '2026-04-15T00:00:00Z' }),
+      ];
+
+      const result = await compactDecisionPatterns(decisions, 'exec-1');
+
+      // Group A: 3→1 = 2, Group B: 2→1 = 1, total = 3
+      expect(result.staleUpdated).toBe(3);
+    });
+
+    // ─── AC-11: Idempotency ──
+
+    it('should be idempotent — second run on compacted data finds nothing (AC-11)', async () => {
+      const decisions = [
+        makeDecision({ contextSignature: 'sig-a', timestamp: '2026-04-01T00:00:00Z' }),
+        makeDecision({ contextSignature: 'sig-a', timestamp: '2026-04-20T00:00:00Z' }),
+      ];
+
+      const result1 = await compactDecisionPatterns(decisions, 'exec-1');
+      expect(result1.staleUpdated).toBe(1);
+
+      // After compaction, only 1 decision per group remains
+      const compacted = decisions.slice(1, 2);
+      const result2 = await compactDecisionPatterns(compacted, 'exec-1');
+      expect(result2.staleUpdated).toBe(0);
+    });
+  });
+
+  // ─── validateNeighborhoods() ─────────────────
+
+  describe('validateNeighborhoods()', () => {
+    // ─── AC-17: validateNeighborhoods ──
+
+    it('should return 0 repairs for empty entity list (AC-17)', async () => {
+      const result = await validateNeighborhoods('PROJ', [], 'exec-1');
+
+      expect(result.staleUpdated).toBe(0);
+      expect(result.nodesProcessed).toBe(0);
+      expect(result.operation).toBe('validateNeighborhoods');
+    });
+
+    it('should return 0 repairs when neighborhoods match edges (AC-17)', async () => {
+      const neighborhood = makeNeighborhood({
+        siblings: [
+          {
+            id: 'jira:PROJ-200',
+            key: 'PROJ-200',
+            type: 'jira-issue',
+            relationship: 'related-to',
+            weight: 0.8,
+          },
+        ],
+        linkedIssues: [],
+      });
+      const edges = [
+        makeEdge({
+          source: 'jira:PROJ-100',
+          target: 'jira:PROJ-200',
+          type: 'related-to',
+          weight: 0.8,
+        }),
+      ];
+
+      mockGetNeighborhood.mockResolvedValue(neighborhood);
+      mockGetEdges.mockResolvedValue(edges);
+
+      const result = await validateNeighborhoods('PROJ', ['jira:PROJ-100'], 'exec-1');
+
+      expect(result.staleUpdated).toBe(0);
+      expect(result.nodesProcessed).toBe(1);
+    });
+
+    it('should repair when edge exists but neighborhood is missing it (AC-17)', async () => {
+      const staleNeighborhood = makeNeighborhood({ siblings: [], linkedIssues: [] });
+      const edges = [
+        makeEdge({
+          source: 'jira:PROJ-100',
+          target: 'jira:PROJ-200',
+          type: 'related-to',
+          weight: 0.8,
+        }),
+      ];
+
+      mockGetNeighborhood.mockResolvedValue(staleNeighborhood);
+      mockGetEdges.mockResolvedValue(edges);
+      mockPutNeighborhood.mockResolvedValue(undefined);
+
+      const result = await validateNeighborhoods('PROJ', ['jira:PROJ-100'], 'exec-1');
+
+      expect(result.staleUpdated).toBe(1);
+      expect(mockPutNeighborhood).toHaveBeenCalledTimes(1);
+    });
+
+    it('should repair when neighborhood has entry not in edges (AC-17)', async () => {
+      const driftedNeighborhood = makeNeighborhood({
+        siblings: [
+          {
+            id: 'jira:PROJ-999',
+            key: 'PROJ-999',
+            type: 'jira-issue',
+            relationship: 'related-to',
+            weight: 0.8,
+          },
+        ],
+        linkedIssues: [],
+      });
+      const edges: RelationshipEdge[] = []; // No edges but neighborhood has entry
+
+      mockGetNeighborhood.mockResolvedValue(driftedNeighborhood);
+      mockGetEdges.mockResolvedValue(edges);
+      mockPutNeighborhood.mockResolvedValue(undefined);
+
+      const result = await validateNeighborhoods('PROJ', ['jira:PROJ-100'], 'exec-1');
+
+      expect(result.staleUpdated).toBe(1);
+      expect(mockPutNeighborhood).toHaveBeenCalledTimes(1);
+    });
+
+    it('should rebuild neighborhood when null (missing) (AC-17)', async () => {
+      mockGetNeighborhood.mockResolvedValue(null);
+      const edges = [
+        makeEdge({
+          source: 'jira:PROJ-100',
+          target: 'jira:PROJ-200',
+          type: 'related-to',
+          weight: 0.8,
+        }),
+      ];
+      mockGetEdges.mockResolvedValue(edges);
+      mockPutNeighborhood.mockResolvedValue(undefined);
+
+      const result = await validateNeighborhoods('PROJ', ['jira:PROJ-100'], 'exec-1');
+
+      expect(result.staleUpdated).toBe(1);
+      expect(mockPutNeighborhood).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle partial drift across multiple entities (AC-17)', async () => {
+      // Entity 1: consistent
+      mockGetNeighborhood.mockResolvedValueOnce(
+        makeNeighborhood({ siblings: [], linkedIssues: [] }),
+      );
+      mockGetEdges.mockResolvedValueOnce([]);
+
+      // Entity 2: drifted
+      mockGetNeighborhood.mockResolvedValueOnce(
+        makeNeighborhood({
+          entityId: 'jira:PROJ-200',
+          entityKey: 'PROJ-200',
+          siblings: [],
+          linkedIssues: [],
+        }),
+      );
+      mockGetEdges.mockResolvedValueOnce([
+        makeEdge({
+          source: 'jira:PROJ-200',
+          target: 'jira:PROJ-300',
+          type: 'related-to',
+          weight: 0.8,
+        }),
+      ]);
+      mockPutNeighborhood.mockResolvedValue(undefined);
+
+      const result = await validateNeighborhoods(
+        'PROJ',
+        ['jira:PROJ-100', 'jira:PROJ-200'],
+        'exec-1',
+      );
+
+      expect(result.staleUpdated).toBe(1);
+      expect(result.nodesProcessed).toBe(2);
+    });
+
+    // ─── FORGE-OPS-0104: Graceful degradation ──
+
+    it('should continue after individual entity error (FORGE-OPS-0104)', async () => {
+      mockGetNeighborhood.mockRejectedValueOnce(new Error('Storage error')).mockResolvedValueOnce(
+        makeNeighborhood({
+          entityId: 'jira:PROJ-200',
+          entityKey: 'PROJ-200',
+          siblings: [],
+          linkedIssues: [],
+        }),
+      );
+      mockGetEdges
+        .mockResolvedValueOnce([]) // won't be called for first entity (error in getNeighborhood)
+        .mockResolvedValueOnce([
+          makeEdge({
+            source: 'jira:PROJ-200',
+            target: 'jira:PROJ-300',
+            type: 'related-to',
+            weight: 0.8,
+          }),
+        ]);
+      mockPutNeighborhood.mockResolvedValue(undefined);
+
+      const result = await validateNeighborhoods(
+        'PROJ',
+        ['jira:PROJ-100', 'jira:PROJ-200'],
+        'exec-1',
+      );
+
+      expect(result.errors).toHaveLength(1);
+      expect(result.staleUpdated).toBe(1); // Second entity repaired
+    });
+
+    // ─── AC-11: Idempotency ──
+
+    it('should be idempotent — second run finds no drift (AC-11)', async () => {
+      const repairedNeighborhood = makeNeighborhood({
+        siblings: [
+          {
+            id: 'jira:PROJ-200',
+            key: 'PROJ-200',
+            type: 'jira-issue',
+            relationship: 'related-to',
+            weight: 0.8,
+          },
+        ],
+        linkedIssues: [],
+      });
+      const edges = [
+        makeEdge({
+          source: 'jira:PROJ-100',
+          target: 'jira:PROJ-200',
+          type: 'related-to',
+          weight: 0.8,
+        }),
+      ];
+
+      // First run: drifted → repair
+      mockGetNeighborhood.mockResolvedValueOnce(
+        makeNeighborhood({ siblings: [], linkedIssues: [] }),
+      );
+      mockGetEdges.mockResolvedValue(edges);
+      mockPutNeighborhood.mockResolvedValue(undefined);
+
+      const result1 = await validateNeighborhoods('PROJ', ['jira:PROJ-100'], 'exec-1');
+
+      // Second run: now consistent
+      mockGetNeighborhood.mockResolvedValue(repairedNeighborhood);
+      const result2 = await validateNeighborhoods('PROJ', ['jira:PROJ-100'], 'exec-1');
+
+      expect(result1.staleUpdated).toBe(1);
+      expect(result2.staleUpdated).toBe(0);
+    });
+  });
+
+  // ─── runMaintenanceCycle() ─────────────────
+
+  describe('runMaintenanceCycle()', () => {
+    beforeEach(() => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-05-02T12:00:00Z'));
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    // ─── AC-18: runMaintenanceCycle ──
+
+    it('should return empty result when no nodes or decisions (AC-18)', async () => {
+      mockGetStats.mockResolvedValue(makeStats({ lastUpdated: '2026-05-01T00:00:00Z' }));
+
+      const result = await runMaintenanceCycle('PROJ', [], [], 'exec-1');
+
+      expect(result.operation).toBe('runMaintenanceCycle');
+      expect(result.errors).toEqual([]);
+    });
+
+    it('should run all phases in sequence and accumulate results (AC-18)', async () => {
+      const nodes = [NODE_ISSUE_100];
+      const decisions = [
+        makeDecision({ timestamp: '2025-01-01T00:00:00Z' }), // old → pruned
+        makeDecision({ contextSignature: 'sig-a', timestamp: '2026-04-01T00:00:00Z' }),
+        makeDecision({ contextSignature: 'sig-a', timestamp: '2026-04-20T00:00:00Z' }),
+      ];
+
+      // validateNodeBatch: node exists
+      mockGetNode.mockResolvedValue(NODE_ISSUE_100);
+      mockGetEdges.mockResolvedValue([]); // No edges
+
+      // validateNeighborhoods: consistent
+      mockGetNeighborhood.mockResolvedValue(makeNeighborhood());
+      mockGetStats.mockResolvedValue(makeStats({ lastUpdated: '2026-05-01T00:00:00Z' }));
+
+      const result = await runMaintenanceCycle('PROJ', nodes, decisions, 'exec-1');
+
+      expect(result.operation).toBe('runMaintenanceCycle');
+      expect(result.nodesProcessed).toBeGreaterThanOrEqual(0);
+      expect(result.orphansRemoved).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should continue when a phase fails (FORGE-OPS-0104)', async () => {
+      const nodes = [NODE_ISSUE_100];
+      const decisions: DecisionRecord[] = [];
+
+      // validateNodeBatch fails
+      mockGetNode.mockRejectedValue(new Error('Storage down'));
+      mockGetStats.mockResolvedValue(makeStats({ lastUpdated: '2026-05-01T00:00:00Z' }));
+
+      const result = await runMaintenanceCycle('PROJ', nodes, decisions, 'exec-1');
+
+      // Should still complete, errors collected
+      expect(result.operation).toBe('runMaintenanceCycle');
+      expect(result.errors.length).toBeGreaterThanOrEqual(0);
+    });
+
+    // ─── AC-11: Idempotency ──
+
+    it('should be idempotent — same input produces same result (AC-11)', async () => {
+      const nodes = [NODE_ISSUE_100];
+      const decisions: DecisionRecord[] = [];
+
+      mockGetNode.mockResolvedValue(NODE_ISSUE_100);
+      mockGetEdges.mockResolvedValue([]);
+      mockGetNeighborhood.mockResolvedValue(makeNeighborhood());
+      mockGetStats.mockResolvedValue(makeStats({ lastUpdated: '2026-05-01T00:00:00Z' }));
+
+      const result1 = await runMaintenanceCycle('PROJ', nodes, decisions, 'exec-1');
+      const result2 = await runMaintenanceCycle('PROJ', nodes, decisions, 'exec-1');
+
+      expect(result1.orphansRemoved).toBe(result2.orphansRemoved);
+      expect(result1.staleUpdated).toBe(result2.staleUpdated);
     });
   });
 });

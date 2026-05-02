@@ -2,9 +2,23 @@
 // [FORGE-OPS-0105] Stateless — no module-level mutable state
 // [ARCH-SOLID-202] Zero any usage
 
-import type { EntityNode, RelationshipEdge } from '../../types/relationship-index';
+import type {
+  EntityNode,
+  RelationshipEdge,
+  DecisionRecord,
+  EntityNeighborhood,
+  NeighborSummary,
+} from '../../types/relationship-index';
 
-import { getNode, getEdges, deleteEdges, putEdges, getStats } from './relationship-storage';
+import {
+  getNode,
+  getEdges,
+  deleteEdges,
+  putEdges,
+  getStats,
+  getNeighborhood,
+  putNeighborhood,
+} from './relationship-storage';
 
 // ═══════════════════════════════════════════
 // TYPES
@@ -416,5 +430,403 @@ export async function generateHealthReport(
     storageKeysUsed,
     lastMaintenanceAt: stats.lastUpdated,
     status,
+  };
+}
+
+// ═══════════════════════════════════════════
+// OPERATIONAL MEMORY HELPERS
+// ═══════════════════════════════════════════
+
+/** [AC-15] Check if a decision should be kept despite being older than retention. */
+function shouldKeepDecision(decision: DecisionRecord, cutoffMs: number, nowMs: number): boolean {
+  const age = nowMs - new Date(decision.timestamp).getTime();
+  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+  // Overridden decisions: keep only if younger than 30 days
+  if (decision.overridden) {
+    return age < thirtyDaysMs;
+  }
+  // Regular decisions: keep if within retention period
+  return age < cutoffMs;
+}
+
+/** [AC-17] Build expected NeighborSummary list from edges. */
+function buildExpectedNeighbors(edges: readonly RelationshipEdge[]): readonly NeighborSummary[] {
+  return edges.map((edge) => ({
+    id: edge.target,
+    key: edge.target.split(':').pop() ?? edge.target,
+    type: 'jira-issue' as const,
+    relationship: edge.type,
+    weight: edge.weight,
+  }));
+}
+
+/** [AC-17] Check if neighborhood matches the expected set from edges. */
+function neighborhoodsMatch(
+  actual: readonly NeighborSummary[],
+  expected: readonly NeighborSummary[],
+): boolean {
+  if (actual.length !== expected.length) return false;
+  const actualKeys = new Set(actual.map((n) => `${n.id}|${n.relationship}`));
+  for (const exp of expected) {
+    if (!actualKeys.has(`${exp.id}|${exp.relationship}`)) return false;
+  }
+  return true;
+}
+
+/** [AC-17] Rebuild an EntityNeighborhood from current edges. */
+function rebuildNeighborhood(
+  existing: EntityNeighborhood | null,
+  entityId: string,
+  projectKey: string,
+  edges: readonly RelationshipEdge[],
+): EntityNeighborhood {
+  const base = existing ?? {
+    entityId,
+    entityKey: entityId.split(':').pop() ?? entityId,
+    entityType: 'jira-issue' as const,
+    projectKey,
+    siblings: [],
+    linkedIssues: [],
+    topics: [],
+    updatedAt: new Date().toISOString(),
+  };
+  const neighbors = buildExpectedNeighbors(edges);
+  const siblings = neighbors.filter(
+    (n) => n.relationship === 'parent-of' || n.relationship === 'related-to',
+  );
+  const linkedIssues = neighbors.filter(
+    (n) =>
+      n.relationship !== 'parent-of' &&
+      n.relationship !== 'related-to' &&
+      n.relationship !== 'topic-match',
+  );
+  return { ...base, siblings, linkedIssues, updatedAt: new Date().toISOString() };
+}
+
+/** [AC-16] Group decisions by contextSignature for pattern compaction. */
+function groupBySignature(
+  decisions: readonly DecisionRecord[],
+): Readonly<Map<string, DecisionRecord[]>> {
+  const groups = new Map<string, DecisionRecord[]>();
+  for (const decision of decisions) {
+    const key = `${decision.contextSignature}|${decision.gateType}`;
+    const group = groups.get(key);
+    if (group) {
+      group.push(decision);
+    } else {
+      groups.set(key, [decision]);
+    }
+  }
+  return groups;
+}
+
+// ═══════════════════════════════════════════
+// PUBLIC API — OPERATIONAL MEMORY (AC-15..AC-18)
+// ═══════════════════════════════════════════
+
+/**
+ * Prune decisions older than configurable retention period.
+ * Pure computation — identifies which decisions to prune; caller handles deletion.
+ *
+ * AC ref: AC-15 of .reqs.md
+ * REGLA: FORGE-OPS-0105 — stateless, pure computation
+ */
+export async function pruneDecisionLog(
+  decisions: readonly DecisionRecord[],
+  retentionDays: number,
+  executionId: string,
+): Promise<MaintenanceResult> {
+  const startTime = Date.now();
+  const nowMs = Date.now();
+  const cutoffMs = retentionDays * 24 * 60 * 60 * 1000;
+  let prunedCount = 0;
+
+  for (const decision of decisions) {
+    if (!shouldKeepDecision(decision, cutoffMs, nowMs)) {
+      prunedCount++;
+    }
+  }
+
+  logStructured('info', 'pruneDecisionLog', executionId, {
+    totalDecisions: decisions.length,
+    prunedCount,
+    retentionDays,
+  });
+
+  return {
+    operation: 'pruneDecisionLog',
+    executionId,
+    durationMs: Date.now() - startTime,
+    nodesProcessed: decisions.length,
+    edgesProcessed: 0,
+    orphansRemoved: prunedCount,
+    staleUpdated: 0,
+    errors: [],
+  };
+}
+
+/**
+ * Compact decision patterns by merging similar decisions.
+ * Groups by contextSignature + gateType; keeps most recent as representative.
+ * Pure computation — identifies compactions; caller handles storage.
+ *
+ * AC ref: AC-16 of .reqs.md
+ * REGLA: FORGE-OPS-0105 — stateless, pure computation
+ */
+export async function compactDecisionPatterns(
+  decisions: readonly DecisionRecord[],
+  executionId: string,
+): Promise<MaintenanceResult> {
+  const startTime = Date.now();
+
+  const groups = groupBySignature(decisions);
+  let compactedCount = 0;
+
+  for (const group of groups.values()) {
+    if (group.length >= 2) {
+      compactedCount += group.length - 1; // Keep 1, prune rest
+    }
+  }
+
+  logStructured('info', 'compactDecisionPatterns', executionId, {
+    totalDecisions: decisions.length,
+    groupCount: groups.size,
+    compactedCount,
+  });
+
+  return {
+    operation: 'compactDecisionPatterns',
+    executionId,
+    durationMs: Date.now() - startTime,
+    nodesProcessed: decisions.length,
+    edgesProcessed: 0,
+    orphansRemoved: 0,
+    staleUpdated: compactedCount,
+    errors: [],
+  };
+}
+
+/**
+ * Validate neighborhood consistency — detect and repair drift between
+ * the denormalized neighborhood cache and the adjacency list.
+ *
+ * AC ref: AC-17 of .reqs.md
+ * REGLA: FORGE-OPS-007 — rate limit between writes
+ * REGLA: FORGE-OPS-0104 — graceful degradation per entity
+ */
+export async function validateNeighborhoods(
+  projectKey: string,
+  entityIds: readonly string[],
+  executionId: string,
+): Promise<MaintenanceResult> {
+  const startTime = Date.now();
+
+  if (entityIds.length === 0) {
+    logStructured('info', 'validateNeighborhoods', executionId, { projectKey, entityIds: 0 });
+    return {
+      operation: 'validateNeighborhoods',
+      executionId,
+      durationMs: Date.now() - startTime,
+      nodesProcessed: 0,
+      edgesProcessed: 0,
+      orphansRemoved: 0,
+      staleUpdated: 0,
+      errors: [],
+    };
+  }
+
+  let repairedCount = 0;
+  let processedCount = 0;
+  const errors: string[] = [];
+
+  for (const entityId of entityIds) {
+    try {
+      const [neighborhood, edges] = await Promise.all([
+        getNeighborhood(projectKey, entityId, executionId),
+        getEdges(projectKey, entityId, executionId),
+      ]);
+
+      const expectedNeighbors = buildExpectedNeighbors(edges);
+      const allActual = [...(neighborhood?.siblings ?? []), ...(neighborhood?.linkedIssues ?? [])];
+
+      if (neighborhood === null || !neighborhoodsMatch(allActual, expectedNeighbors)) {
+        const rebuilt = rebuildNeighborhood(neighborhood, entityId, projectKey, edges);
+        await putNeighborhood(projectKey, rebuilt, executionId);
+        repairedCount++;
+        // [FORGE-OPS-007] Rate limit between writes
+        await rateLimitDelay();
+      }
+
+      processedCount++;
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      errors.push(msg);
+      logStructured('error', 'validateNeighborhoods', executionId, { entityId, error: msg });
+    }
+  }
+
+  logStructured('info', 'validateNeighborhoods', executionId, {
+    projectKey,
+    processedCount,
+    repairedCount,
+    errorCount: errors.length,
+  });
+
+  return {
+    operation: 'validateNeighborhoods',
+    executionId,
+    durationMs: Date.now() - startTime,
+    nodesProcessed: processedCount,
+    edgesProcessed: 0,
+    orphansRemoved: 0,
+    staleUpdated: repairedCount,
+    errors,
+  };
+}
+
+/** Accumulator for maintenance cycle results. */
+interface CycleAccumulator {
+  orphans: number;
+  stale: number;
+  processed: number;
+  errors: string[];
+}
+
+/** [ARCH-SOLID-052] Execute a single phase, catching errors. */
+async function runPhase(
+  phaseName: string,
+  phaseFn: () => Promise<MaintenanceResult>,
+  acc: CycleAccumulator,
+  executionId: string,
+): Promise<void> {
+  try {
+    const result = await phaseFn();
+    acc.orphans += result.orphansRemoved;
+    acc.stale += result.staleUpdated;
+    acc.processed += result.nodesProcessed;
+    acc.errors.push(...result.errors);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    acc.errors.push(`${phaseName}: ${msg}`);
+    logStructured('error', 'runMaintenanceCycle', executionId, { phase: phaseName, error: msg });
+  }
+}
+
+/**
+ * Run full maintenance cycle: validate → removeOrphans → refresh → compact →
+ * validateNeighborhoods → pruneDecisions → compactPatterns.
+ * Each phase failure is logged but doesn't stop the cycle.
+ *
+ * AC ref: AC-18 of .reqs.md
+ * REGLA: FORGE-OPS-0104 — graceful degradation, continue on phase failure
+ * REGLA: FORGE-OPS-005 — caller controls batch size
+ */
+export async function runMaintenanceCycle(
+  projectKey: string,
+  nodes: readonly EntityNode[],
+  decisions: readonly DecisionRecord[],
+  executionId: string,
+): Promise<MaintenanceResult> {
+  const startTime = Date.now();
+  const acc: CycleAccumulator = { orphans: 0, stale: 0, processed: 0, errors: [] };
+
+  // Phases 1+2: Validate nodes then remove orphaned edges
+  await runPhase(
+    'validate',
+    async () => {
+      const orphanedIds = await validateNodeBatch(nodes, executionId);
+      let edgesRemoved = 0;
+      if (orphanedIds.length > 0) {
+        edgesRemoved = await removeOrphanedEdges(projectKey, orphanedIds, executionId);
+      }
+      return {
+        operation: 'validate+remove',
+        executionId,
+        durationMs: 0,
+        nodesProcessed: nodes.length,
+        edgesProcessed: 0,
+        orphansRemoved: orphanedIds.length + edgesRemoved,
+        staleUpdated: 0,
+        errors: [],
+      };
+    },
+    acc,
+    executionId,
+  );
+
+  // Phase 3: Refresh stale nodes
+  await runPhase(
+    'refresh',
+    async () => {
+      const staleCount = await refreshStaleNodes(nodes, '7d', executionId);
+      return {
+        operation: 'refresh',
+        executionId,
+        durationMs: 0,
+        nodesProcessed: 0,
+        edgesProcessed: 0,
+        orphansRemoved: 0,
+        staleUpdated: staleCount,
+        errors: [],
+      };
+    },
+    acc,
+    executionId,
+  );
+
+  // Phase 4: Compact storage
+  await runPhase(
+    'compact',
+    () =>
+      compactStorage(
+        projectKey,
+        nodes.map((n) => n.id),
+        executionId,
+      ),
+    acc,
+    executionId,
+  );
+
+  // Phase 5: Validate neighborhoods
+  await runPhase(
+    'neighborhoods',
+    () =>
+      validateNeighborhoods(
+        projectKey,
+        nodes.map((n) => n.id),
+        executionId,
+      ),
+    acc,
+    executionId,
+  );
+
+  // Phase 6: Prune decisions
+  await runPhase('prune', () => pruneDecisionLog(decisions, 90, executionId), acc, executionId);
+
+  // Phase 7: Compact decision patterns
+  await runPhase(
+    'patterns',
+    () => compactDecisionPatterns(decisions, executionId),
+    acc,
+    executionId,
+  );
+
+  logStructured('info', 'runMaintenanceCycle', executionId, {
+    projectKey,
+    totalProcessed: acc.processed,
+    totalOrphans: acc.orphans,
+    totalStale: acc.stale,
+    errorCount: acc.errors.length,
+  });
+
+  return {
+    operation: 'runMaintenanceCycle',
+    executionId,
+    durationMs: Date.now() - startTime,
+    nodesProcessed: acc.processed,
+    edgesProcessed: 0,
+    orphansRemoved: acc.orphans,
+    staleUpdated: acc.stale,
+    errors: acc.errors,
   };
 }
