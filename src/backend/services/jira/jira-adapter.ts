@@ -723,7 +723,7 @@ export async function searchByJQL(
   const cappedMax = Math.min(maxResults ?? 50, 100);
   const fields =
     'summary,status,issuetype,labels,project,created,updated,issuelinks,fixVersions,customfield_10014';
-  const urlPath = route`/rest/api/2/search?jql=${jql}&fields=${fields}&maxResults=${String(cappedMax)}`;
+  const urlPath = route`/rest/api/3/search?jql=${jql}&fields=${fields}&maxResults=${String(cappedMax)}`;
 
   const response = await executeJiraRequest(
     operation,

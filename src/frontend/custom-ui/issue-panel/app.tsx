@@ -335,23 +335,36 @@ export const FullAnalysisButton = ({
   const isOpening = analysisStatus === 'opening';
 
   return (
-    <button
-      onClick={handleFullAnalysis}
-      disabled={isOpening}
-      aria-label="Run full consistency analysis with Rovo"
-      style={{
-        marginTop: '12px',
-        padding: '8px 16px',
-        fontSize: '14px',
-        border: '1px solid #DFE1E6',
-        borderRadius: '3px',
-        background: 'transparent',
-        cursor: isOpening ? 'wait' : 'pointer',
-        opacity: isOpening ? 0.6 : 1,
-      }}
-    >
-      {isOpening ? 'Analyzing...' : 'Full Analysis'}
-    </button>
+    <>
+      <button
+        onClick={handleFullAnalysis}
+        disabled={isOpening}
+        aria-label="Run full consistency analysis with Rovo"
+        style={{
+          marginTop: '12px',
+          padding: '8px 16px',
+          fontSize: '14px',
+          border: '1px solid #DFE1E6',
+          borderRadius: '3px',
+          background: 'transparent',
+          cursor: isOpening ? 'wait' : 'pointer',
+          opacity: isOpening ? 0.6 : 1,
+        }}
+      >
+        {isOpening ? 'Analyzing...' : 'Full Analysis'}
+      </button>
+      {analysisStatus === 'error' && (
+        <div
+          style={{
+            marginTop: '4px',
+            fontSize: '12px',
+            color: token(SCORE_COLOR_TOKENS.RED as Parameters<typeof token>[0]),
+          }}
+        >
+          Could not open Rovo. Make sure Rovo is enabled for your site.
+        </div>
+      )}
+    </>
   );
 };
 
