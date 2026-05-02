@@ -3,9 +3,11 @@ import { createRoot } from 'react-dom/client';
 import { invoke } from '@forge/bridge';
 import { ConfigurationTab } from './components/ConfigurationTab';
 import { OverviewTab } from './components/OverviewTab';
+import { RelationshipIndexTab } from './components/RelationshipIndexTab';
 import { useProjectConfig } from './hooks/useProjectConfig';
 import { useAdminData } from './hooks/useAdminData';
 import { useAuditLog } from './hooks/useAuditLog';
+import { useRelationshipIndex } from './hooks/useRelationshipIndex';
 import type { TabIdentifier } from './types';
 
 // ═══════════════════════════════════════════
@@ -23,6 +25,7 @@ const TABS: ReadonlyArray<{ readonly id: TabIdentifier; readonly label: string }
   { id: 'overview', label: 'Overview' },
   { id: 'configuration', label: 'Configuration' },
   { id: 'auditLog', label: 'Audit Log' },
+  { id: 'relationshipIndex', label: 'Relationship Index' },
 ];
 
 // ═══════════════════════════════════════════
@@ -124,6 +127,7 @@ const AdminDashboard = (): React.ReactElement => {
   const configState = useProjectConfig(projectKey);
   const adminData = useAdminData(projectKey);
   const auditLog = useAuditLog(projectKey);
+  const relationshipIndex = useRelationshipIndex(projectKey);
 
   return (
     <div
@@ -177,6 +181,18 @@ const AdminDashboard = (): React.ReactElement => {
           entries={auditLog.data}
           hasMore={auditLog.pagination.hasMore}
           onLoadMore={auditLog.loadMore}
+        />
+      )}
+      {activeTab === 'relationshipIndex' && (
+        <RelationshipIndexTab
+          health={relationshipIndex.health}
+          loading={relationshipIndex.loading}
+          error={relationshipIndex.error}
+          refreshing={relationshipIndex.refreshing}
+          onRefresh={relationshipIndex.refresh}
+          onBootstrap={() => {
+            void relationshipIndex.bootstrap();
+          }}
         />
       )}
     </div>

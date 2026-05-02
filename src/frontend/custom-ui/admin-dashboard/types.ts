@@ -10,7 +10,7 @@ import type { InconsistencyType } from '../../../backend/types/inconsistency';
 // ═══════════════════════════════════════════
 
 /** Identifies the active tab in AdminDashboardApp [ARCH-SOLID-203] */
-export type TabIdentifier = 'overview' | 'configuration' | 'auditLog';
+export type TabIdentifier = 'overview' | 'configuration' | 'auditLog' | 'relationshipIndex';
 
 /** Sort direction for audit log columns [ARCH-SOLID-203] */
 export type SortDirection = 'asc' | 'desc';
