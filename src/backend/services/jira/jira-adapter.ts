@@ -721,14 +721,28 @@ export async function searchByJQL(
 ): Promise<readonly JiraTicketData[]> {
   const operation = 'searchByJQL';
   const cappedMax = Math.min(maxResults ?? 50, 100);
-  const fields =
-    'summary,status,issuetype,labels,project,created,updated,issuelinks,fixVersions,customfield_10014';
-  const urlPath = route`/rest/api/3/search?jql=${jql}&fields=${fields}&maxResults=${String(cappedMax)}`;
+  const fields = [
+    'summary',
+    'status',
+    'issuetype',
+    'labels',
+    'project',
+    'created',
+    'updated',
+    'issuelinks',
+    'fixVersions',
+    'customfield_10014',
+  ];
+  const urlPath = route`/rest/api/3/search`;
 
   const response = await executeJiraRequest(
     operation,
     urlPath,
-    { method: 'GET' },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jql, fields, maxResults: cappedMax }),
+    },
     executionId,
     DEFAULT_TIMEOUT_MS,
   );

@@ -44,6 +44,7 @@ import {
   getTicketData,
   transitionIssue,
   addComment,
+  searchByJQL,
 } from '../../../src/backend/services/jira/jira-adapter';
 import {
   JiraApiError,
@@ -347,6 +348,50 @@ describe('Jira Adapter Integration', () => {
       // Assert
       expect(error).toBeInstanceOf(TimeoutError);
       expect((error as TimeoutError).code).toBe('JIRA_TIMEOUT');
+    });
+  });
+
+  // ─── searchByJQL() ─────────────────────
+
+  describe('searchByJQL()', () => {
+    it('should POST to /rest/api/3/search with JSON body', async () => {
+      mockRequestJira.mockResolvedValueOnce(okResponse({ issues: [], total: 0, maxResults: 50 }));
+
+      await searchByJQL('project = ROVO', 50);
+
+      expect(mockRequestJira).toHaveBeenCalledTimes(1);
+      const [url, options] = mockRequestJira.mock.calls[0];
+      expect(url.value).toBe('/rest/api/3/search');
+      expect((options as { method: string }).method).toBe('POST');
+      const body = JSON.parse((options as { body: string }).body) as Record<string, unknown>;
+      expect(body.jql).toBe('project = ROVO');
+      expect(body.maxResults).toBe(50);
+      expect(Array.isArray(body.fields as unknown[])).toBe(true);
+    });
+
+    it('should return mapped tickets for valid search response', async () => {
+      mockRequestJira.mockResolvedValueOnce(
+        okResponse({ issues: [fullTicketFixture], total: 1, maxResults: 50 }),
+      );
+
+      const results = await searchByJQL('project = PROJ');
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.key).toBe('PROJ-1234');
+    });
+
+    it('should throw JiraApiError for 410 Gone', async () => {
+      mockRequestJira.mockResolvedValueOnce({
+        ok: false,
+        status: 410,
+        statusText: 'Gone',
+        json: async () => ({ errorMessages: ['Deprecated API'] }),
+        text: async () => JSON.stringify({ errorMessages: ['Deprecated API'] }),
+        headers: { get: () => null, has: () => false, forEach: () => {} },
+      });
+
+      const error = await searchByJQL('project = ROVO').catch((e: unknown) => e as Error);
+      expect(error).toBeInstanceOf(JiraApiError);
     });
   });
 });

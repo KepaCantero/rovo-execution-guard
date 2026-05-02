@@ -1584,8 +1584,9 @@ describe('jira-adapter', () => {
 
       // Assert
       const callArgs = mockRequestJira.mock.calls[0];
-      const requestUrl = (callArgs?.[0] as { value: string })?.value ?? '';
-      expect(requestUrl).toContain('maxResults=100');
+      const options = callArgs?.[1] as Record<string, string>;
+      const body = JSON.parse(options.body as string) as Record<string, unknown>;
+      expect(body.maxResults).toBe(100);
     });
 
     it('should default maxResults to 50', async () => {
@@ -1597,8 +1598,9 @@ describe('jira-adapter', () => {
 
       // Assert
       const callArgs = mockRequestJira.mock.calls[0];
-      const requestUrl = (callArgs?.[0] as { value: string })?.value ?? '';
-      expect(requestUrl).toContain('maxResults=50');
+      const options = callArgs?.[1] as Record<string, string>;
+      const body = JSON.parse(options.body as string) as Record<string, unknown>;
+      expect(body.maxResults).toBe(50);
     });
 
     it('should include executionId in log entries', async () => {
@@ -1654,7 +1656,7 @@ describe('jira-adapter', () => {
       expect(result[0]?.key).toBe('PROJ-001');
     });
 
-    it('should use GET method for search requests', async () => {
+    it('should use POST method for search requests', async () => {
       // Arrange
       mockRequestJira.mockResolvedValue(makeSearchResponse([]));
 
@@ -1664,7 +1666,7 @@ describe('jira-adapter', () => {
       // Assert
       const callArgs = mockRequestJira.mock.calls[0];
       const options = callArgs?.[1] as Record<string, unknown>;
-      expect(options.method).toBe('GET');
+      expect(options.method).toBe('POST');
     });
 
     it('should request minimal field set for search results', async () => {
@@ -1676,11 +1678,11 @@ describe('jira-adapter', () => {
 
       // Assert — [SEC-PRIV-008] data minimization
       const callArgs = mockRequestJira.mock.calls[0];
-      const requestUrl = (callArgs?.[0] as { value: string })?.value ?? '';
-      expect(requestUrl).toContain('fields=');
-      expect(requestUrl).toContain('summary');
-      // searchByJQL should NOT request description (data minimization)
-      expect(requestUrl).not.toContain('description');
+      const options = callArgs?.[1] as Record<string, string>;
+      const body = JSON.parse(options.body as string) as Record<string, unknown>;
+      const fields = body.fields as string[];
+      expect(fields).toContain('summary');
+      expect(fields).not.toContain('description');
     });
   });
 
