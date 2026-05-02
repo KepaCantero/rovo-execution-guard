@@ -203,10 +203,10 @@ describe('Custom UI Resolvers (index.ts)', () => {
   // ─── AC-01, AC-02: Registration ────────────
 
   describe('registerResolvers()', () => {
-    it('should register exactly 9 resolvers via resolver.define (AC-01, AC-02)', () => {
+    it('should register exactly 10 resolvers via resolver.define (AC-01, AC-02)', () => {
       registerResolvers();
 
-      expect(mockedResolverDefine).toHaveBeenCalledTimes(9);
+      expect(mockedResolverDefine).toHaveBeenCalledTimes(10);
 
       const calls = mockedResolverDefine.mock.calls as ReadonlyArray<readonly [string, HandlerFn]>;
       const names = calls.map((call: readonly [string, HandlerFn]) => call[0]);
@@ -220,6 +220,7 @@ describe('Custom UI Resolvers (index.ts)', () => {
         'enrichTicket',
         'revalidateTicket',
         'getGraphHealth',
+        'bootstrapIndex',
       ]);
     });
 

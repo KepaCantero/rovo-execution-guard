@@ -217,6 +217,51 @@ function edgeMatchesFilter(
 }
 
 // ═══════════════════════════════════════════
+// NODE ID INDEX
+// ═══════════════════════════════════════════
+
+/** Read the node ID index for a project. Returns empty array if not found. */
+async function getNodeIdIndex(
+  projectKey: string,
+  _executionId?: string,
+): Promise<readonly string[]> {
+  try {
+    const storage = getStorage();
+    const key = `node-idx:${projectKey}`;
+    const raw = await storage.get(key);
+    if (Array.isArray(raw)) return raw as string[];
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+/** Add a node ID to the index (deduplicated). */
+async function addNodeIdToIndex(
+  projectKey: string,
+  nodeId: string,
+  executionId?: string,
+): Promise<void> {
+  const ids = [...(await getNodeIdIndex(projectKey, executionId))];
+  if (!ids.includes(nodeId)) {
+    ids.push(nodeId);
+    const storage = getStorage();
+    await withRetry(
+      async () => storage.set(`node-idx:${projectKey}`, ids),
+      'addNodeIdToIndex',
+      executionId,
+    );
+  }
+}
+
+/** Scan all node IDs for a project. Used by maintenance cycle. */
+export async function scanNodeIds(
+  projectKey: string,
+  executionId?: string,
+): Promise<readonly string[]> {
+  return getNodeIdIndex(projectKey, executionId);
+}
+
 // CORE CRUD
 // ═══════════════════════════════════════════
 
@@ -261,6 +306,7 @@ export async function putNode(
     const key = buildKey('node', projectKey, node.id, executionId);
 
     await withRetry(async () => storage.set(key, node), 'putNode', executionId);
+    await addNodeIdToIndex(projectKey, node.id, executionId);
     logStructured('info', 'putNode', executionId, { key, nodeId: node.id });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);

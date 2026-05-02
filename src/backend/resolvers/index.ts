@@ -37,6 +37,8 @@ import {
   generateHealthReport,
   type GraphHealthReport,
 } from '../services/relationship-index/graph-maintenance';
+import { bootstrapProjectIndex } from '../services/relationship-index/jira-indexer';
+import type { GraphStats } from '../types/relationship-index';
 
 // ═══════════════════════════════════════════
 // TYPES
@@ -640,6 +642,28 @@ const handleGetGraphHealth = async (
   return success(report, executionId);
 };
 
+const handleBootstrapIndex = async (
+  payload: ResolverPayload,
+  context: ResolverContext,
+  executionId: string,
+): Promise<ResolverResponse<GraphStats>> => {
+  const projectKey = sanitize(requireNonEmpty(payload.projectKey, 'projectKey'));
+  const accountId = extractAccountId(context);
+  checkReadPermission(accountId);
+
+  log({
+    timestamp: new Date().toISOString(),
+    level: 'info',
+    operation: 'bootstrapIndex',
+    executionId,
+    projectKey,
+  });
+
+  const stats = await bootstrapProjectIndex(projectKey, executionId);
+
+  return success(stats, executionId);
+};
+
 // ═══════════════════════════════════════════
 // RESOLVER REGISTRATION (lazy via handler export)
 // ═══════════════════════════════════════════
@@ -667,6 +691,7 @@ const RESOLVER_DEFINITIONS: ReadonlyArray<ResolverDefinition> = [
   { name: 'enrichTicket', handler: handleEnrichTicket },
   { name: 'revalidateTicket', handler: handleRevalidateTicket },
   { name: 'getGraphHealth', handler: handleGetGraphHealth },
+  { name: 'bootstrapIndex', handler: handleBootstrapIndex },
 ] as const;
 
 /**

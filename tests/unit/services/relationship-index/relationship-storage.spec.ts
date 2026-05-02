@@ -554,7 +554,6 @@ describe('relationship-storage', () => {
 
       await bulkPutNodes('PROJ', nodes, 'exec-bulk');
 
-      expect(mockStorageSet).toHaveBeenCalledTimes(2);
       expect(mockStorageSet).toHaveBeenCalledWith('node:PROJ:jira:PROJ-001', nodes[0]);
       expect(mockStorageSet).toHaveBeenCalledWith('node:PROJ:jira:PROJ-002', nodes[1]);
     });

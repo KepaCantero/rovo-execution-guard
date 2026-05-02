@@ -10,9 +10,11 @@
 
 import {
   generateHealthReport,
+  runMaintenanceCycle,
   type GraphHealthReport,
   type MaintenanceResult,
 } from '../services/relationship-index/graph-maintenance';
+import { scanNodeIds, getNode } from '../services/relationship-index/relationship-storage';
 
 // ═══════════════════════════════════════════
 // TYPES
@@ -94,6 +96,7 @@ const createTimeoutGuard = (_executionId: string): Promise<never> =>
 
 /**
  * Executes scheduled maintenance for a project's relationship graph.
+ * Runs health report + full maintenance cycle (orphan cleanup, compaction, etc).
  * [ARCH-SOLID-006] Delegates to SERVICE layer (graph-maintenance).
  * [FORGE-OPS-054] Never throws — errors returned in result.
  */
@@ -127,8 +130,8 @@ export async function onScheduledMaintenance(
   });
 
   try {
-    const healthReport = await Promise.race([
-      generateHealthReport(projectKey, executionId),
+    const result = await Promise.race([
+      executeMaintenance(projectKey, executionId),
       createTimeoutGuard(executionId),
     ]);
 
@@ -138,16 +141,16 @@ export async function onScheduledMaintenance(
       operation: 'onScheduledMaintenance.complete',
       executionId,
       projectKey,
-      status: healthReport.status,
-      totalNodes: healthReport.totalNodes,
-      totalEdges: healthReport.totalEdges,
+      status: result.healthReport?.status,
+      nodesProcessed: result.maintenanceResult?.nodesProcessed,
     });
 
     return {
       result: 'success',
       executionId,
-      healthReport,
-      errors: [],
+      healthReport: result.healthReport,
+      maintenanceResult: result.maintenanceResult,
+      errors: result.errors,
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Scheduled maintenance failed';
@@ -168,6 +171,33 @@ export async function onScheduledMaintenance(
       errors: [message],
     };
   }
+}
+
+/** Loads nodes from storage index and runs full maintenance cycle. */
+async function executeMaintenance(
+  projectKey: string,
+  executionId: string,
+): Promise<{
+  healthReport: GraphHealthReport;
+  maintenanceResult?: MaintenanceResult;
+  errors: string[];
+}> {
+  const healthReport = await generateHealthReport(projectKey, executionId);
+
+  const nodeIds = await scanNodeIds(projectKey, executionId);
+  if (nodeIds.length === 0) {
+    return { healthReport, errors: [] };
+  }
+
+  const nodes = [];
+  for (const id of nodeIds) {
+    const node = await getNode(projectKey, id, executionId);
+    if (node) nodes.push(node);
+  }
+
+  const maintenanceResult = await runMaintenanceCycle(projectKey, nodes, [], executionId);
+
+  return { healthReport, maintenanceResult, errors: [...maintenanceResult.errors] };
 }
 
 // ═══════════════════════════════════════════
