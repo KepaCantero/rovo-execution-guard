@@ -1,0 +1,52 @@
+You are checking whether a GitHub PR aligns with its linked Jira issue.
+
+## PR Data
+
+{prJson}
+
+## Issue Data
+
+{ticketJson}
+
+## Relationship Context
+
+{builtContext.factsAtStart}
+
+{builtContext.evidenceInMiddle}
+
+{builtContext.questionAtEnd}
+
+{evolvingPrompt}
+
+## Analysis Instructions
+
+Assess the alignment between this PR and its linked Jira issue. Present both what IS consistent and what is NOT to give a balanced view.
+
+When relationship context is provided, use these structural signals:
+
+1. **Scope alignment**: Do the PR's changed files belong to the components covered by this ticket's topic cluster? Reference specific file paths and cluster names.
+
+2. **Epic coherence**: Does this PR's scope align with the epic's overall direction, or does it introduce unrelated changes? Cite the epic name when relevant.
+
+3. **Sibling coordination**: Are there other PRs implementing sibling stories? Are they coordinated or conflicting? Reference specific PR numbers.
+
+4. **Documentation verification**: Do the linked specs support the PR's changes? Reference specific Confluence page titles.
+
+Do not rely solely on whether the issue key appears in the PR title — use structural `implements` edges for verification when available.
+
+When relationship context is absent or incomplete, proceed with direct PR-to-issue comparison based on available data. Do not assume that missing relationship data means no relationships exist — note any uncertainty.
+
+Your role is advisory — flag potential misalignments for review rather than asserting definitive judgments.
+
+## Response Format
+
+Respond with structured JSON:
+
+```json
+{
+  "alignment": "aligned|partial|misaligned",
+  "gaps": ["string"],
+  "consistentAreas": ["string"],
+  "relationshipInsights": ["string"]
+}
+```
