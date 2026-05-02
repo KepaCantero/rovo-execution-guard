@@ -82,6 +82,11 @@ export {
 
 export type { SignalResult } from './relationship-consumer';
 
+// --- Decision Consumer ---
+export { analyzeDecisionPatterns, computeContextSignature } from './decision-consumer';
+
+export type { DecisionPattern } from './decision-consumer';
+
 // --- Domain Types ---
 export type {
   EntityType,
