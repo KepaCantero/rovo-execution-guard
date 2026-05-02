@@ -209,6 +209,80 @@ export const RovoButton = ({
 
 // [ARCH-SOLID-232] Named export for testing
 // [ROVO-INTEG-005] Timeout + graceful fallback via try-catch
+export const ReindexButton = ({
+  projectKey,
+}: {
+  readonly projectKey: string;
+}): React.ReactElement => {
+  const [status, setStatus] = React.useState<'idle' | 'indexing' | 'done' | 'error'>('idle');
+
+  const handleReindex = async (): Promise<void> => {
+    setStatus('indexing');
+    try {
+      const response = await invoke<ResolverResponse<unknown>>('bootstrapIndex', { projectKey });
+      if (response.success) {
+        setStatus('done');
+      } else {
+        setStatus('error');
+      }
+    } catch {
+      setStatus('error');
+    }
+  };
+
+  if (status === 'done') {
+    return (
+      <button
+        disabled
+        style={{
+          marginTop: '12px',
+          marginRight: '8px',
+          padding: '8px 16px',
+          fontSize: '14px',
+          border: '1px solid #36B37E',
+          borderRadius: '3px',
+          background: 'transparent',
+          color: '#36B37E',
+          cursor: 'default',
+        }}
+      >
+        Indexed
+      </button>
+    );
+  }
+
+  const isIndexing = status === 'indexing';
+
+  return (
+    <>
+      <button
+        onClick={handleReindex}
+        disabled={isIndexing}
+        aria-label="Re-index relationship data for this project"
+        style={{
+          marginTop: '12px',
+          marginRight: '8px',
+          padding: '8px 16px',
+          fontSize: '14px',
+          border: '1px solid #0052CC',
+          borderRadius: '3px',
+          background: isIndexing ? '#0052CC' : 'transparent',
+          color: isIndexing ? 'white' : '#0052CC',
+          cursor: isIndexing ? 'wait' : 'pointer',
+          opacity: isIndexing ? 0.7 : 1,
+        }}
+      >
+        {isIndexing ? 'Indexing...' : 'Re-index'}
+      </button>
+      {status === 'error' && (
+        <div style={{ marginTop: '4px', fontSize: '12px', color: '#FF5630' }}>
+          Indexing failed. Try again.
+        </div>
+      )}
+    </>
+  );
+};
+
 export const FullAnalysisButton = ({
   score,
   rovoEnabled,
@@ -232,8 +306,6 @@ export const FullAnalysisButton = ({
         `Provide a comprehensive analysis with specific improvement recommendations.`,
       ].join('\n');
 
-      // [SEC-PRIV-002] No PII in breadcrumbs — only action type
-      // [TEST-QA-036-02] Breadcrumb at significant step
       addErrorBreadcrumb({
         category: 'rovo',
         message: 'Opening agent for full analysis',
@@ -247,7 +319,6 @@ export const FullAnalysisButton = ({
         message: 'Failed to open agent for full analysis',
         level: 'error',
       });
-      // [TEST-QA-036-01] Capture exception with context
       captureException(error, { issueKey: ticketContext.issueKey });
       setAnalysisStatus('error');
     }
@@ -264,36 +335,23 @@ export const FullAnalysisButton = ({
   const isOpening = analysisStatus === 'opening';
 
   return (
-    <>
-      <button
-        onClick={handleFullAnalysis}
-        disabled={isOpening}
-        aria-label="Run full consistency analysis with Rovo"
-        style={{
-          marginTop: '12px',
-          padding: '8px 16px',
-          fontSize: '14px',
-          border: '1px solid #DFE1E6',
-          borderRadius: '3px',
-          background: 'transparent',
-          cursor: isOpening ? 'wait' : 'pointer',
-          opacity: isOpening ? 0.6 : 1,
-        }}
-      >
-        {isOpening ? 'Analyzing...' : 'Full Analysis'}
-      </button>
-      {analysisStatus === 'error' && (
-        <div
-          style={{
-            marginTop: '4px',
-            fontSize: '12px',
-            color: token(SCORE_COLOR_TOKENS.RED as Parameters<typeof token>[0]),
-          }}
-        >
-          Could not open Rovo. Make sure Rovo is enabled for your site.
-        </div>
-      )}
-    </>
+    <button
+      onClick={handleFullAnalysis}
+      disabled={isOpening}
+      aria-label="Run full consistency analysis with Rovo"
+      style={{
+        marginTop: '12px',
+        padding: '8px 16px',
+        fontSize: '14px',
+        border: '1px solid #DFE1E6',
+        borderRadius: '3px',
+        background: 'transparent',
+        cursor: isOpening ? 'wait' : 'pointer',
+        opacity: isOpening ? 0.6 : 1,
+      }}
+    >
+      {isOpening ? 'Analyzing...' : 'Full Analysis'}
+    </button>
   );
 };
 
@@ -454,7 +512,10 @@ export const IssuePanel = (): React.ReactElement => {
         <div style={{ fontSize: '48px', fontWeight: 'bold', color }}>{percentage}%</div>
         <div style={{ color: '#6B778C', fontSize: '13px' }}>Overall Consistency</div>
       </div>
-      <FullAnalysisButton score={score} rovoEnabled={rovoEnabled} />
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        {score.ticketContext && <ReindexButton projectKey={score.ticketContext.projectKey} />}
+        <FullAnalysisButton score={score} rovoEnabled={rovoEnabled} />
+      </div>
       {details &&
         AXIS_KEYS.map((key) => {
           const detail = details[key];
