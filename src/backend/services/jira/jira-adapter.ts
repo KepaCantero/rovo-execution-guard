@@ -733,7 +733,7 @@ export async function searchByJQL(
     'fixVersions',
     'customfield_10014',
   ];
-  const urlPath = route`/rest/api/3/search`;
+  const urlPath = route`/rest/api/3/search/jql`;
 
   const response = await executeJiraRequest(
     operation,

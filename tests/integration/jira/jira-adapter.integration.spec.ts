@@ -361,7 +361,7 @@ describe('Jira Adapter Integration', () => {
 
       expect(mockRequestJira).toHaveBeenCalledTimes(1);
       const [url, options] = mockRequestJira.mock.calls[0];
-      expect(url.value).toBe('/rest/api/3/search');
+      expect(url.value).toBe('/rest/api/3/search/jql');
       expect((options as { method: string }).method).toBe('POST');
       const body = JSON.parse((options as { body: string }).body) as Record<string, unknown>;
       expect(body.jql).toBe('project = ROVO');
