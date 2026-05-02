@@ -37,60 +37,82 @@ Available methods from `@forge/bridge`:
 
 ### Location
 
-- `src/frontend/custom-ui/issue-panel/app.tsx` (modify)
+- `src/frontend/custom-ui/issue-panel/app.tsx` (modify — enhance existing `RovoButton` and `buildRovoPrompt`)
+
+### Existing Components to Reuse
+
+This task MUST import and reuse the following already-implemented modules:
+
+| Module                  | Location                                                 | What to Reuse                                                                                                                                     |
+| ----------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Theme helpers**       | `src/frontend/custom-ui/admin-dashboard/styles/theme.ts` | `getScoreColorToken`, `SCORE_COLOR_TOKENS`, `SEVERITY_COLOR_TOKENS` for severity-based color coding (replace hardcoded `scoreColor` hex function) |
+| **ErrorBoundary**       | `src/frontend/components/ErrorBoundary.tsx`              | `ErrorBoundaryWrapper` — wrap the entire `IssuePanel` with error boundary for graceful crash handling                                             |
+| **Sentry utils**        | `src/frontend/utils/sentry.ts`                           | `captureException`, `addErrorBreadcrumb` — log Rovo.open failures to Sentry instead of just console.error                                         |
+| **Existing types**      | `src/frontend/custom-ui/issue-panel/app.tsx` (current)   | Reuse existing `ScoreAxes`, `AxisDetail`, `TicketContext`, `ConsistencyScore` — DO NOT duplicate or re-define                                     |
+| **Existing components** | `src/frontend/custom-ui/issue-panel/app.tsx` (current)   | `AxisRow`, `RovoButton`, `scoreColor` — extend in-place, do not replace                                                                           |
+
+> **IMPORTANT**: The issue panel already has `RovoButton`, `buildRovoPrompt`, `AxisRow`, and `scoreColor` implemented. This task ENHANCES them — it does NOT rewrite them from scratch. The changes are:
+>
+> 1. Replace hardcoded hex colors with design tokens from `theme.ts`
+> 2. Switch `rovo.open({ type: 'default' })` to `rovo.open({ type: 'agent', agentKey: 'consistency-guard' })`
+> 3. Add severity-based prompt differentiation to the existing `buildRovoPrompt`
+> 4. Add a "Full Analysis" primary button at the top
+> 5. Wrap panel with `ErrorBoundaryWrapper`
+> 6. Use Sentry for Rovo.open error reporting
 
 ### Changes to Issue Panel
 
-#### 1. Score-Contextual Prompt Builder
+#### 1. Score-Contextual Prompt Enhancement
 
-Create a helper function that generates different prompts based on score ranges:
+The existing `buildRovoPrompt` in `app.tsx:58-86` currently generates a single generic prompt. Enhance it to return severity-differentiated prompts:
 
 ```typescript
 type PromptSeverity = 'critical' | 'improvable' | 'optimal';
 
+// MODIFY the existing buildRovoPrompt to return severity info:
 const buildRovoPrompt = (
   axisKey: string,
   detail: AxisDetail,
   axes: ScoreAxes,
-  ticketContext?: TicketContext,
+  ticketContext: TicketContext,
 ): { prompt: string; severity: PromptSeverity } => {
   const pct = Math.round(detail.score);
-  const threshold = ticketContext?.scoreThreshold ?? 60;
+  const threshold = ticketContext.scoreThreshold;
 
+  // CRITICAL (< 40%): Urgent prompt demanding immediate fixes
   if (pct < 40) {
-    // CRITICAL: Urgent prompt demanding immediate fixes
     return {
       severity: 'critical',
       prompt: [
-        `URGENT: The "${detail.label}" score for ${ticketContext?.issueKey} is critically low at ${pct}%.`,
+        `URGENT: The "${detail.label}" score for ${ticketContext.issueKey} is critically low at ${pct}%.`,
         `This is blocking workflow transitions. The project threshold is ${threshold}%.`,
         `Current suggestions: ${detail.suggestions.join('; ')}`,
         `Provide 3-5 IMMEDIATE fixes to raise this score above ${threshold}%.`,
-        `Issue summary: ${ticketContext?.summary}`,
+        `Issue summary: ${ticketContext.summary}`,
       ].join('\n'),
     };
   }
 
+  // IMPROVABLE (40% to threshold): Targeted improvement prompt
   if (pct < threshold) {
-    // IMPROVABLE: Targeted improvement prompt
     return {
       severity: 'improvable',
       prompt: [
-        `The "${detail.label}" score for ${ticketContext?.issueKey} is ${pct}%, below the ${threshold}% threshold.`,
+        `The "${detail.label}" score for ${ticketContext.issueKey} is ${pct}%, below the ${threshold}% threshold.`,
         `Current suggestions: ${detail.suggestions.join('; ')}`,
         `Suggest specific improvements to reach ${threshold}%.`,
-        `Issue summary: ${ticketContext?.summary}`,
+        `Issue summary: ${ticketContext.summary}`,
       ].join('\n'),
     };
   }
 
-  // OPTIMAL: Optimization prompt
+  // OPTIMAL (>= threshold): Optimization prompt
   return {
     severity: 'optimal',
     prompt: [
-      `The "${detail.label}" score for ${ticketContext?.issueKey} is ${pct}% (above ${threshold}% threshold).`,
+      `The "${detail.label}" score for ${ticketContext.issueKey} is ${pct}% (above ${threshold}% threshold).`,
       `Are there further optimizations to push this score higher?`,
-      `Issue summary: ${ticketContext?.summary}`,
+      `Issue summary: ${ticketContext.summary}`,
     ].join('\n'),
   };
 };
@@ -98,11 +120,26 @@ const buildRovoPrompt = (
 
 #### 2. Per-Axis "Ask Agent" Buttons
 
-Replace the existing generic "Ask Rovo for suggestions" handler in `AxisRow` with:
+Modify the existing `RovoButton` component (currently at `app.tsx:88-140`) to:
+
+1. Use `rovo.open({ type: 'agent', agentKey: 'consistency-guard', prompt })` instead of `type: 'default'`
+2. Use severity from `buildRovoPrompt` for visual styling
+3. Use design tokens from `theme.ts` instead of hardcoded hex colors
 
 ```typescript
+// MODIFY existing RovoButton — key changes:
+import { getScoreColorToken, SCORE_COLOR_TOKENS } from '../admin-dashboard/styles/theme';
+import { captureException, addErrorBreadcrumb } from '../../utils/sentry';
+
+const SEVERITY_LABELS: Record<PromptSeverity, string> = {
+  critical: 'Fix now',
+  improvable: 'Improve',
+  optimal: 'Optimize',
+};
+
 const handleAskAgent = async (axisKey: string): Promise<void> => {
-  const { prompt } = buildRovoPrompt(axisKey, detail, axes, score?.ticketContext);
+  const { prompt, severity } = buildRovoPrompt(axisKey, detail, axes, ticketContext);
+  addErrorBreadcrumb({ category: 'rovo', message: `Opening agent for ${axisKey}`, level: 'info' });
   await rovo.open({
     type: 'agent',
     agentKey: 'consistency-guard',
@@ -113,9 +150,9 @@ const handleAskAgent = async (axisKey: string): Promise<void> => {
 
 Each axis row button should visually indicate severity:
 
-- Critical (< 40%): Red-tinted button with "Fix now" label
-- Improvable (40 - threshold): Yellow-tinted button with "Improve" label
-- Optimal (>= threshold): Green-tinted button with "Optimize" label
+- Critical (< 40%): Red-tinted (via `SCORE_COLOR_TOKENS.RED`) with "Fix now" label
+- Improvable (40 - threshold): Yellow-tinted (via `SCORE_COLOR_TOKENS.YELLOW`) with "Improve" label
+- Optimal (>= threshold): Green-tinted (via `SCORE_COLOR_TOKENS.GREEN`) with "Optimize" label
 
 #### 3. Full Analysis Button
 
@@ -158,17 +195,32 @@ Only render agent buttons when `rovoAvailable === true`.
 
 ### Visual Design
 
-- **Full Analysis button**: Primary action (Atlaskit `@atlaskit/button` appearance="primary"), positioned prominently at the top of the panel
-- **Per-axis buttons**: Compact buttons within each axis row, color-coded by severity
+- **Full Analysis button**: Primary action positioned prominently at the top of the panel (use inline styles consistent with existing panel)
+- **Per-axis buttons**: Compact buttons within each axis row, color-coded by severity using design tokens
 - **Fallback**: If Rovo is not available, show a tooltip "Rovo is not available in this environment" and disable the buttons
 
 ### Theme Integration
 
-Use existing theme tokens from `src/frontend/custom-ui/admin-dashboard/styles/theme.ts`:
+Replace the existing `scoreColor` function (app.tsx:142-143) with design tokens from `src/frontend/custom-ui/admin-dashboard/styles/theme.ts`:
 
-- `theme.score.critical` for < 40%
-- `theme.score.warning` for < threshold
-- `theme.score.good` for >= threshold
+- Import `getScoreColorToken` for the progress bars and percentage displays
+- Use `SCORE_COLOR_TOKENS.RED` / `SCORE_COLOR_TOKENS.YELLOW` / `SCORE_COLOR_TOKENS.GREEN` for severity button styling
+- The `AxisRow` component's color logic should use `getScoreColorToken(pct)` instead of `scoreColor(pct)`
+
+### Error Boundary Integration
+
+Wrap the `IssuePanel` root component render with `ErrorBoundaryWrapper` from `src/frontend/components/ErrorBoundary.tsx`:
+
+```typescript
+import { ErrorBoundaryWrapper } from '../../components/ErrorBoundary';
+
+// In the createRoot render:
+root.render(
+  <ErrorBoundaryWrapper issueKey={issueKey}>
+    <IssuePanel />
+  </ErrorBoundaryWrapper>
+);
+```
 
 ## Acceptance Criteria
 
@@ -220,19 +272,21 @@ For each production file, the builder MUST create a `.reqs.md` sidecar:
 
 ### Step 1: Preparation
 
-1. Read existing Issue Panel implementation (`src/frontend/custom-ui/issue-panel/app.tsx`)
-2. Read existing theme tokens (`src/frontend/custom-ui/admin-dashboard/styles/theme.ts`)
-3. Read Forge Bridge Rovo API docs: https://developer.atlassian.com/platform/forge/apis-reference/ui-api-bridge/rovo/
-4. Create `.reqs.md` sidecar file
+1. Read existing Issue Panel implementation (`src/frontend/custom-ui/issue-panel/app.tsx`) — understand current `buildRovoPrompt`, `RovoButton`, `AxisRow`, `scoreColor` implementations
+2. Read existing theme tokens (`src/frontend/custom-ui/admin-dashboard/styles/theme.ts`) — `getScoreColorToken`, `SCORE_COLOR_TOKENS`
+3. Read ErrorBoundary component (`src/frontend/components/ErrorBoundary.tsx`) — `ErrorBoundaryWrapper` props
+4. Read Sentry utils (`src/frontend/utils/sentry.ts`) — `captureException`, `addErrorBreadcrumb` signatures
+5. Read Forge Bridge Rovo API docs: https://developer.atlassian.com/platform/forge/apis-reference/ui-api-bridge/rovo/
+6. Create `.reqs.md` sidecar file
 
-### Step 2: TDD Cycle
+### Step 2: TDD Cycle (modify existing code)
 
-1. **RED**: Write tests for `buildRovoPrompt` helper (critical/improvable/optimal ranges)
-2. **GREEN**: Implement `buildRovoPrompt`
+1. **RED**: Write tests for enhanced `buildRovoPrompt` (severity differentiation for critical/improvable/optimal ranges)
+2. **GREEN**: Modify existing `buildRovoPrompt` to return `{ prompt, severity }` instead of just `string`
 3. **REFACTOR**: Clean up
-4. **RED**: Write tests for agent button rendering (severity colors, disabled state)
-5. **GREEN**: Implement UI changes
-6. **REFACTOR**: Clean up
+4. **RED**: Write tests for severity-based button rendering and `rovo.open({ type: 'agent' })` calls
+5. **GREEN**: Modify existing `RovoButton` to use agent type and severity labels, import theme tokens
+6. **REFACTOR**: Replace `scoreColor` with `getScoreColorToken`, add `ErrorBoundaryWrapper`, add Sentry breadcrumbs
 
 ### Step 3: Integration
 
@@ -300,8 +354,9 @@ The critic MUST reject if:
 
 ### Mock Strategy
 
-- Mock `@forge/bridge` (specifically `rovo.open`, `rovo.isEnabled`)
-- Mock `invoke` from `@forge/bridge` for resolver calls
+- Mock `@forge/bridge` (specifically `rovo.open`, `rovo.isEnabled`, `view.getContext`, `invoke`)
+- Mock `../../utils/sentry` (`captureException`, `addErrorBreadcrumb`, `isSentryInitialized`) — Sentry calls should be no-ops in tests
+- Mock `../admin-dashboard/styles/theme` if design token resolution is needed
 - Use React Testing Library for component tests
 - Reset mocks between tests (`beforeEach`)
 

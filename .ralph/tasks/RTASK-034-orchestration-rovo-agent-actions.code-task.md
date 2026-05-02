@@ -36,21 +36,51 @@ The handler follows the same thin-entry-point pattern used by the existing resol
 ### Location
 
 - `src/agent-action-handler.ts` (create — thin entry point)
-- `src/backend/resolvers/agent-actions.ts` (create — handler logic)
+- `src/backend/resolvers/agent-action.ts` (create — handler logic)
+
+### Existing Components to Reuse
+
+This task MUST import and reuse the following already-implemented modules:
+
+| Module                     | Import                                                                             | Purpose                                                    |
+| -------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| **Domain types**           | `../types/errors` (`TicketNotFoundError`, `InsufficientDataError`, `TimeoutError`) | Domain error classes for structured error mapping          |
+| **Domain types**           | `../types/consistency-score`                                                       | `ConsistencyScore`, `ScoreAxes`, `AxisDetail` types        |
+| **Domain types**           | `../types/inconsistency`                                                           | `Inconsistency`, `InconsistencyType`, `Severity` types     |
+| **Domain types**           | `../types/quality-gate`                                                            | `QualityGateResult`, `GateType` types                      |
+| **Domain types**           | `../types/project-config`                                                          | `ProjectConfig` type for threshold/config access           |
+| **Jira adapter**           | `../services/jira/jira-adapter` (`getTicketData`, `getProjectConfig`)              | Fetch ticket data and project configuration                |
+| **GitHub adapter**         | `../services/github/github-adapter` (`getPRData`)                                  | Fetch PR data for check-pr-consistency                     |
+| **Rovo adapter**           | `../services/rovo/rovo-adapter` (`getContext`, `getDocumentation`)                 | Fetch Rovo context and documentation                       |
+| **Scoring engine**         | `../services/scoring/scoring-engine` (`calculateScore`, `generateAxisSuggestions`) | Score calculation and axis suggestions                     |
+| **Inconsistency detector** | `../services/scoring/inconsistency-detector` (`detectInconsistencies`)             | Detect inconsistencies in ticket data                      |
+| **Quality gate rules**     | `../services/scoring/quality-gate-rules` (`evaluateGate`)                          | Evaluate quality gate status                               |
+| **Issue Panel types**      | Frontend `ScoreAxes`, `AxisDetail`, `TicketContext`, `ConsistencyScore`            | Ensure backend response shapes match frontend expectations |
+
+> **IMPORTANT**: The handler's response data shapes (especially for `evaluate-issue` and `explain-score`) must match the `ConsistencyScore` / `AxisDetail` interfaces already consumed by `src/frontend/custom-ui/issue-panel/app.tsx`. Any mismatch will cause the issue panel to fail to render agent action results.
 
 ### Entry Point (`src/agent-action-handler.ts`)
 
 Thin re-export following existing pattern:
 
 ```typescript
-export { handler } from './backend/resolvers/agent-actions';
+export { handler } from './backend/resolvers/agent-action';
 ```
 
-### Handler (`src/backend/resolvers/agent-actions.ts`)
+### Handler (`src/backend/resolvers/agent-action.ts`)
 
 #### Types
 
+> **Reuse existing domain types wherever possible.** Only define new types when no existing type covers the need.
+
 ```typescript
+// Reuse from ../types/errors
+import { TicketNotFoundError, InsufficientDataError, TimeoutError } from '../types/errors';
+
+// Reuse from ../types/consistency-score
+import type { ConsistencyScore, ScoreAxes, AxisDetail } from '../types/consistency-score';
+
+// New types specific to agent action context (not in domain types)
 interface ActionContext {
   readonly cloudId: string;
   readonly moduleKey: string;
@@ -284,7 +314,7 @@ The critic MUST reject if:
 
 ### Unit Tests (`tests/unit/resolvers/`)
 
-- Location: `tests/unit/resolvers/agent-actions.spec.ts`
+- Location: `tests/unit/resolvers/agent-action.spec.ts`
 - Coverage target: 85%
 - Pattern: Arrange-Act-Assert (AAA)
 
@@ -310,10 +340,10 @@ The critic MUST reject if:
 
 ## Triple Deliverable
 
-| Production                               | Sidecar                                       | Test                                         |
-| ---------------------------------------- | --------------------------------------------- | -------------------------------------------- |
-| `src/agent-action-handler.ts`            | -                                             | Validated by integration with manifest       |
-| `src/backend/resolvers/agent-actions.ts` | `src/backend/resolvers/agent-actions.reqs.md` | `tests/unit/resolvers/agent-actions.spec.ts` |
+| Production                              | Sidecar                                      | Test                                        |
+| --------------------------------------- | -------------------------------------------- | ------------------------------------------- |
+| `src/agent-action-handler.ts`           | `src/agent-action-handler.reqs.md`           | Validated by integration with manifest      |
+| `src/backend/resolvers/agent-action.ts` | `src/backend/resolvers/agent-action.reqs.md` | `tests/unit/resolvers/agent-action.spec.ts` |
 
 ## Risks
 

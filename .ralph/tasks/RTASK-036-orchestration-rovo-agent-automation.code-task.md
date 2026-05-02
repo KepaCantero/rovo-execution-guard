@@ -38,6 +38,30 @@ The `rovo:agent` module in the manifest makes the agent available in:
 - `src/backend/services/rovo/rovo-adapter.ts` (modify — add deprecation notices)
 - `docs/rovo-agent-automation-templates.md` (create — user documentation)
 
+### Existing Components Referenced
+
+This task interacts with the following already-implemented modules:
+
+| Module                   | Location                                                                    | Relevance                                                                                                           |
+| ------------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **Rovo Adapter**         | `src/backend/services/rovo/rovo-adapter.ts`                                 | Target for deprecation notices — contains `callRovoSearch()` and `callRovoValidation()` that use internal endpoints |
+| **Agent Action Handler** | `src/backend/resolvers/agent-action.ts` (RTASK-034)                         | Replacement for internal endpoints — the `evaluate-issue` action replaces `callRovoSearch` + `callRovoValidation`   |
+| **Agent Manifest**       | `manifest.yml` (RTASK-033)                                                  | Defines `rovo:agent` + `action` modules that replace internal API calls                                             |
+| **Agent Prompts**        | `src/backend/services/rovo/agent-prompts/consistency-guard.txt` (RTASK-033) | Agent prompt file that defines the AI behavior                                                                      |
+| **Issue Panel**          | `src/frontend/custom-ui/issue-panel/app.tsx`                                | Frontend that will use the agent via `rovo.open({ type: 'agent' })` (RTASK-035)                                     |
+| **Error Types**          | `src/backend/types/errors.ts`                                               | Domain error types used by the agent action handler                                                                 |
+| **Scoring Services**     | `src/backend/services/scoring/`                                             | Scoring engine, inconsistency detector, quality gates — all used by agent actions                                   |
+
+### Deprecation Strategy
+
+The deprecation follows a 3-layer resilience model:
+
+| Layer                             | Status                 | Description                                                      |
+| --------------------------------- | ---------------------- | ---------------------------------------------------------------- |
+| **Layer 1: Agent + Actions**      | NEW (RTASK-033/034)    | Official `rovo:agent` + `action` Forge modules                   |
+| **Layer 2: Internal endpoints**   | DEPRECATED (this task) | `callRovoSearch()`, `callRovoValidation()` with JQL/CQL fallback |
+| **Layer 3: Fail-open safety net** | PERMANENT              | Score 100 + audit log when all services unavailable              |
+
 ### Part 1: Deprecation Notices in Rovo Adapter
 
 #### Changes to `src/backend/services/rovo/rovo-adapter.ts`
@@ -246,8 +270,12 @@ For each production file, the builder MUST create a `.reqs.md` sidecar:
 ### Step 1: Preparation
 
 1. Read current `rovo-adapter.ts` to locate `callRovoSearch` and `callRovoValidation` functions
-2. Read CLAUDE.md pipeline section
-3. Create `.reqs.md` sidecar file
+2. Read `src/backend/resolvers/agent-action.ts` (RTASK-034) to understand the replacement agent action handler
+3. Read `manifest.yml` to confirm the `rovo:agent` and `action` module definitions from RTASK-033
+4. Read `src/backend/services/rovo/agent-prompts/consistency-guard.txt` for agent prompt reference
+5. Read `src/frontend/custom-ui/issue-panel/app.tsx` to understand the frontend integration that replaces these endpoints
+6. Read CLAUDE.md pipeline section
+7. Create `.reqs.md` sidecar file
 
 ### Step 2: Deprecation Notices
 

@@ -29,6 +29,10 @@ modules:
       function: transition-fn
       events:
         - avi:jira/updated:issue
+    - key: graph-maintenance
+      function: graph-maintenance-fn
+      events:
+        - avi:jira/updated:issue
 
   webtrigger:
     - key: github-webhook
@@ -138,6 +142,8 @@ modules:
       handler: webhook-handler.handler
     - key: agent-action-fn
       handler: agent-action-handler.handler
+    - key: graph-maintenance-fn
+      handler: scheduled-indexer.handler
 
 resources:
   - key: issue-panel-resource

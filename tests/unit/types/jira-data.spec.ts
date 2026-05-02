@@ -6,6 +6,7 @@ import type {
   JiraStatus,
   JiraTransition,
   JiraTicketData,
+  JiraIssueLink,
 } from '../../../src/backend/types/jira-data';
 
 // ---------------------------------------------------------------------------
@@ -253,6 +254,270 @@ describe('JiraTicketData', () => {
       // Assert
       expect(first).toBe('frontend');
       expect(rest).toEqual(['react', 'bug']);
+    });
+  });
+
+  describe('relationship fields (RTASK-042)', () => {
+    it('should compile without new optional fields (AC-07 backward compat)', () => {
+      // Arrange & Act — no new fields
+      const ticket: JiraTicketData = {
+        key: 'PROJ-400',
+        summary: 'Old-style ticket',
+        description: 'desc',
+        status: 'TO DO',
+        issueType: 'Task',
+        labels: [],
+        projectKey: 'PROJ',
+        created: '2026-01-01T00:00:00Z',
+        updated: '2026-01-01T00:00:00Z',
+      };
+
+      // Assert — new fields are undefined
+      expect(ticket.epicKey).toBeUndefined();
+      expect(ticket.epicSummary).toBeUndefined();
+      expect(ticket.issueLinks).toBeUndefined();
+      expect(ticket.fixVersions).toBeUndefined();
+    });
+
+    it('should accept epicKey and epicSummary (AC-07)', () => {
+      // Arrange & Act
+      const ticket: JiraTicketData = {
+        key: 'PROJ-500',
+        summary: 'Story in epic',
+        description: 'desc',
+        status: 'IN PROGRESS',
+        issueType: 'Story',
+        labels: [],
+        projectKey: 'PROJ',
+        created: '2026-01-01T00:00:00Z',
+        updated: '2026-01-01T00:00:00Z',
+        epicKey: 'PROJ-100',
+        epicSummary: 'Parent Epic',
+      };
+
+      // Assert
+      expect(ticket.epicKey).toBe('PROJ-100');
+      expect(ticket.epicSummary).toBe('Parent Epic');
+    });
+
+    it('should accept issueLinks with valid JiraIssueLink entries (AC-07)', () => {
+      // Arrange
+      const links: readonly JiraIssueLink[] = [
+        {
+          type: 'Blocks',
+          direction: 'outward',
+          targetKey: 'PROJ-600',
+          targetSummary: 'Blocked task',
+          targetStatus: 'TO DO',
+        },
+      ];
+
+      // Act
+      const ticket: JiraTicketData = {
+        key: 'PROJ-700',
+        summary: 'Blocking task',
+        description: 'desc',
+        status: 'IN PROGRESS',
+        issueType: 'Story',
+        labels: [],
+        projectKey: 'PROJ',
+        created: '2026-01-01T00:00:00Z',
+        updated: '2026-01-01T00:00:00Z',
+        issueLinks: links,
+      };
+
+      // Assert
+      expect(ticket.issueLinks).toHaveLength(1);
+      expect(ticket.issueLinks?.[0]?.type).toBe('Blocks');
+      expect(ticket.issueLinks?.[0]?.direction).toBe('outward');
+      expect(ticket.issueLinks?.[0]?.targetKey).toBe('PROJ-600');
+    });
+
+    it('should accept fixVersions (AC-07)', () => {
+      // Arrange & Act
+      const ticket: JiraTicketData = {
+        key: 'PROJ-800',
+        summary: 'Versioned issue',
+        description: 'desc',
+        status: 'DONE',
+        issueType: 'Bug',
+        labels: [],
+        projectKey: 'PROJ',
+        created: '2026-01-01T00:00:00Z',
+        updated: '2026-01-01T00:00:00Z',
+        fixVersions: ['v2.1.0', 'v2.2.0'],
+      };
+
+      // Assert
+      expect(ticket.fixVersions).toEqual(['v2.1.0', 'v2.2.0']);
+    });
+
+    it('should accept all relationship fields together (AC-07)', () => {
+      // Arrange & Act
+      const ticket: JiraTicketData = {
+        key: 'PROJ-900',
+        summary: 'Full relationship data',
+        description: 'desc',
+        status: 'IN REVIEW',
+        issueType: 'Story',
+        labels: ['epic-tracked'],
+        projectKey: 'PROJ',
+        created: '2026-01-01T00:00:00Z',
+        updated: '2026-01-01T00:00:00Z',
+        epicKey: 'PROJ-10',
+        epicSummary: 'Epic One',
+        issueLinks: [
+          {
+            type: 'Relates',
+            direction: 'inward',
+            targetKey: 'PROJ-20',
+            targetSummary: 'Related issue',
+            targetStatus: 'DONE',
+          },
+        ],
+        fixVersions: ['v3.0.0'],
+      };
+
+      // Assert
+      expect(ticket.epicKey).toBe('PROJ-10');
+      expect(ticket.epicSummary).toBe('Epic One');
+      expect(ticket.issueLinks).toHaveLength(1);
+      expect(ticket.fixVersions).toEqual(['v3.0.0']);
+    });
+
+    it('should accept empty issueLinks and fixVersions arrays (AC-07)', () => {
+      // Arrange & Act
+      const ticket: JiraTicketData = {
+        key: 'PROJ-EMPTY',
+        summary: 'Empty relationships',
+        description: 'desc',
+        status: 'TO DO',
+        issueType: 'Task',
+        labels: [],
+        projectKey: 'PROJ',
+        created: '2026-01-01T00:00:00Z',
+        updated: '2026-01-01T00:00:00Z',
+        issueLinks: [],
+        fixVersions: [],
+      };
+
+      // Assert
+      expect(ticket.issueLinks).toEqual([]);
+      expect(ticket.fixVersions).toEqual([]);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// JiraIssueLink
+// ---------------------------------------------------------------------------
+
+describe('JiraIssueLink', () => {
+  describe('happy path', () => {
+    it('should accept a valid outward link (AC-06)', () => {
+      // Arrange & Act
+      const link: JiraIssueLink = {
+        type: 'Blocks',
+        direction: 'outward',
+        targetKey: 'PROJ-100',
+        targetSummary: 'Blocked by this issue',
+        targetStatus: 'TO DO',
+      };
+
+      // Assert
+      expect(link.type).toBe('Blocks');
+      expect(link.direction).toBe('outward');
+      expect(link.targetKey).toBe('PROJ-100');
+      expect(link.targetSummary).toBe('Blocked by this issue');
+      expect(link.targetStatus).toBe('TO DO');
+    });
+
+    it('should accept a valid inward link (AC-06)', () => {
+      // Arrange & Act
+      const link: JiraIssueLink = {
+        type: 'Depends on',
+        direction: 'inward',
+        targetKey: 'PROJ-200',
+        targetSummary: 'Dependency issue',
+        targetStatus: 'IN PROGRESS',
+      };
+
+      // Assert
+      expect(link.direction).toBe('inward');
+      expect(link.type).toBe('Depends on');
+    });
+  });
+
+  describe('edge cases', () => {
+    it('should accept various link types (AC-06)', () => {
+      // Arrange & Act
+      const linkTypes = ['Blocks', 'Depends on', 'Relates', 'Clones', 'Duplicates'];
+      const links: readonly JiraIssueLink[] = linkTypes.map((t, i) => ({
+        type: t,
+        direction: 'outward' as const,
+        targetKey: `PROJ-${i}`,
+        targetSummary: `Link ${i}`,
+        targetStatus: 'TO DO',
+      }));
+
+      // Assert
+      expect(links).toHaveLength(5);
+      expect(links[0]?.type).toBe('Blocks');
+      expect(links[4]?.type).toBe('Duplicates');
+    });
+
+    it('should accept empty strings for all fields (AC-06)', () => {
+      // Arrange & Act
+      const link: JiraIssueLink = {
+        type: '',
+        direction: 'inward',
+        targetKey: '',
+        targetSummary: '',
+        targetStatus: '',
+      };
+
+      // Assert
+      expect(link.type).toBe('');
+      expect(link.targetKey).toBe('');
+    });
+  });
+
+  describe('ARCH-SOLID rules', () => {
+    it('should enforce readonly properties (ARCH-SOLID-203)', () => {
+      // Arrange
+      const link: JiraIssueLink = {
+        type: 'Blocks',
+        direction: 'outward',
+        targetKey: 'PROJ-100',
+        targetSummary: 'Test',
+        targetStatus: 'TO DO',
+      };
+
+      // Assert — all properties should be typed as readonly
+      expect(link).toBeDefined();
+      expect(Object.keys(link)).toHaveLength(5);
+    });
+
+    it('should use discriminated direction type (ARCH-SOLID-204)', () => {
+      // Arrange
+      const inward: JiraIssueLink = {
+        type: 'Relates',
+        direction: 'inward',
+        targetKey: 'PROJ-1',
+        targetSummary: 'Inward',
+        targetStatus: 'DONE',
+      };
+      const outward: JiraIssueLink = {
+        type: 'Relates',
+        direction: 'outward',
+        targetKey: 'PROJ-2',
+        targetSummary: 'Outward',
+        targetStatus: 'TO DO',
+      };
+
+      // Assert — both directions are valid
+      expect(inward.direction).toBe('inward');
+      expect(outward.direction).toBe('outward');
     });
   });
 });

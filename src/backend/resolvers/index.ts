@@ -33,6 +33,10 @@ import {
 import { getTicketData, getProjectConfig, saveProjectConfig } from '../services/jira/jira-adapter';
 import { getContext } from '../services/rovo/rovo-adapter';
 import { writeAuditEntry, readAuditEntries } from '../services/audit/audit-service';
+import {
+  generateHealthReport,
+  type GraphHealthReport,
+} from '../services/relationship-index/graph-maintenance';
 
 // ═══════════════════════════════════════════
 // TYPES
@@ -609,6 +613,33 @@ const handleRevalidateTicket = async (
   return success(result.score, executionId);
 };
 
+/**
+ * getGraphHealth handler.
+ * [ARCH-SOLID-006] Delegates to graph-maintenance SERVICE layer.
+ * [AC-10] Graph health resolver endpoint for admin dashboard.
+ */
+const handleGetGraphHealth = async (
+  payload: ResolverPayload,
+  context: ResolverContext,
+  executionId: string,
+): Promise<ResolverResponse<GraphHealthReport>> => {
+  const projectKey = sanitize(requireNonEmpty(payload.projectKey, 'projectKey'));
+  const accountId = extractAccountId(context);
+  checkReadPermission(accountId);
+
+  log({
+    timestamp: new Date().toISOString(),
+    level: 'info',
+    operation: 'getGraphHealth',
+    executionId,
+    projectKey,
+  });
+
+  const report = await generateHealthReport(projectKey, executionId);
+
+  return success(report, executionId);
+};
+
 // ═══════════════════════════════════════════
 // RESOLVER REGISTRATION (lazy via handler export)
 // ═══════════════════════════════════════════
@@ -635,6 +666,7 @@ const RESOLVER_DEFINITIONS: ReadonlyArray<ResolverDefinition> = [
   { name: 'getAuditLog', handler: handleGetAuditLog },
   { name: 'enrichTicket', handler: handleEnrichTicket },
   { name: 'revalidateTicket', handler: handleRevalidateTicket },
+  { name: 'getGraphHealth', handler: handleGetGraphHealth },
 ] as const;
 
 /**

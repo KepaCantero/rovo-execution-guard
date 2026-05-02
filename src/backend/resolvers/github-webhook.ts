@@ -20,6 +20,7 @@ import type { ConsistencyScore } from '../types/consistency-score';
 import type { AuditLogEntry } from '../types/audit-log';
 import type { ProjectConfig } from '../types/project-config';
 import type { GitHubPRData, GitHubStatusCheck } from '../types/github-data';
+import type { PRIndexInput } from '../services/relationship-index/github-indexer';
 import { REGError } from '../types/errors';
 
 import {
@@ -38,6 +39,8 @@ import {
 import { getProjectConfig } from '../services/jira/jira-adapter';
 
 import { writeAuditEntry } from '../services/audit/audit-service';
+
+import { indexPullRequest } from '../services/relationship-index/github-indexer';
 
 // ═══════════════════════════════════════════
 // TYPES
@@ -1028,6 +1031,45 @@ const mapPayloadToPRData = (payload: PullRequestPayload): GitHubPRData => ({
 });
 
 /**
+ * Maps GitHubPRData to PRIndexInput for relationship indexing.
+ * [ARCH-SOLID-052] Extracted helper.
+ * [GH-INTEG-306] indexPullRequest uses upsert semantics — idempotent on repeat calls.
+ */
+const mapPRDataToIndexInput = (prData: GitHubPRData, repo: string): PRIndexInput => ({
+  prNumber: prData.number,
+  repo,
+  title: prData.title,
+  body: prData.body,
+  branch: prData.branch,
+  baseBranch: prData.baseBranch,
+  state: prData.state,
+  labels: [],
+  url: prData.url,
+  fileCount: prData.files.length,
+  additions: 0,
+  deletions: 0,
+  author: '',
+});
+
+/**
+ * Fire-and-forget trigger for incremental PR relationship indexing.
+ * [FORGE-OPS-054] [FORGE-OPS-0104] Non-blocking — failure MUST NOT affect PR evaluation.
+ * [ARCH-SOLID-225] void prefix satisfies no-floating-promises.
+ * [GH-INTEG-306] Idempotent via indexPullRequest upsert semantics.
+ */
+const triggerIncrementalPRIndex = async (
+  prData: GitHubPRData,
+  repo: string,
+  jiraKeys: readonly string[],
+  executionId: string,
+): Promise<void> => {
+  const projectKey = jiraKeys.length > 0 ? extractProjectKey(jiraKeys[0] ?? '') : '';
+  if (!projectKey) return;
+  const input = mapPRDataToIndexInput(prData, repo);
+  await indexPullRequest(input, projectKey, executionId);
+};
+
+/**
  * Handles a gated PR event: extract Jira keys, evaluate, enforce.
  * [FORGE-OPS-053] Wrapped in try/catch — never throws.
  * [ARCH-SOLID-052] Extracted for clarity.
@@ -1076,6 +1118,20 @@ const handleGatedPREvent = async (
       token,
       executionId,
     );
+
+    // [FORGE-OPS-054] [FORGE-OPS-0104] Non-blocking relationship indexing — failure MUST NOT affect PR evaluation [ARCH-SOLID-058]
+    // [ARCH-SOLID-225] void prefix satisfies no-floating-promises
+    // [GH-INTEG-306] Idempotent via indexPullRequest upsert semantics
+    void triggerIncrementalPRIndex(prData, repo, jiraKeys, executionId).catch(() => {
+      log({
+        timestamp: new Date().toISOString(),
+        level: 'warn',
+        operation: 'incrementalPRIndex.failed',
+        executionId,
+        repo,
+        prNumber,
+      });
+    });
 
     return buildEvaluationResult(allPassed, lastResult, gateType, executionId);
   } catch (handlerError: unknown) {

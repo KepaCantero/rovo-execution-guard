@@ -9,6 +9,15 @@ export interface JiraTransition {
   readonly toStatus: string;
 }
 
+/** [ARCH-SOLID-203] Directional relationship between two Jira issues */
+export interface JiraIssueLink {
+  readonly type: string;
+  readonly direction: 'inward' | 'outward';
+  readonly targetKey: string;
+  readonly targetSummary: string;
+  readonly targetStatus: string;
+}
+
 export interface JiraTicketData {
   readonly key: string;
   readonly summary: string;
@@ -22,4 +31,10 @@ export interface JiraTicketData {
   readonly projectKey: string;
   readonly created: string;
   readonly updated: string;
+
+  // Relationship fields — optional for backward compatibility [RTASK-042]
+  readonly epicKey?: string;
+  readonly epicSummary?: string;
+  readonly issueLinks?: readonly JiraIssueLink[];
+  readonly fixVersions?: readonly string[];
 }

@@ -20,8 +20,9 @@ import path from 'node:path';
 
 // [TEST-QA-202] @forge/api is external runtime — jest.mock exception applies
 // jest.mock is hoisted above imports, so we create mocks inline.
+const mockRequestJira = jest.fn();
 jest.mock('@forge/api', () => ({
-  requestJira: jest.fn(),
+  asUser: () => ({ requestJira: mockRequestJira }),
   requestConfluence: jest.fn(),
   fetch: jest.fn(),
   route: jest.fn((template: TemplateStringsArray, ...values: readonly string[]) => ({
@@ -38,7 +39,6 @@ import {
   notFoundResponse,
   forbiddenResponse,
   rateLimitedResponse,
-  type MockAPIResponse,
 } from '../../mocks/forge-api';
 import {
   getTicketData,
@@ -54,11 +54,7 @@ import {
 } from '../../../src/backend/types/errors';
 import type { JiraTicketData } from '../../../src/backend/types/jira-data';
 
-// Must import mocked module AFTER jest.mock setup
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { requestJira: mockRequestJira } = require('@forge/api') as {
-  requestJira: jest.Mock<Promise<MockAPIResponse>>;
-};
+// mockRequestJira is declared above the jest.mock call (hoisted by Jest)
 
 // ═══════════════════════════════════════════
 // FIXTURE LOADING
