@@ -87,6 +87,19 @@ export { analyzeDecisionPatterns, computeContextSignature } from './decision-con
 
 export type { DecisionPattern } from './decision-consumer';
 
+// --- Context Formatter ---
+export {
+  formatRelationshipContext,
+  formatSiblings,
+  formatDocumentation,
+  formatPullRequests,
+  formatTopics,
+  formatCrossReferences,
+  buildActionContext,
+  buildPathContext,
+  buildEvolvingPrompt,
+} from './context-formatter';
+
 // --- Domain Types ---
 export type {
   EntityType,
