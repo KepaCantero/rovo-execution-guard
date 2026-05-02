@@ -71,6 +71,10 @@ jest.mock('../../../src/backend/services/relationship-index/jira-indexer', () =>
   },
 }));
 
+jest.mock('../../../src/backend/services/relationship-index/context-formatter', () => ({
+  formatRelationshipContext: jest.fn(),
+}));
+
 import { getTicketData, getProjectConfig } from '../../../src/backend/services/jira/jira-adapter';
 import {
   calculateScore,
@@ -84,6 +88,7 @@ import {
   getJiraRelationshipContext,
   EMPTY_RELATIONSHIP_CONTEXT,
 } from '../../../src/backend/services/relationship-index/jira-indexer';
+import { formatRelationshipContext } from '../../../src/backend/services/relationship-index/context-formatter';
 
 // ═══════════════════════════════════════════
 // FIXTURES
@@ -242,6 +247,9 @@ describe('agent-action', () => {
     (getContext as jest.Mock).mockResolvedValue(MOCK_ROVO_CONTEXT);
     (getDocumentation as jest.Mock).mockResolvedValue(MOCK_DOCS);
     (getJiraRelationshipContext as jest.Mock).mockResolvedValue(EMPTY_RELATIONSHIP_CONTEXT);
+    (formatRelationshipContext as jest.Mock).mockReturnValue(
+      '## Relationship Context\nFormatted output',
+    );
   });
 
   // ═══════════════════════════════════════════
@@ -1198,6 +1206,165 @@ describe('agent-action', () => {
         undefined,
         MOCK_REL_CONTEXT,
       );
+    });
+  });
+
+  // ═══════════════════════════════════════════
+  // FORMATTED CONTEXT INJECTION (RTASK-043 AC-08..AC-09)
+  // ═══════════════════════════════════════════
+
+  describe('formatted context injection (RTASK-043)', () => {
+    const FORMATTED_OUTPUT =
+      '## Relationship Context\n### Epic & Siblings\n- PROJ-124: Related (In Progress)';
+
+    beforeEach(() => {
+      (formatRelationshipContext as jest.Mock).mockReturnValue(FORMATTED_OUTPUT);
+    });
+
+    // ─── handleEvaluateIssue ──────────
+
+    it('should include formattedContext in evaluate-issue response when relContext is non-empty (AC-08)', async () => {
+      (getJiraRelationshipContext as jest.Mock).mockResolvedValue({
+        ...EMPTY_RELATIONSHIP_CONTEXT,
+        siblings: [
+          {
+            id: 'jira:PROJ-124',
+            type: 'jira-issue',
+            label: 'Related',
+            status: 'In Progress',
+            projectKey: 'PROJ',
+            metadata: {},
+            createdAt: '',
+            updatedAt: '',
+          },
+        ],
+      });
+
+      const result = await handler(
+        { context: VALID_CONTEXT, issueKey: 'PROJ-123' },
+        { accountId: 'user-1' },
+      );
+
+      expect(result.success).toBe(true);
+      const data = result.data as { formattedContext: string };
+      expect(data.formattedContext).toBe(FORMATTED_OUTPUT);
+      expect(formatRelationshipContext).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return empty formattedContext in evaluate-issue when relContext is empty (AC-09)', async () => {
+      (getJiraRelationshipContext as jest.Mock).mockResolvedValue(EMPTY_RELATIONSHIP_CONTEXT);
+
+      const result = await handler(
+        { context: VALID_CONTEXT, issueKey: 'PROJ-123' },
+        { accountId: 'user-1' },
+      );
+
+      expect(result.success).toBe(true);
+      const data = result.data as { formattedContext: string };
+      expect(data.formattedContext).toBe('');
+      expect(formatRelationshipContext).not.toHaveBeenCalled();
+    });
+
+    // ─── handleCheckPRConsistency ──────────
+
+    it('should include formattedContext in check-pr-consistency response when relContext is non-empty (AC-08)', async () => {
+      (getJiraRelationshipContext as jest.Mock).mockResolvedValue({
+        ...EMPTY_RELATIONSHIP_CONTEXT,
+        pullRequests: [
+          {
+            id: 'github:org/repo/pull/42',
+            type: 'github-pr',
+            label: 'PROJ-123 Implement auth flow',
+            status: 'open',
+            projectKey: 'PROJ',
+            metadata: { prNumber: '42' },
+            createdAt: '',
+            updatedAt: '',
+          },
+        ],
+      });
+
+      const result = await handler(
+        {
+          context: { ...VALID_CONTEXT, moduleKey: 'check-pr-consistency' },
+          issueKey: 'PROJ-123',
+          prUrl: 'https://github.com/org/repo/pull/42',
+        },
+        { accountId: 'user-1' },
+      );
+
+      expect(result.success).toBe(true);
+      const data = result.data as { formattedContext: string };
+      expect(data.formattedContext).toBe(FORMATTED_OUTPUT);
+      expect(formatRelationshipContext).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return empty formattedContext in check-pr-consistency when relContext is empty (AC-09)', async () => {
+      (getJiraRelationshipContext as jest.Mock).mockResolvedValue(EMPTY_RELATIONSHIP_CONTEXT);
+
+      const result = await handler(
+        {
+          context: { ...VALID_CONTEXT, moduleKey: 'check-pr-consistency' },
+          issueKey: 'PROJ-123',
+          prUrl: 'https://github.com/org/repo/pull/42',
+        },
+        { accountId: 'user-1' },
+      );
+
+      expect(result.success).toBe(true);
+      const data = result.data as { formattedContext: string };
+      expect(data.formattedContext).toBe('');
+      expect(formatRelationshipContext).not.toHaveBeenCalled();
+    });
+
+    // ─── handleValidateSpecAlignment ──────────
+
+    it('should include formattedContext in validate-spec-alignment response when relContext is non-empty (AC-08)', async () => {
+      (getJiraRelationshipContext as jest.Mock).mockResolvedValue({
+        ...EMPTY_RELATIONSHIP_CONTEXT,
+        documentation: [
+          {
+            id: 'confluence:12345',
+            type: 'confluence-page',
+            label: 'Auth Spec',
+            status: 'current',
+            projectKey: 'PROJ',
+            metadata: { content: 'Specification for authentication' },
+            createdAt: '',
+            updatedAt: '',
+          },
+        ],
+      });
+
+      const result = await handler(
+        {
+          context: { ...VALID_CONTEXT, moduleKey: 'validate-spec-alignment' },
+          issueKey: 'PROJ-123',
+        },
+        { accountId: 'user-1' },
+      );
+
+      expect(result.success).toBe(true);
+      const data = result.data as { formattedContext: string };
+      expect(data.formattedContext).toBe(FORMATTED_OUTPUT);
+      expect(formatRelationshipContext).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return empty formattedContext in validate-spec-alignment when relContext is empty (AC-09)', async () => {
+      (getJiraRelationshipContext as jest.Mock).mockResolvedValue(EMPTY_RELATIONSHIP_CONTEXT);
+
+      const result = await handler(
+        {
+          context: { ...VALID_CONTEXT, moduleKey: 'validate-spec-alignment' },
+          issueKey: 'PROJ-123',
+        },
+        { accountId: 'user-1' },
+      );
+
+      expect(result.success).toBe(true);
+      const data = result.data as { formattedContext: string };
+      expect(data.formattedContext).toBe('');
+      expect(formatRelationshipContext).not.toHaveBeenCalled();
     });
   });
 });

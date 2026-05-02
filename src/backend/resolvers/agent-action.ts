@@ -18,6 +18,7 @@ import {
   getJiraRelationshipContext,
   EMPTY_RELATIONSHIP_CONTEXT,
 } from '../services/relationship-index/jira-indexer';
+import { formatRelationshipContext } from '../services/relationship-index/context-formatter';
 
 // ═══════════════════════════════════════════
 // TYPES
@@ -227,6 +228,10 @@ const computePrAlignment = (
   };
 };
 
+/** [ROVO-INTEG-0915] Build formatted context for LLM consumption. Returns empty string when no context. */
+const buildFormattedContext = (relContext: typeof EMPTY_RELATIONSHIP_CONTEXT): string =>
+  relContext !== EMPTY_RELATIONSHIP_CONTEXT ? formatRelationshipContext(relContext) : '';
+
 // ═══════════════════════════════════════════
 // SUB-HANDLERS
 // ═══════════════════════════════════════════
@@ -283,6 +288,7 @@ const handleEvaluateIssue: ActionHandler = async (input, context) => {
       gateResults: gateResult ? { passed: gateResult.passed, gate: gateResult.gate } : undefined,
       threshold: config?.scoreThreshold,
       relContext,
+      formattedContext: buildFormattedContext(relContext),
     },
     executionId,
   );
@@ -355,6 +361,7 @@ const handleCheckPRConsistency: ActionHandler = async (input, context) => {
       prSummary: { title: prData.title, state: prData.state, fileCount: prData.files.length },
       issueSummary: { key: ticket.key, summary: ticket.summary, status: ticket.status },
       gaps: allGaps,
+      formattedContext: buildFormattedContext(relContext),
     },
     executionId,
   );
@@ -422,7 +429,15 @@ const handleValidateSpecAlignment: ActionHandler = async (input, context) => {
 
   const suggestions = inconsistencies.filter((i) => i.suggestion).map((i) => i.suggestion);
 
-  return actionSuccess({ alignedSpecs, misalignedSpecs, suggestions }, executionId);
+  return actionSuccess(
+    {
+      alignedSpecs,
+      misalignedSpecs,
+      suggestions,
+      formattedContext: buildFormattedContext(relContext),
+    },
+    executionId,
+  );
 };
 
 /**

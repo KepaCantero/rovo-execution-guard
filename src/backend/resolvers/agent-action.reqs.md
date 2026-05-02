@@ -26,6 +26,10 @@ Also defines core types (ActionContext, ActionInput, ActionResponse, ActionHandl
 - [x] **AC-10**: Structured logging with `executionId`, `actionKey`, `duration`, `success` on every invocation
 - [x] **AC-11**: Test coverage exceeds 85% (60 tests passing)
 - [x] **AC-12**: `.reqs.md` sidecar file created (this file)
+- [x] **AC-13**: `handleEvaluateIssue` includes `formattedContext` in response (RTASK-043 AC-08)
+- [x] **AC-14**: `handleCheckPRConsistency` includes `formattedContext` in response (RTASK-043 AC-08)
+- [x] **AC-15**: `handleValidateSpecAlignment` includes `formattedContext` in response (RTASK-043 AC-08)
+- [x] **AC-16**: All 3 handlers gracefully degrade — empty string when no relationship context (RTASK-043 AC-09)
 
 ---
 
@@ -50,6 +54,8 @@ Also defines core types (ActionContext, ActionInput, ActionResponse, ActionHandl
 | [ROVO-INTEG-004]    | Rovo         | Untrusted data — validate before use                       |
 | [ROVO-INTEG-054]    | Rovo         | Communication contracts as versioned TypeScript interfaces |
 | [ROVO-INTEG-060]    | Rovo         | Never assume complete information — optional jira context  |
+| [ROVO-INTEG-0915]   | Rovo         | Rovo is enhancer, never requirement — graceful degradation |
+| [ROVO-INTEG-1002]   | Rovo         | Opt-in incremental feature                                 |
 | [GH-INTEG-001]      | GitHub       | GitHub adapter for PR data                                 |
 | [TEST-QA-036-03]    | Testing      | Structured context with executionId and actionKey          |
 
@@ -134,17 +140,20 @@ Also defines core types (ActionContext, ActionInput, ActionResponse, ActionHandl
 #### `handleEvaluateIssue(input, context)` — AC-04
 
 - Calls: getTicketData, getProjectConfig, detectInconsistencies, calculateScore, evaluateGate
-- Returns: `{ score, axes, axisDetails, inconsistencies, gateResults?, threshold? }`
+- Returns: `{ score, axes, axisDetails, inconsistencies, gateResults?, threshold?, relContext, formattedContext }`
+- `formattedContext`: LLM-friendly text from `formatRelationshipContext`, empty string when no context (AC-13)
 
 #### `handleCheckPRConsistency(input, context)` — AC-05
 
 - Calls: getTicketData, getPRData (via parsePrUrl)
-- Returns: `{ alignment: 'aligned'|'partial'|'misaligned', prSummary, issueSummary, gaps }`
+- Returns: `{ alignment: 'aligned'|'partial'|'misaligned', prSummary, issueSummary, gaps, formattedContext }`
+- `formattedContext`: LLM-friendly text from `formatRelationshipContext`, empty string when no context (AC-14)
 
 #### `handleValidateSpecAlignment(input, context)` — AC-06
 
 - Calls: getTicketData, getContext (graceful), getDocumentation (graceful), detectInconsistencies
-- Returns: `{ alignedSpecs, misalignedSpecs, suggestions }`
+- Returns: `{ alignedSpecs, misalignedSpecs, suggestions, formattedContext }`
+- `formattedContext`: LLM-friendly text from `formatRelationshipContext`, empty string when no context (AC-15)
 
 #### `handleExplainScore(input, context)` — AC-07
 
@@ -169,6 +178,8 @@ Also defines core types (ActionContext, ActionInput, ActionResponse, ActionHandl
 - `src/backend/services/scoring/quality-gate-rules` -> `evaluateGate`
 - `src/backend/services/github/github-adapter` -> `getPRData`
 - `src/backend/services/rovo/rovo-adapter` -> `getContext`, `getDocumentation`
+- `src/backend/services/relationship-index/jira-indexer` -> `getJiraRelationshipContext`, `EMPTY_RELATIONSHIP_CONTEXT`
+- `src/backend/services/relationship-index/context-formatter` -> `formatRelationshipContext`
 - `src/backend/types/errors` -> `TicketNotFoundError`, `InsufficientDataError`, `TimeoutError`
 
 ### Externas (npm)
@@ -181,25 +192,27 @@ Also defines core types (ActionContext, ActionInput, ActionResponse, ActionHandl
 
 ### Unit Tests (`tests/unit/resolvers/agent-action.spec.ts`)
 
-60 tests covering all 12 acceptance criteria.
+76 tests covering all 16 acceptance criteria.
 
-| Category                    | Tests | ACs Covered         |
-| --------------------------- | ----- | ------------------- |
-| generateActionExecutionId   | 2     | AC-04               |
-| formatActionError           | 6     | AC-05               |
-| logAction                   | 1     | AC-06               |
-| actionSuccess/actionFailure | 2     | AC-09               |
-| Type contracts              | 4     | AC-01, AC-02, AC-08 |
-| Handler routing             | 7     | AC-03               |
-| handleEvaluateIssue         | 4     | AC-04               |
-| handleCheckPRConsistency    | 6     | AC-05               |
-| handleValidateSpecAlignment | 6     | AC-06               |
-| handleExplainScore          | 3     | AC-07               |
-| handleGetImprovementTips    | 5     | AC-08               |
-| Error handling              | 5     | AC-09               |
-| Structured logging          | 5     | AC-10               |
-| ExecutionId traceability    | 2     | AC-10               |
-| Edge cases                  | 3     | AC-05, AC-06, AC-04 |
+| Category                         | Tests | ACs Covered                           |
+| -------------------------------- | ----- | ------------------------------------- |
+| generateActionExecutionId        | 2     | AC-04                                 |
+| formatActionError                | 6     | AC-05                                 |
+| logAction                        | 1     | AC-06                                 |
+| actionSuccess/actionFailure      | 2     | AC-09                                 |
+| Type contracts                   | 4     | AC-01, AC-02, AC-08                   |
+| Handler routing                  | 7     | AC-03                                 |
+| handleEvaluateIssue              | 4     | AC-04                                 |
+| handleCheckPRConsistency         | 6     | AC-05                                 |
+| handleValidateSpecAlignment      | 6     | AC-06                                 |
+| handleExplainScore               | 3     | AC-07                                 |
+| handleGetImprovementTips         | 5     | AC-08                                 |
+| Error handling                   | 5     | AC-09                                 |
+| Structured logging               | 5     | AC-10                                 |
+| ExecutionId traceability         | 2     | AC-10                                 |
+| Edge cases                       | 3     | AC-05, AC-06, AC-04                   |
+| Relationship context integration | 7     | RTASK-041 AC-07..AC-09                |
+| Formatted context injection      | 6     | RTASK-043 AC-08, AC-09 (AC-13..AC-16) |
 
 ### Mock Strategy
 
@@ -215,3 +228,4 @@ All service adapters mocked via jest.mock(). Mocks reset in beforeEach.
 | 2026-05-01 | RTASK-034 Step 1     | Added types, utilities, and initial test coverage                                                                                                                                                                        |
 | 2026-05-01 | RTASK-034 Steps 2-10 | Full handler routing, 5 sub-handlers, comprehensive tests, .reqs.md update                                                                                                                                               |
 | 2026-05-02 | RTASK-041            | handleEvaluateIssue passes relContext to detection/scoring (AC-07). handleCheckPRConsistency uses graph traversal for alignment (AC-08). handleValidateSpecAlignment uses graph documentation with Rovo fallback (AC-09) |
+| 2026-05-02 | RTASK-043            | handleEvaluateIssue, handleCheckPRConsistency, handleValidateSpecAlignment inject formattedContext via buildFormattedContext helper (AC-13..AC-16). Graceful degradation with empty string when no context.              |
