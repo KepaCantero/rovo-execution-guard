@@ -936,7 +936,7 @@ describe('AxisRow — expand/collapse and conditional rendering', () => {
 
 describe('IssuePanel — loading, error, and success states', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   it('shows loading state initially', () => {
@@ -950,17 +950,11 @@ describe('IssuePanel — loading, error, and success states', () => {
 
   it('calls rovo.isEnabled() on mount', async () => {
     viewMock.getContext.mockResolvedValue({ extension: { issue: { key: 'PROJ-123' } } });
-    invokeMock
-      .mockResolvedValueOnce({
-        success: true,
-        data: { available: true },
-        executionId: 'exec-health',
-      })
-      .mockResolvedValueOnce({
-        success: true,
-        data: SCORE_WITH_DETAILS,
-        executionId: 'exec-001',
-      });
+    invokeMock.mockResolvedValue({
+      success: true,
+      data: SCORE_WITH_DETAILS,
+      executionId: 'exec-001',
+    });
     rovo.isEnabled.mockResolvedValue(true);
 
     render(React.createElement(IssuePanel));
@@ -1019,17 +1013,11 @@ describe('IssuePanel — loading, error, and success states', () => {
 
   it('renders score, FullAnalysisButton, and AxisRows on success', async () => {
     viewMock.getContext.mockResolvedValue({ extension: { issue: { key: 'PROJ-123' } } });
-    invokeMock
-      .mockResolvedValueOnce({
-        success: true,
-        data: { available: true },
-        executionId: 'exec-health',
-      })
-      .mockResolvedValueOnce({
-        success: true,
-        data: SCORE_WITH_DETAILS,
-        executionId: 'exec-001',
-      });
+    invokeMock.mockResolvedValue({
+      success: true,
+      data: SCORE_WITH_DETAILS,
+      executionId: 'exec-001',
+    });
     rovo.isEnabled.mockResolvedValue(true);
 
     render(React.createElement(IssuePanel));

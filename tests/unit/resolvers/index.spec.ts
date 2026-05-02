@@ -30,6 +30,10 @@ import {
 } from '../../../src/backend/services/jira/jira-adapter';
 import { getContext } from '../../../src/backend/services/rovo/rovo-adapter';
 import {
+  getJiraRelationshipContext,
+  bootstrapProjectIndex as _bootstrapProjectIndex,
+} from '../../../src/backend/services/relationship-index/jira-indexer';
+import {
   writeAuditEntry,
   readAuditEntries,
 } from '../../../src/backend/services/audit/audit-service';
@@ -58,6 +62,7 @@ jest.mock('../../../src/backend/services/evaluation/evaluation-pipeline');
 jest.mock('../../../src/backend/services/jira/jira-adapter');
 jest.mock('../../../src/backend/services/rovo/rovo-adapter');
 jest.mock('../../../src/backend/services/audit/audit-service');
+jest.mock('../../../src/backend/services/relationship-index/jira-indexer');
 
 const mockedCalculateScore = calculateScore as jest.MockedFunction<typeof calculateScore>;
 const mockedDetectInconsistencies = detectInconsistencies as jest.MockedFunction<
@@ -73,6 +78,9 @@ const mockedSaveProjectConfig = saveProjectConfig as jest.MockedFunction<typeof 
 const mockedGetContext = getContext as jest.MockedFunction<typeof getContext>;
 const mockedWriteAuditEntry = writeAuditEntry as jest.MockedFunction<typeof writeAuditEntry>;
 const mockedReadAuditEntries = readAuditEntries as jest.MockedFunction<typeof readAuditEntries>;
+const mockedGetJiraRelationshipContext = getJiraRelationshipContext as jest.MockedFunction<
+  typeof getJiraRelationshipContext
+>;
 
 // Reference to the shared mock for assertions
 const mockedResolverDefine = defineMock;
@@ -150,6 +158,16 @@ const MOCK_INCONSISTENCY: Inconsistency = {
   affectedTicketKey: 'PROJ-123',
 };
 
+const MOCK_RELATIONSHIP_CONTEXT = {
+  siblings: [],
+  documentation: [],
+  pullRequests: [],
+  topics: [],
+  crossReferences: [],
+  rankedItems: [],
+  assembledAt: '',
+};
+
 // ═══════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════
@@ -198,6 +216,7 @@ describe('Custom UI Resolvers (index.ts)', () => {
     });
     mockedWriteAuditEntry.mockResolvedValue(undefined);
     mockedReadAuditEntries.mockResolvedValue([]);
+    mockedGetJiraRelationshipContext.mockResolvedValue(MOCK_RELATIONSHIP_CONTEXT);
   });
 
   // ─── AC-01, AC-02: Registration ────────────
@@ -252,7 +271,15 @@ describe('Custom UI Resolvers (index.ts)', () => {
       expect(data.overall).toBe(85);
       expect(result.executionId).toBeTruthy();
       expect(mockedGetTicketData).toHaveBeenCalledWith('PROJ-123', expect.any(String), 8000);
-      expect(mockedCalculateScore).toHaveBeenCalled();
+      expect(mockedGetJiraRelationshipContext).toHaveBeenCalledWith(
+        'PROJ-123',
+        'PROJ',
+        expect.any(String),
+      );
+      expect(mockedCalculateScore).toHaveBeenCalledWith({
+        ticket: MOCK_TICKET,
+        relationshipContext: MOCK_RELATIONSHIP_CONTEXT,
+      });
     });
 
     it('should reject empty issueKey (AC-05, SEC-PRIV-004)', async () => {

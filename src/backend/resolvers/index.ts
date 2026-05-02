@@ -37,7 +37,10 @@ import {
   generateHealthReport,
   type GraphHealthReport,
 } from '../services/relationship-index/graph-maintenance';
-import { bootstrapProjectIndex } from '../services/relationship-index/jira-indexer';
+import {
+  bootstrapProjectIndex,
+  getJiraRelationshipContext,
+} from '../services/relationship-index/jira-indexer';
 import type { GraphStats } from '../types/relationship-index';
 
 // ═══════════════════════════════════════════
@@ -290,11 +293,24 @@ const handleGetConsistencyScore = async (
   });
 
   const ticket = await getTicketData(issueKey, executionId, RESOLVER_TIMEOUT_MS);
-  const input: ScoringInput = { ticket };
+  const projectKey = issueKey.split('-')[0] ?? '';
+  const relationshipContext = await getJiraRelationshipContext(issueKey, projectKey, executionId);
+  log({
+    timestamp: new Date().toISOString(),
+    level: 'info',
+    operation: 'getConsistencyScore.relationshipContext',
+    executionId,
+    issueKey,
+    siblings: relationshipContext.siblings.length,
+    documentation: relationshipContext.documentation.length,
+    pullRequests: relationshipContext.pullRequests.length,
+    topics: relationshipContext.topics.length,
+    crossRefs: relationshipContext.crossReferences.length,
+  });
+  const input: ScoringInput = { ticket, relationshipContext };
   const score = calculateScore(input);
 
   const axisDetails = generateAxisSuggestions(ticket, score.axes);
-  const projectKey = issueKey.split('-')[0] ?? '';
   let config: ProjectConfig | undefined;
   try {
     config = await getProjectConfig(projectKey, executionId, RESOLVER_TIMEOUT_MS);
