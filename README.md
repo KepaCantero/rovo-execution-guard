@@ -1,6 +1,6 @@
 # Rovo Execution Guard
 
-An Atlassian Forge application that validates consistency between Jira, Confluence, and GitHub using Rovo AI, blocking low-quality workflow transitions before they reach production.
+An Atlassian Forge application that validates consistency between Jira, Confluence, and GitHub using a relationship index and multi-axis scoring, blocking low-quality workflow transitions before they reach production. Optionally integrates with Rovo AI for enriched context.
 
 **Version:** 0.1.0
 **App ID:** `51b53283-caf2-4636-9e4b-5a6e1d048260`
@@ -10,14 +10,14 @@ An Atlassian Forge application that validates consistency between Jira, Confluen
 
 ## Overview
 
-Rovo Execution Guard (REG) acts as an automated quality gatekeeper across your Atlassian and GitHub toolchain. When a developer moves a Jira ticket through workflow transitions or opens a pull request, REG evaluates the ticket against configurable quality gates -- scoring clarity, consistency, risk, documentation quality, and technical debt indicators.
+REG acts as an automated quality gatekeeper across your Atlassian and GitHub toolchain. When a developer moves a Jira ticket through workflow transitions or opens a pull request, REG evaluates the ticket against configurable quality gates -- scoring clarity, consistency, risk, documentation quality, and technical debt indicators.
 
 **The problem it solves:** Teams frequently push work through Jira workflows and GitHub PRs with incomplete descriptions, missing acceptance criteria, contradictory documentation, or ambiguous scope. These issues compound into rework, failed sprints, and production incidents. REG catches these problems at the transition boundary, before they propagate downstream.
 
 **How it works:**
 
 1. A Jira ticket transitions to a gated status (e.g., In Progress, In Review, Done), or a GitHub PR is opened/synchronized/merged.
-2. REG fetches ticket data from Jira, enriches it with Rovo AI context, and cross-references Confluence documentation.
+2. REG fetches ticket data from Jira, enriches it with cross-tool relationship context (sibling tickets, linked Confluence docs, associated PRs, cross-references), and optionally queries Rovo AI for additional insights.
 3. A multi-axis scoring engine evaluates the ticket on five dimensions.
 4. Quality gates compare the score against configurable thresholds.
 5. If the gate fails, REG blocks the transition and posts a detailed comment explaining what needs to be fixed.
@@ -50,11 +50,12 @@ REG follows a six-layer architecture with strict dependency rules. Data flows do
     |         SERVICES (Adapters + Engines)   |
     |                                        |
     |  Adapters: jira | github | rovo |      |
-    |            confluence                   |
-    |                                        |
-    |  Engines: scoring | quality-gates |     |
-    |           inconsistency | evaluation |  |
-    |           enforcement                  |
+|            confluence | relationship-  |
+|            index                        |
+|                                        |
+|  Engines: scoring | quality-gates |     |
+|           inconsistency | evaluation |  |
+|           enforcement | context-builder                  |
     +--------------------+--------------------+
                          |
     +--------------------+--------------------+

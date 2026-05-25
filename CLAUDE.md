@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Atlassian Forge app that validates consistency between Jira, Confluence, and GitHub using Rovo AI, blocking low-quality workflow transitions.
+Atlassian Forge app that validates consistency between Jira, Confluence, and GitHub using a relationship index and multi-axis scoring, blocking low-quality workflow transitions. Optionally integrates with Rovo AI for enriched context.
 
 ## Stack
 
@@ -12,7 +12,7 @@ Atlassian Forge app that validates consistency between Jira, Confluence, and Git
 - **Test**: Jest + ts-jest
 - **Lint**: ESLint + Prettier
 - **Git**: Husky + lint-staged + commitlint (conventional)
-- **Agent**: Ralph (orchestrator) + Claude Code + Serena MCP + Zai MCP
+- **Agent**: Claude Code + Serena MCP + Zai MCP
 
 ## Architecture
 
@@ -26,11 +26,12 @@ src/
 │   ├── services/
 │   │   ├── jira/             # Jira API adapter
 │   │   ├── github/           # GitHub API adapter
-│   │   ├── rovo/             # Rovo AI adapter
+│   │   ├── rovo/             # Rovo AI adapter (optional enrichment)
 │   │   ├── confluence/       # Confluence adapter
 │   │   ├── scoring/          # Scoring engine + quality gates + inconsistency detector
 │   │   ├── evaluation/       # Shared evaluation pipeline (RTASK-014/016)
-│   │   └── enforcement/      # Enforcement actions (block/approve/comment)
+│   │   ├── enforcement/      # Enforcement actions (block/approve/comment)
+│   │   └── relationship-index/  # Cross-tool relationship graph + context builder
 │   ├── resolvers/            # Backend logic (index, workflow-transition, github-webhook)
 │   └── utils/                # Shared utilities
 ├── frontend/
@@ -48,15 +49,7 @@ manifest.yml                  # Forge app manifest
 
 ### Semantic First
 
-Before reading a file with `Read`, try Serena tools (`find_definition`, `get_references`, `list_symbols`) to understand dependencies and impact.
-
-### GSD State Updates
-
-After every successful task:
-
-1. Update `.agent/PROJECT_STATE.md` (completed tasks, current step, blockers)
-2. Append to `.agent/SESSION_LOG.md` (what was done, decisions, status)
-3. Update `.agent/SCRATCHPAD.md` if investigating an issue
+Before reading a file with `Read`, try Serena tools (`find_symbol`, `find_referencing_symbols`, `get_symbols_overview`) to understand dependencies and impact.
 
 ### Code Conventions
 
@@ -95,20 +88,30 @@ After every successful task:
 
 ## Pipeline (RTASK)
 
-Completed: 001-011, 013, 021, 024, 033-036. In progress: 012.
+All 46 Ralph tasks completed (RTASK-001 through RTASK-044 + orchestrators). The project is feature-complete.
 
-Next in order:
+### Completed Milestones
 
-1. RTASK-017 — Enforcement Actions
-2. RTASK-014 — Jira Triggers
-3. RTASK-016 — GitHub Webhook
-4. RTASK-020 — GitHub PR Comments
-5. RTASK-015 — Resolvers (Forge Bridge)
-6. RTASK-018 — Jira Issue Panel (UI)
-7. RTASK-019 — Admin Dashboard (UI)
-8. RTASK-022..031 — Observability, Testing, CI/CD, Docs
+- RTASK 001-011: Foundation, types, scoring, adapters (Jira, Rovo, GitHub, Confluence), resilience
+- RTASK 012: Confluence adapter
+- RTASK 013: Resilience patterns
+- RTASK 014: Jira triggers (evaluation pipeline)
+- RTASK 015: Resolvers (Forge Bridge)
+- RTASK 016: GitHub webhook
+- RTASK 017: Enforcement actions
+- RTASK 018: Jira Issue Panel (UI)
+- RTASK 019: Admin Dashboard (UI)
+- RTASK 020: GitHub PR Comments
+- RTASK 021: Structured logger
+- RTASK 024: Project settings
+- RTASK 033-036: Rovo Agent (definition, actions, frontend, automation)
+- RTASK 037-044: Relationship Index (types, storage, Jira/Confluence/GitHub indexers, context consumer, maintenance)
 
-Key: RTASK-014 and RTASK-016 share an evaluation pipeline (`src/backend/services/evaluation/`). Both depend on RTASK-017 for enforcement functions.
+### Remaining (not Ralph-tracked)
+
+- RTASK 022: Sentry integration
+- RTASK 023: Health checks
+- RTASK 025-031: CI/CD, testing, docs, coverage
 
 ## Key Decisions
 
@@ -117,7 +120,6 @@ Key: RTASK-014 and RTASK-016 share an evaluation pipeline (`src/backend/services
 - Evaluation pipeline shared between RTASK-014 and RTASK-016
 - Forge Webpack bundler handles `.ts` natively (no EAP or build step needed)
 - Backend resolvers export both `handler` (Forge entry) and named business functions
-
-## Open Issues
-
-- None — Forge deploy clean and working
+- Scoring uses relationship context (sibling tickets, docs, PRs, cross-refs) as primary data source; Rovo AI is optional enrichment
+- Relationship index is built from Jira/Confluence/GitHub data and maintained via scheduled triggers
+- Ralph task pipeline completed — no more orchestrator-driven task execution
