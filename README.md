@@ -49,13 +49,13 @@ REG follows a six-layer architecture with strict dependency rules. Data flows do
     +--------------------+--------------------+
     |         SERVICES (Adapters + Engines)   |
     |                                        |
-    |  Adapters: jira | github | rovo |      |
-|            confluence | relationship-  |
-|            index                        |
-|                                        |
-|  Engines: scoring | quality-gates |     |
-|           inconsistency | evaluation |  |
-|           enforcement | context-builder                  |
+    |  Adapters: jira | github | rovo |        |
+    |            confluence | relationship-  |
+    |            index                        |
+    |                                        |
+    |  Engines: scoring | quality-gates |     |
+    |           inconsistency | evaluation |  |
+    |           enforcement | context-builder |
     +--------------------+--------------------+
                          |
     +--------------------+--------------------+
