@@ -73,3 +73,29 @@ export type {
   GraphStats,
   RelationshipIndexer,
 } from './relationship-index';
+
+// --- Epic Management ---
+export type {
+  ContradictionType,
+  SiblingContradictionResult,
+  CoverageGap,
+  DependencyGap,
+  CrossEpicValidationResult,
+  DoDCriterionType,
+  DoDCriterion,
+  EpicDoDConfig,
+  DoDCriterionResult,
+  DoDEvaluationResult,
+  DependencyLinkType,
+  DependencyNode,
+  DependencyEdge,
+  CircularDependency,
+  DependencyChainResult,
+  EpicHealthAxes,
+  EpicHealthScore,
+  StaleReason,
+  SuggestedAction,
+  StaleTicketReport,
+  EpicStalenessReport,
+  EpicAnalysisInput,
+} from './epic-types';

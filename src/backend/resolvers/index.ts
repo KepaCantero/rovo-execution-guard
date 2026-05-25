@@ -43,6 +43,26 @@ import {
 } from '../services/relationship-index/jira-indexer';
 import type { GraphStats } from '../types/relationship-index';
 
+// --- Epic Management ---
+import {
+  validateCrossEpicConsistency,
+  evaluateEpicDoD,
+  getDoDConfig,
+  saveDoDConfig,
+  validateDependencyChain,
+  calculateEpicHealthScore,
+  detectStaleTickets,
+  autoTriageStaleTickets,
+} from '../services/epic/index';
+import type {
+  CrossEpicValidationResult,
+  DoDEvaluationResult,
+  EpicDoDConfig,
+  DependencyChainResult,
+  EpicHealthScore,
+  EpicStalenessReport,
+} from '../types/epic-types';
+
 // ═══════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════
@@ -700,6 +720,209 @@ const handleCheckRovoHealth = async (
 };
 
 // ═══════════════════════════════════════════
+// EPIC MANAGEMENT RESOLVERS
+// ═══════════════════════════════════════════
+
+const handleGetCrossEpicValidation = async (
+  payload: ResolverPayload,
+  context: ResolverContext,
+  executionId: string,
+): Promise<ResolverResponse<CrossEpicValidationResult>> => {
+  const issueKey = sanitize(requireNonEmpty(payload.issueKey, 'issueKey'));
+  const accountId = extractAccountId(context);
+  checkReadPermission(accountId);
+
+  log({
+    timestamp: new Date().toISOString(),
+    level: 'info',
+    operation: 'getCrossEpicValidation',
+    executionId,
+    issueKey,
+  });
+
+  const ticket = await getTicketData(issueKey, executionId, RESOLVER_TIMEOUT_MS);
+  const epicKey = ticket.epicKey;
+
+  if (!epicKey) {
+    return failure('Ticket does not belong to an epic', executionId);
+  }
+
+  const projectKey = ticket.projectKey;
+  const result = await validateCrossEpicConsistency({
+    epicKey,
+    projectKey,
+    executionId,
+  });
+
+  return success(result, executionId);
+};
+
+const handleGetEpicDoDStatus = async (
+  payload: ResolverPayload,
+  context: ResolverContext,
+  executionId: string,
+): Promise<ResolverResponse<DoDEvaluationResult>> => {
+  const epicKey = sanitize(requireNonEmpty(payload.epicKey, 'epicKey'));
+  const accountId = extractAccountId(context);
+  checkReadPermission(accountId);
+
+  log({
+    timestamp: new Date().toISOString(),
+    level: 'info',
+    operation: 'getEpicDoDStatus',
+    executionId,
+    epicKey,
+  });
+
+  const projectKey = String(payload.projectKey ?? epicKey.split('-')[0] ?? '');
+  const dodConfig = await getDoDConfig(epicKey, projectKey);
+  const result = await evaluateEpicDoD(epicKey, projectKey, dodConfig, executionId);
+
+  return success(result, executionId);
+};
+
+const handleUpdateEpicDoDConfig = async (
+  payload: ResolverPayload,
+  context: ResolverContext,
+  executionId: string,
+): Promise<ResolverResponse<{ readonly saved: boolean }>> => {
+  const epicKey = sanitize(requireNonEmpty(payload.epicKey, 'epicKey'));
+  const projectKey = sanitize(requireNonEmpty(payload.projectKey, 'projectKey'));
+  const accountId = extractAccountId(context);
+  checkWritePermission(accountId, epicKey);
+
+  log({
+    timestamp: new Date().toISOString(),
+    level: 'info',
+    operation: 'updateEpicDoDConfig',
+    executionId,
+    epicKey,
+    projectKey,
+  });
+
+  const criteria = payload.criteria;
+  if (!Array.isArray(criteria)) {
+    return failure('criteria must be an array', executionId);
+  }
+
+  const config: EpicDoDConfig = {
+    epicKey,
+    projectKey,
+    criteria: criteria as EpicDoDConfig['criteria'],
+    updatedAt: new Date().toISOString(),
+  };
+
+  await saveDoDConfig(config);
+
+  return success({ saved: true }, executionId);
+};
+
+const handleGetDependencyChain = async (
+  payload: ResolverPayload,
+  context: ResolverContext,
+  executionId: string,
+): Promise<ResolverResponse<DependencyChainResult>> => {
+  const issueKey = sanitize(requireNonEmpty(payload.issueKey, 'issueKey'));
+  const accountId = extractAccountId(context);
+  checkReadPermission(accountId);
+
+  log({
+    timestamp: new Date().toISOString(),
+    level: 'info',
+    operation: 'getDependencyChain',
+    executionId,
+    issueKey,
+  });
+
+  const ticket = await getTicketData(issueKey, executionId, RESOLVER_TIMEOUT_MS);
+  const result = await validateDependencyChain(issueKey, ticket.projectKey, executionId);
+
+  return success(result, executionId);
+};
+
+const handleGetEpicHealthScore = async (
+  payload: ResolverPayload,
+  context: ResolverContext,
+  executionId: string,
+): Promise<ResolverResponse<EpicHealthScore>> => {
+  const epicKey = sanitize(requireNonEmpty(payload.epicKey, 'epicKey'));
+  const accountId = extractAccountId(context);
+  checkReadPermission(accountId);
+
+  log({
+    timestamp: new Date().toISOString(),
+    level: 'info',
+    operation: 'getEpicHealthScore',
+    executionId,
+    epicKey,
+  });
+
+  const projectKey = String(payload.projectKey ?? epicKey.split('-')[0] ?? '');
+  const result = await calculateEpicHealthScore(epicKey, projectKey, executionId);
+
+  return success(result, executionId);
+};
+
+const handleGetStaleTickets = async (
+  payload: ResolverPayload,
+  context: ResolverContext,
+  executionId: string,
+): Promise<ResolverResponse<EpicStalenessReport>> => {
+  const epicKey = sanitize(requireNonEmpty(payload.epicKey, 'epicKey'));
+  const accountId = extractAccountId(context);
+  checkReadPermission(accountId);
+
+  const thresholdDays = typeof payload.thresholdDays === 'number' ? payload.thresholdDays : 14;
+
+  log({
+    timestamp: new Date().toISOString(),
+    level: 'info',
+    operation: 'getStaleTickets',
+    executionId,
+    epicKey,
+    thresholdDays,
+  });
+
+  const projectKey = String(payload.projectKey ?? epicKey.split('-')[0] ?? '');
+  const result = await detectStaleTickets(epicKey, projectKey, thresholdDays, executionId);
+
+  return success(result, executionId);
+};
+
+const handleAutoTriageStaleTickets = async (
+  payload: ResolverPayload,
+  context: ResolverContext,
+  executionId: string,
+): Promise<ResolverResponse<EpicStalenessReport>> => {
+  const epicKey = sanitize(requireNonEmpty(payload.epicKey, 'epicKey'));
+  const accountId = extractAccountId(context);
+  checkWritePermission(accountId, epicKey);
+
+  log({
+    timestamp: new Date().toISOString(),
+    level: 'info',
+    operation: 'autoTriageStaleTickets',
+    executionId,
+    epicKey,
+  });
+
+  const projectKey = String(payload.projectKey ?? epicKey.split('-')[0] ?? '');
+  const report = await detectStaleTickets(epicKey, projectKey, 14, executionId);
+  const actions = autoTriageStaleTickets(report);
+
+  log({
+    timestamp: new Date().toISOString(),
+    level: 'info',
+    operation: 'autoTriageStaleTickets.result',
+    executionId,
+    epicKey,
+    actionCount: actions.length,
+  });
+
+  return success({ ...report, enforcementActions: actions }, executionId);
+};
+
+// ═══════════════════════════════════════════
 // RESOLVER REGISTRATION (lazy via handler export)
 // ═══════════════════════════════════════════
 
@@ -728,6 +951,13 @@ const RESOLVER_DEFINITIONS: ReadonlyArray<ResolverDefinition> = [
   { name: 'getGraphHealth', handler: handleGetGraphHealth },
   { name: 'bootstrapIndex', handler: handleBootstrapIndex },
   { name: 'checkRovoHealth', handler: handleCheckRovoHealth },
+  { name: 'getCrossEpicValidation', handler: handleGetCrossEpicValidation },
+  { name: 'getEpicDoDStatus', handler: handleGetEpicDoDStatus },
+  { name: 'updateEpicDoDConfig', handler: handleUpdateEpicDoDConfig },
+  { name: 'getDependencyChain', handler: handleGetDependencyChain },
+  { name: 'getEpicHealthScore', handler: handleGetEpicHealthScore },
+  { name: 'getStaleTickets', handler: handleGetStaleTickets },
+  { name: 'autoTriageStaleTickets', handler: handleAutoTriageStaleTickets },
 ] as const;
 
 /**

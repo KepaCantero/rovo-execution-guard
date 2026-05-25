@@ -34,6 +34,10 @@ import type { JiraIndexInput } from '../services/relationship-index/jira-indexer
 
 import type { JiraTicketData } from '../types/jira-data';
 
+import { evaluateEpicDoD } from '../services/epic/dod-enforcement';
+import { getDoDConfig } from '../services/epic/dod-config-repository';
+import { validateDependencyChain } from '../services/epic/dependency-chain-validator';
+
 // ═══════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════
@@ -389,6 +393,119 @@ export const onJiraWorkflowTransition = async (
  * [FORGE-OPS-053] Wrapped in try/catch — never throws.
  * [ARCH-SOLID-052] Extracted for clarity.
  */
+const checkEpicDoD = async (
+  epicKey: string,
+  event: JiraWorkflowTransitionEvent,
+  executionId: string,
+): Promise<{ blocked: boolean; actions: readonly EnforcementAction[] }> => {
+  const dodConfig = await getDoDConfig(epicKey, event.projectKey);
+  const dodResult = await evaluateEpicDoD(epicKey, event.projectKey, dodConfig, executionId);
+
+  if (!dodResult.passed) {
+    const failingCriteria = dodResult.failingCriteria.join(', ');
+    const blockAction: EnforcementAction = {
+      type: 'block_transition',
+      transitionId: event.transitionId,
+      reason: `Epic DoD not met. Failing criteria: ${failingCriteria}`,
+    };
+    const commentAction: EnforcementAction = {
+      type: 'add_comment',
+      target: 'jira',
+      body:
+        `**Epic DoD Failed** — ${dodResult.criterionResults.filter((c) => !c.passed).length} criteria not met:\n` +
+        dodResult.criterionResults
+          .filter((c) => !c.passed)
+          .map((c) => `- ~~${c.type}~~: ${c.details}`)
+          .join('\n'),
+    };
+
+    log({
+      timestamp: new Date().toISOString(),
+      level: 'info',
+      operation: 'epicChecks.dodBlocked',
+      executionId,
+      epicKey,
+      failingCriteria,
+    });
+
+    return { blocked: true, actions: [blockAction, commentAction] };
+  }
+  return { blocked: false, actions: [] };
+};
+
+const checkDependencyChain = async (
+  event: JiraWorkflowTransitionEvent,
+  executionId: string,
+): Promise<{ blocked: boolean; actions: readonly EnforcementAction[] }> => {
+  const depResult = await validateDependencyChain(event.issueKey, event.projectKey, executionId);
+
+  if (!depResult.canTransition) {
+    const blockAction: EnforcementAction = {
+      type: 'block_transition',
+      transitionId: event.transitionId,
+      reason: depResult.blockingReason ?? 'Unresolved upstream dependencies',
+    };
+
+    log({
+      timestamp: new Date().toISOString(),
+      level: 'info',
+      operation: 'epicChecks.dependencyBlocked',
+      executionId,
+      issueKey: event.issueKey,
+      unresolvedCount: depResult.unresolvedUpstream.length,
+    });
+
+    return { blocked: true, actions: [blockAction] };
+  }
+  return { blocked: false, actions: [] };
+};
+
+const runEpicLevelChecks = async (
+  event: JiraWorkflowTransitionEvent,
+  _result: EvaluationPipelineResult,
+  executionId: string,
+): Promise<{ blocked: boolean; actions: readonly EnforcementAction[] }> => {
+  const ticket = await getTicketData(event.issueKey, executionId, HANDLER_TIMEOUT_MS);
+  const isEpic = ticket.issueType === 'Epic';
+  const epicKey = isEpic ? event.issueKey : ticket.epicKey;
+
+  if (isEpic && epicKey) {
+    return checkEpicDoD(epicKey, event, executionId);
+  }
+
+  if (epicKey) {
+    return checkDependencyChain(event, executionId);
+  }
+
+  return { blocked: false, actions: [] };
+};
+
+const executeEpicChecks = async (
+  event: JiraWorkflowTransitionEvent,
+  result: EvaluationPipelineResult,
+  executionId: string,
+): Promise<{ blocked: boolean; actions: readonly EnforcementAction[] }> => {
+  try {
+    return await runEpicLevelChecks(event, result, executionId);
+  } catch (epicError: unknown) {
+    log({
+      timestamp: new Date().toISOString(),
+      level: 'warn',
+      operation: 'onJiraWorkflowTransition.epicChecksFailed',
+      executionId,
+      issueKey: event.issueKey,
+      error: epicError instanceof Error ? epicError.message : 'Epic check error',
+    });
+    return { blocked: false, actions: [] };
+  }
+};
+
+/**
+ * Handles a gated transition for a specific gate type.
+ * [ARCH-SOLID-061] Bounded context: Jira workflow validation.
+ * [FORGE-OPS-053] Wrapped in try/catch — never throws.
+ * [ARCH-SOLID-052] Extracted for clarity.
+ */
 const handleGatedTransition = async (
   event: JiraWorkflowTransitionEvent,
   executionId: string,
@@ -414,6 +531,12 @@ const handleGatedTransition = async (
     // Step 3: Evaluate ticket against the gate
     const result = await evaluateTicketForGate(event.issueKey, event.toStatus, config, executionId);
 
+    // Step 3.5: Epic-level checks on delivery gate [FORGE-OPS-054] fail-open
+    const epicOutcome =
+      gateType === 'delivery' && result.gateResult.passed
+        ? await executeEpicChecks(event, result, executionId)
+        : { blocked: false, actions: [] as readonly EnforcementAction[] };
+
     // Step 4: Write audit log [AC-06]
     await writeAuditLog(result.auditEntry, executionId);
 
@@ -428,8 +551,8 @@ const handleGatedTransition = async (
       });
     });
 
-    // Step 5: Handle gate result
-    if (result.gateResult.passed) {
+    // Step 5: Handle gate result + epic checks
+    if (result.gateResult.passed && !epicOutcome.blocked) {
       log({
         timestamp: new Date().toISOString(),
         level: 'info',
@@ -448,6 +571,14 @@ const handleGatedTransition = async (
 
     // Step 6: Gate failed — dispatch enforcement [AC-02, AC-03]
     await dispatchEnforcement(result, event);
+
+    // Dispatch epic-level enforcement actions if blocked by epic checks
+    for (const action of epicOutcome.actions) {
+      await dispatchEnforcement(
+        { ...result, enforcementActions: [action] } as EvaluationPipelineResult,
+        event,
+      );
+    }
 
     log({
       timestamp: new Date().toISOString(),
